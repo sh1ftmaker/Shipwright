@@ -87,6 +87,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     if (CMAKE_C_COMPILER_LAUNCHER MATCHES "ccache|sccache")
         set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded)
     endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Emscripten-specific settings
+    set(USE_OPENGLES ON CACHE BOOL "Use OpenGL ES for Emscripten" FORCE)
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
 endif()
 
 ################################################################################

@@ -156,6 +156,11 @@ else()
     list(FILTER soh__ EXCLUDE REGEX "soh/Enhancements/speechsynthesizer/(Darwin|SAPI)")
 endif()
 
+# Add Emscripten platform files
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    list(APPEND soh__ ${CMAKE_CURRENT_SOURCE_DIR}/platform/web/WebPlatform.cpp)
+endif()
+
 find_library(ESPEAK espeak-ng)
 if (NOT ESPEAK)
     list(FILTER soh__ EXCLUDE REGEX "soh/Enhancements/speechsynthesizer/ESpeak")
@@ -608,6 +613,50 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
         )
     endif()
 endif()
+
+# Emscripten-specific flags
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wno-error
+        -Wno-unused-parameter
+        -Wno-unused-function
+        -Wno-unused-variable
+        -pthread
+    )
+
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        SUFFIX ".html"
+    )
+
+    # Emscripten linker settings
+    target_link_options(${PROJECT_NAME} PRIVATE
+        -s USE_SDL=2
+        -s USE_SDL_NET=2
+        -s USE_ZLIB=1
+        -s USE_LIBPNG=1
+        -s USE_OGG=1
+        -s USE_VORBIS=1
+        -s USE_WEBGL2=1
+        -s FULL_ES3=1
+        -s ALLOW_MEMORY_GROWTH=1
+        -s MAXIMUM_MEMORY=4GB
+        -s INITIAL_MEMORY=512MB
+        -s ASSERTIONS=1
+        -s WASM=1
+        -s ASYNCIFY=1
+        -s FETCH=1
+        -s FORCE_FILESYSTEM=1
+        -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS','IDBFS']"
+        -s "EXPORTED_FUNCTIONS=['_main','_malloc','_free']"
+        -s ENVIRONMENT=web
+        -s MODULARIZE=1
+        -s "EXPORT_NAME='createModule'"
+        -s SINGLE_FILE=0
+        --preload-file ${CMAKE_SOURCE_DIR}/soh/assets@/assets
+        -lidbfs.js
+        --shell-file ${CMAKE_SOURCE_DIR}/web/index.html
+    )
+endif()
 ################################################################################
 # Pre build events
 ################################################################################
@@ -687,6 +736,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 			"setupapi"
 		)
 	endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set(ADDITIONAL_LIBRARY_DEPENDENCIES
+        "libultraship;"
+        "ZAPDLib;"
+    )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
     find_package(SDL2)
     set(THREADS_PREFER_PTHREAD_FLAG ON)

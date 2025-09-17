@@ -1,0 +1,148 @@
+name: Emscripten Build
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+jobs:
+  build-emscripten:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Setup Emscripten
+      uses: mymindstorm/setup-emsdk@v12
+      with:
+        version: 3.1.50
+        actions-cache-folder: 'emsdk-cache'
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          python3 \
+          python3-pip \
+          libpng-dev \
+          libsdl2-dev \
+          libzip-dev \
+          zipcmp zipmerge ziptool
+
+    - name: Cache build files
+      uses: actions/cache@v3
+      with:
+        path: |
+          build-emscripten/
+        key: ${{ runner.os }}-emscripten-build-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-emscripten-build-
+
+    - name: Configure CMake for Emscripten
+      run: |
+        emcmake cmake -S . -B build-emscripten \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+          -DBUILD_CROWD_CONTROL=OFF \
+          -DBUILD_REMOTE_CONTROL=OFF
+
+    - name: Build soh.o2r
+      run: |
+        cmake --build build-emscripten --target GenerateSohOtr || true
+        # Copy any existing OTR files if the build step fails
+        if [ -f "soh/soh.o2r" ]; then
+          cp soh/soh.o2r build-emscripten/soh/
+        fi
+
+    - name: Build Ship of Harkinian for Web
+      run: |
+        cmake --build build-emscripten --config Release
+
+    - name: Prepare Web Distribution
+      run: |
+        mkdir -p web-dist
+        cp build-emscripten/soh/soh.html web-dist/index.html || true
+        cp build-emscripten/soh/soh.js web-dist/ || true
+        cp build-emscripten/soh/soh.wasm web-dist/ || true
+        cp build-emscripten/soh/soh.data web-dist/ || true
+        cp web/index.html web-dist/index.html || true
+
+        # Copy OTR files if available
+        if [ -f "build-emscripten/soh/soh.o2r" ]; then
+          cp build-emscripten/soh/soh.o2r web-dist/
+        fi
+
+    - name: Upload Web Build Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: soh-web-build
+        path: web-dist/
+        retention-days: 7
+
+    - name: Deploy to GitHub Pages (optional)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./web-dist
+        destination_dir: web
+        keep_files: true
+
+  test-web-build:
+    needs: build-emscripten
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Web Build
+      uses: actions/download-artifact@v3
+      with:
+        name: soh-web-build
+        path: web-dist/
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install HTTP Server
+      run: npm install -g http-server
+
+    - name: Test Web Server
+      run: |
+        # Start HTTP server in background
+        http-server web-dist -p 8080 &
+        SERVER_PID=$!
+
+        # Wait for server to start
+        sleep 5
+
+        # Check if files are accessible
+        curl -f http://localhost:8080/index.html || exit 1
+        curl -f http://localhost:8080/soh.js || exit 1
+        curl -f http://localhost:8080/soh.wasm || exit 1
+
+        # Kill the server
+        kill $SERVER_PID
+
+    - name: Validate Build Files
+      run: |
+        # Check file sizes
+        echo "Build file sizes:"
+        ls -lh web-dist/
+
+        # Verify WASM file
+        file web-dist/soh.wasm | grep WebAssembly || exit 1
+
+        # Check JavaScript file
+        if [ ! -s web-dist/soh.js ]; then
+          echo "Error: soh.js is empty"
+          exit 1
+        fi

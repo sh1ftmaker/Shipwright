@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ship of Harkinian - Web Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #header {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 1rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #status {
+            font-size: 0.9rem;
+            color: #ffd700;
+            min-height: 1.2em;
+        }
+
+        #game-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 1rem;
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+            width: 100%;
+            height: 100%;
+            max-width: 1280px;
+            max-height: 720px;
+        }
+
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #progress-bar {
+            width: 300px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        #progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            max-width: 250px;
+        }
+
+        #controls h3 {
+            margin-bottom: 0.5rem;
+            color: #ffd700;
+        }
+
+        #controls p {
+            margin: 0.25rem 0;
+            opacity: 0.9;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #file-input {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        #file-input button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        #file-input button:hover {
+            background: #45a049;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            #controls {
+                font-size: 0.75rem;
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>Ship of Harkinian</h1>
+        <div id="status">Initializing...</div>
+    </div>
+
+    <div id="game-container">
+        <div id="canvas-wrapper">
+            <canvas id="canvas" tabindex="1"></canvas>
+            <div id="loading-overlay">
+                <div class="spinner"></div>
+                <div>Loading Ship of Harkinian...</div>
+                <div id="progress-bar">
+                    <div id="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="file-input">
+            <button onclick="selectROMFile()">Load ROM File</button>
+            <input type="file" id="rom-file" accept=".z64,.n64,.v64" style="display: none;" onchange="handleROMFile(event)">
+        </div>
+
+        <div id="controls" class="hidden">
+            <h3>Controls</h3>
+            <p><strong>Movement:</strong> WASD</p>
+            <p><strong>Camera:</strong> Arrow Keys</p>
+            <p><strong>A Button:</strong> X</p>
+            <p><strong>B Button:</strong> C</p>
+            <p><strong>Z Target:</strong> Z</p>
+            <p><strong>Start:</strong> Space</p>
+            <p><strong>C Buttons:</strong> Arrow Keys</p>
+            <p><strong>D-Pad:</strong> TFGH</p>
+            <p><strong>Menu:</strong> ESC</p>
+            <p><strong>Fullscreen:</strong> F11</p>
+        </div>
+    </div>
+
+    <script>
+        let Module = null;
+        let romLoaded = false;
+
+        function updateStatus(text) {
+            document.getElementById('status').innerText = text;
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progress-fill').style.width = percent + '%';
+        }
+
+        function selectROMFile() {
+            document.getElementById('rom-file').click();
+        }
+
+        async function handleROMFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            updateStatus('Processing ROM file...');
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+
+                // Save ROM to Emscripten filesystem
+                if (Module && Module.FS) {
+                    Module.FS.writeFile('/rom.z64', uint8Array);
+                    updateStatus('ROM loaded successfully');
+                    romLoaded = true;
+
+                    // Hide file input after successful load
+                    document.getElementById('file-input').classList.add('hidden');
+
+                    // Try to extract OTR files
+                    if (Module.ccall) {
+                        Module.ccall('extractAssets', null, [], []);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading ROM:', error);
+                updateStatus('Error loading ROM file');
+            }
+        }
+
+        async function downloadOTR() {
+            updateStatus('Checking for OTR files...');
+
+            // Try to fetch pre-built OTR files
+            const otrFiles = ['oot.o2r', 'soh.o2r'];
+            let loadedCount = 0;
+
+            for (const fileName of otrFiles) {
+                try {
+                    const response = await fetch(fileName);
+                    if (response.ok) {
+                        const data = await response.arrayBuffer();
+                        const uint8Array = new Uint8Array(data);
+
+                        if (Module && Module.FS) {
+                            Module.FS.writeFile('/' + fileName, uint8Array);
+                            loadedCount++;
+                            updateStatus(`Loaded ${fileName}`);
+                        }
+                    }
+                } catch (error) {
+                    console.log(`Could not fetch ${fileName}:`, error);
+                }
+            }
+
+            if (loadedCount > 0) {
+                updateStatus('OTR files loaded');
+                return true;
+            } else {
+                updateStatus('Please select a ROM file to generate assets');
+                return false;
+            }
+        }
+
+        // Initialize Emscripten Module
+        var createModule = function() {
+            return {
+                preRun: [
+                    function() {
+                        // Mount IndexedDB for persistent storage
+                        Module.FS.mkdir('/save');
+                        Module.FS.mount(Module.IDBFS, {}, '/save');
+
+                        // Sync from IndexedDB to memory
+                        Module.FS.syncfs(true, function (err) {
+                            if (err) {
+                                console.error('Error loading save data:', err);
+                            } else {
+                                console.log('Save data loaded');
+                            }
+                        });
+                    }
+                ],
+                postRun: [
+                    async function() {
+                        updateStatus('Game initialized');
+                        document.getElementById('loading-overlay').classList.add('hidden');
+                        document.getElementById('controls').classList.remove('hidden');
+
+                        // Focus canvas for input
+                        document.getElementById('canvas').focus();
+
+                        // Check for OTR files
+                        const hasOTR = await downloadOTR();
+                        if (!hasOTR) {
+                            document.getElementById('file-input').classList.remove('hidden');
+                        }
+                    }
+                ],
+                print: function(text) {
+                    console.log(text);
+                },
+                printErr: function(text) {
+                    console.error(text);
+                },
+                canvas: document.getElementById('canvas'),
+                setStatus: updateStatus,
+                totalDependencies: 0,
+                monitorRunDependencies: function(left) {
+                    this.totalDependencies = Math.max(this.totalDependencies, left);
+                    if (left) {
+                        const percent = ((this.totalDependencies - left) / this.totalDependencies) * 100;
+                        updateProgress(percent);
+                        updateStatus(`Loading... (${this.totalDependencies - left}/${this.totalDependencies})`);
+                    } else {
+                        updateProgress(100);
+                        updateStatus('All files loaded');
+                    }
+                }
+            };
+        };
+
+        // Prevent default browser shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Prevent F11 default fullscreen
+            if (e.key === 'F11') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+
+            // Prevent space from scrolling
+            if (e.key === ' ' && e.target === document.getElementById('canvas')) {
+                e.preventDefault();
+            }
+        });
+
+        function toggleFullscreen() {
+            const canvas = document.getElementById('canvas-wrapper');
+            if (!document.fullscreenElement) {
+                canvas.requestFullscreen().catch(err => {
+                    console.error('Error attempting to enable fullscreen:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (Module && Module.setCanvasSize) {
+                const canvas = document.getElementById('canvas');
+                const rect = canvas.getBoundingClientRect();
+                Module.setCanvasSize(rect.width, rect.height);
+            }
+        });
+
+        // Periodic save sync
+        setInterval(function() {
+            if (Module && Module.FS && romLoaded) {
+                Module.FS.syncfs(false, function (err) {
+                    if (err) {
+                        console.error('Error saving data:', err);
+                    }
+                });
+            }
+        }, 30000); // Save every 30 seconds
+
+        // Handle page visibility for pausing
+        document.addEventListener('visibilitychange', function() {
+            if (Module && Module.pauseMainLoop && Module.resumeMainLoop) {
+                if (document.hidden) {
+                    Module.pauseMainLoop();
+                } else {
+                    Module.resumeMainLoop();
+                }
+            }
+        });
+    </script>
+
+    <!-- Load the compiled JavaScript -->
+    <script async type="text/javascript" src="soh.js"></script>
+    <script>
+        // Initialize Module when script loads
+        if (typeof createModule !== 'undefined') {
+            Module = createModule();
+        }
+    </script>
+</body>
+</html>
