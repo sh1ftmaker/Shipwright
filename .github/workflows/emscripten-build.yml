@@ -116,19 +116,34 @@ jobs:
           cd ../..
         fi
 
-        # Install nlohmann_json (header-only)
-        if [ ! -d "json-3.11.3" ]; then
-          wget https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-          tar -xf json.tar.xz
-          cd json
-          mkdir -p build && cd build
-          emcmake cmake .. \
-            -DJSON_BuildTests=OFF \
-            -DJSON_Install=ON \
-            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
-          emmake make install
-          cd ../..
-        fi
+        # Install nlohmann_json (use single header version for simplicity)
+        echo "Installing nlohmann_json..."
+        mkdir -p install/include/nlohmann
+        wget https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp \
+          -O install/include/nlohmann/json.hpp
+
+        # Create a minimal CMake config for nlohmann_json
+        mkdir -p install/lib/cmake/nlohmann_json
+        cat > install/lib/cmake/nlohmann_json/nlohmann_jsonConfig.cmake << 'EOF'
+        # Config file for nlohmann_json
+        set(nlohmann_json_FOUND TRUE)
+        set(nlohmann_json_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../include")
+
+        if(NOT TARGET nlohmann_json::nlohmann_json)
+          add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+          set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../../include"
+          )
+        endif()
+        EOF
+
+        echo "nlohmann_json installed as single header"
+
+        # Verify nlohmann_json installation
+        echo "Verifying nlohmann_json installation:"
+        ls -la install/include/nlohmann/ || echo "Include directory not found"
+        ls -la install/lib/cmake/nlohmann_json/ || echo "CMake config directory not found"
+        cat install/lib/cmake/nlohmann_json/nlohmann_jsonConfig.cmake || echo "Config file not found"
 
         # Build tinyxml2
         if [ ! -d "tinyxml2-10.0.0" ]; then
@@ -161,17 +176,41 @@ jobs:
           cd ../..
         fi
 
-        # Debug: List all installed files to verify paths
-        echo "=== Installed dependency files ==="
+        # Comprehensive dependency verification
+        echo "=== Verifying all installed dependencies ==="
         echo "Current directory: $PWD"
-        echo "Contents of install directory:"
-        find install -type f -name "*.cmake" 2>/dev/null | head -20 || echo "No cmake files in install/"
-        echo "libzip cmake config location:"
-        find . -name "*libzipConfig.cmake" -o -name "*libzip-config.cmake" 2>/dev/null || echo "No libzip cmake config found"
-        echo "All directories in install/lib/cmake:"
-        ls -la install/lib/cmake/ 2>/dev/null || echo "No cmake directory"
-        echo "Full tree of install directory:"
-        find install -type d 2>/dev/null | head -20 || echo "Install directory not found"
+
+        echo ""
+        echo "1. Checking zlib (Emscripten port):"
+        ls -la install/lib/cmake/ZLIB/ || echo "ZLIB cmake config not found"
+
+        echo ""
+        echo "2. Checking libzip:"
+        ls -la install/lib/cmake/libzip/ || echo "libzip cmake config not found"
+        ls -la install/lib/*libzip* || echo "libzip library not found"
+
+        echo ""
+        echo "3. Checking nlohmann_json:"
+        ls -la install/include/nlohmann/json.hpp || echo "json.hpp not found"
+        ls -la install/lib/cmake/nlohmann_json/nlohmann_jsonConfig.cmake || echo "nlohmann_json cmake config not found"
+
+        echo ""
+        echo "4. Checking tinyxml2:"
+        ls -la install/lib/cmake/tinyxml2/ || echo "tinyxml2 cmake config not found"
+        ls -la install/lib/*tinyxml2* || echo "tinyxml2 library not found"
+
+        echo ""
+        echo "5. Checking spdlog:"
+        ls -la install/lib/cmake/spdlog/ || echo "spdlog cmake config not found"
+        ls -la install/lib/*spdlog* || echo "spdlog library not found"
+
+        echo ""
+        echo "All CMake configs in install/lib/cmake:"
+        find install/lib/cmake -name "*Config.cmake" -o -name "*config.cmake" 2>/dev/null || echo "No cmake configs found"
+
+        echo ""
+        echo "Complete install directory structure:"
+        find install -type d | head -30
 
     - name: Configure CMake for Emscripten
       run: |
@@ -183,19 +222,30 @@ jobs:
         export LDFLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1"
 
         # Help CMake find all libraries specifically
+        export ZLIB_DIR=$PWD/emscripten-deps/install/lib/cmake/ZLIB
         export libzip_DIR=$PWD/emscripten-deps/install/lib/cmake/libzip
         export nlohmann_json_DIR=$PWD/emscripten-deps/install/lib/cmake/nlohmann_json
         export tinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2
         export spdlog_DIR=$PWD/emscripten-deps/install/lib/cmake/spdlog
 
-        # Debug: verify paths exist
-        echo "Checking for library configs:"
-        ls -d $PWD/emscripten-deps/install/lib/cmake/*/ || echo "No cmake configs found"
+        # Debug: verify paths exist before configuring
+        echo "Verifying CMake config paths before configuration:"
+        echo "ZLIB_DIR: $ZLIB_DIR"
+        ls -la $ZLIB_DIR/*.cmake 2>/dev/null || echo "ZLIB config not found"
+        echo "libzip_DIR: $libzip_DIR"
+        ls -la $libzip_DIR/*.cmake 2>/dev/null || echo "libzip config not found"
+        echo "nlohmann_json_DIR: $nlohmann_json_DIR"
+        ls -la $nlohmann_json_DIR/*.cmake 2>/dev/null || echo "nlohmann_json config not found"
+        echo "tinyxml2_DIR: $tinyxml2_DIR"
+        ls -la $tinyxml2_DIR/*.cmake 2>/dev/null || echo "tinyxml2 config not found"
+        echo "spdlog_DIR: $spdlog_DIR"
+        ls -la $spdlog_DIR/*.cmake 2>/dev/null || echo "spdlog config not found"
 
         emcmake cmake -S . -B build-emscripten \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_PREFIX_PATH=$PWD/emscripten-deps/install \
+          -DZLIB_DIR=$PWD/emscripten-deps/install/lib/cmake/ZLIB \
           -Dlibzip_DIR=$PWD/emscripten-deps/install/lib/cmake/libzip \
           -Dnlohmann_json_DIR=$PWD/emscripten-deps/install/lib/cmake/nlohmann_json \
           -Dtinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2 \
@@ -205,6 +255,7 @@ jobs:
           -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
           -DBUILD_CROWD_CONTROL=OFF \
           -DBUILD_REMOTE_CONTROL=OFF \
+          -DSUPPRESS_WARNINGS=ON \
           -DUSE_OPENGLES=ON
 
     - name: Build soh.o2r
