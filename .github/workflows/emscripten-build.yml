@@ -66,16 +66,17 @@ jobs:
         mkdir -p install/lib/cmake/ZLIB
         cat > install/lib/cmake/ZLIB/ZLIBConfig.cmake << 'EOF'
         set(ZLIB_FOUND TRUE)
-        set(ZLIB_INCLUDE_DIRS "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include")
+        set(ZLIB_INCLUDE_DIRS "/include")
         set(ZLIB_LIBRARIES "z")
         set(ZLIB_LIBRARY "z")
-        set(ZLIB_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include")
+        set(ZLIB_INCLUDE_DIR "/include")
 
         if(NOT TARGET ZLIB::ZLIB)
           add_library(ZLIB::ZLIB INTERFACE IMPORTED)
           set_target_properties(ZLIB::ZLIB PROPERTIES
             INTERFACE_COMPILE_OPTIONS "-s;USE_ZLIB=1"
             INTERFACE_LINK_OPTIONS "-s;USE_ZLIB=1"
+            INTERFACE_LINK_LIBRARIES "z"
           )
         endif()
         EOF
@@ -84,7 +85,7 @@ jobs:
         mkdir -p install/lib/cmake/SDL2
         cat > install/lib/cmake/SDL2/SDL2Config.cmake << 'EOF'
         set(SDL2_FOUND TRUE)
-        set(SDL2_INCLUDE_DIRS "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include/SDL2")
+        set(SDL2_INCLUDE_DIRS "/include/SDL2")
         set(SDL2_LIBRARIES "SDL2")
 
         if(NOT TARGET SDL2::SDL2)
@@ -92,7 +93,7 @@ jobs:
           set_target_properties(SDL2::SDL2 PROPERTIES
             INTERFACE_COMPILE_OPTIONS "-s;USE_SDL=2"
             INTERFACE_LINK_OPTIONS "-s;USE_SDL=2"
-            INTERFACE_INCLUDE_DIRECTORIES "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include/SDL2"
+            INTERFACE_LINK_LIBRARIES "SDL2"
           )
         endif()
 
@@ -102,7 +103,7 @@ jobs:
           set_target_properties(SDL2::SDL2-static PROPERTIES
             INTERFACE_COMPILE_OPTIONS "-s;USE_SDL=2"
             INTERFACE_LINK_OPTIONS "-s;USE_SDL=2"
-            INTERFACE_INCLUDE_DIRECTORIES "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include/SDL2"
+            INTERFACE_LINK_LIBRARIES "SDL2"
           )
         endif()
 
@@ -124,6 +125,10 @@ jobs:
           mkdir -p build && cd build
 
           # Configure with Emscripten's zlib
+          # First ensure ZLIB can be found
+          export ZLIB_ROOT=$PWD/../../../emscripten-deps/install
+          export PKG_CONFIG_PATH=$PWD/../../../emscripten-deps/install/lib/pkgconfig:$PKG_CONFIG_PATH
+
           CFLAGS="-s USE_ZLIB=1" LDFLAGS="-s USE_ZLIB=1" emcmake cmake .. \
             -DENABLE_COMMONCRYPTO=OFF \
             -DENABLE_GNUTLS=OFF \
@@ -137,10 +142,17 @@ jobs:
             -DBUILD_REGRESS=OFF \
             -DBUILD_EXAMPLES=OFF \
             -DBUILD_DOC=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_PREFIX_PATH=$PWD/../../../emscripten-deps/install \
+            -DZLIB_DIR=$PWD/../../../emscripten-deps/install/lib/cmake/ZLIB \
             -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
           emmake make -j4
           emmake make install
+
+          # Patch the installed libzip config to not require ZLIB::ZLIB
+          echo "Patching libzip config to work with Emscripten..."
+          sed -i 's/ZLIB::ZLIB/z/g' $PWD/../../../emscripten-deps/install/lib/cmake/libzip/libzip-targets.cmake || true
+          sed -i 's/INTERFACE_LINK_LIBRARIES "ZLIB::ZLIB"/INTERFACE_LINK_LIBRARIES "z"/g' $PWD/../../../emscripten-deps/install/lib/cmake/libzip/libzip-targets.cmake || true
 
           # Debug: Check what was actually installed
           echo "Checking installed files for libzip:"
