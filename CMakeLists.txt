@@ -7,6 +7,14 @@ set(CMAKE_C_STANDARD 23 CACHE STRING "The C standard to use")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 project(Ship VERSION 9.0.5 LANGUAGES C CXX)
+
+# Detect Emscripten build
+if(DEFINED ENV{EMSCRIPTEN} OR CMAKE_C_COMPILER MATCHES "emcc")
+    set(CMAKE_SYSTEM_NAME "Emscripten" CACHE STRING "System name" FORCE)
+    set(EMSCRIPTEN 1)
+    message(STATUS "Detected Emscripten build environment")
+endif()
+
 include(CMake/soh-cvars.cmake)
 include(CMake/lus-cvars.cmake)
 
@@ -173,8 +181,13 @@ add_compile_definitions(CONTROLLERBUTTONS_T=uint32_t)
 add_subdirectory(libultraship ${CMAKE_BINARY_DIR}/libultraship)
 target_compile_options(libultraship PRIVATE "${WARNING_OVERRIDE}")
 target_compile_definitions(libultraship PUBLIC INCLUDE_MPQ_SUPPORT)
-add_subdirectory(ZAPDTR/ZAPD ${CMAKE_BINARY_DIR}/ZAPD)
-add_subdirectory(OTRExporter)
+
+# Skip ZAPDTR and OTRExporter for Emscripten builds
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    add_subdirectory(ZAPDTR/ZAPD ${CMAKE_BINARY_DIR}/ZAPD)
+    add_subdirectory(OTRExporter)
+endif()
+
 add_subdirectory(soh)
 
 set_property(TARGET soh PROPERTY APPIMAGE_DESKTOP_FILE_TERMINAL YES)

@@ -93,7 +93,7 @@ if (NOT TARGET libultraship)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../libultraship ${CMAKE_BINARY_DIR}/libultraship)
 endif()
 
-if (NOT TARGET ZAPDLib)
+if (NOT TARGET ZAPDLib AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../ZAPDTR/ZAPD ${CMAKE_BINARY_DIR}/ZAPD)
 endif()
 
@@ -685,7 +685,7 @@ endif()
 add_dependencies(${PROJECT_NAME}
     libultraship
 )
-if(NOT CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch|CafeOS")
+if(NOT CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch|CafeOS|Emscripten")
 add_dependencies(${PROJECT_NAME}
     ZAPDLib
 )
@@ -739,7 +739,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "libultraship;"
-        "ZAPDLib;"
     )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
     find_package(SDL2)

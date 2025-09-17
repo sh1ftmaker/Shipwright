@@ -43,6 +43,7 @@ jobs:
 
     - name: Configure CMake for Emscripten
       run: |
+        export EMSCRIPTEN=1
         emcmake cmake -S . -B build-emscripten \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
