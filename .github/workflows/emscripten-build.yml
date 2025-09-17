@@ -107,6 +107,12 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
           emmake make -j4
           emmake make install
+
+          # Debug: Check what was actually installed
+          echo "Checking installed files for libzip:"
+          ls -la $PWD/../../../emscripten-deps/install/lib/cmake/ || true
+          ls -la $PWD/../../../emscripten-deps/install/lib/ || true
+
           cd ../..
         fi
 
@@ -155,6 +161,18 @@ jobs:
           cd ../..
         fi
 
+        # Debug: List all installed files to verify paths
+        echo "=== Installed dependency files ==="
+        echo "Current directory: $PWD"
+        echo "Contents of install directory:"
+        find install -type f -name "*.cmake" 2>/dev/null | head -20 || echo "No cmake files in install/"
+        echo "libzip cmake config location:"
+        find . -name "*libzipConfig.cmake" -o -name "*libzip-config.cmake" 2>/dev/null || echo "No libzip cmake config found"
+        echo "All directories in install/lib/cmake:"
+        ls -la install/lib/cmake/ 2>/dev/null || echo "No cmake directory"
+        echo "Full tree of install directory:"
+        find install -type d 2>/dev/null | head -20 || echo "Install directory not found"
+
     - name: Configure CMake for Emscripten
       run: |
         export EMSCRIPTEN=1
@@ -164,10 +182,24 @@ jobs:
         export CFLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1"
         export LDFLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1"
 
+        # Help CMake find all libraries specifically
+        export libzip_DIR=$PWD/emscripten-deps/install/lib/cmake/libzip
+        export nlohmann_json_DIR=$PWD/emscripten-deps/install/lib/cmake/nlohmann_json
+        export tinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2
+        export spdlog_DIR=$PWD/emscripten-deps/install/lib/cmake/spdlog
+
+        # Debug: verify paths exist
+        echo "Checking for library configs:"
+        ls -d $PWD/emscripten-deps/install/lib/cmake/*/ || echo "No cmake configs found"
+
         emcmake cmake -S . -B build-emscripten \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_PREFIX_PATH=$PWD/emscripten-deps/install \
+          -Dlibzip_DIR=$PWD/emscripten-deps/install/lib/cmake/libzip \
+          -Dnlohmann_json_DIR=$PWD/emscripten-deps/install/lib/cmake/nlohmann_json \
+          -Dtinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2 \
+          -Dspdlog_DIR=$PWD/emscripten-deps/install/lib/cmake/spdlog \
           -DCMAKE_C_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
           -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
           -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
