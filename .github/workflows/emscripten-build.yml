@@ -44,45 +44,53 @@ jobs:
         mkdir -p emscripten-deps
         cd emscripten-deps
 
-        # Build zlib first
-        if [ ! -d "zlib-1.3.1" ]; then
-          wget https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
-          tar -xzf zlib-1.3.1.tar.gz
-          cd zlib-1.3.1
-          mkdir -p build && cd build
-          emcmake cmake .. \
-            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
-          emmake make -j4
-          emmake make install
-          cd ../..
-        fi
+        # Create a simple wrapper that provides zlib and libpng from Emscripten ports
+        # This allows CMake's find_package to work with Emscripten's built-in libraries
 
-        # Build libpng
-        if [ ! -d "libpng-1.6.40" ]; then
-          wget https://github.com/glennrp/libpng/archive/refs/tags/v1.6.40.tar.gz -O libpng-1.6.40.tar.gz
-          tar -xzf libpng-1.6.40.tar.gz
-          cd libpng-1.6.40
-          mkdir -p build && cd build
-          emcmake cmake .. \
-            -DPNG_SHARED=OFF \
-            -DPNG_TESTS=OFF \
-            -DZLIB_ROOT=$PWD/../../../emscripten-deps/install \
-            -DCMAKE_PREFIX_PATH=$PWD/../../../emscripten-deps/install \
-            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
-          emmake make -j4
-          emmake make install
-          cd ../..
-        fi
+        # Create pkg-config files for Emscripten's built-in zlib
+        mkdir -p install/lib/pkgconfig
+        cat > install/lib/pkgconfig/zlib.pc << 'EOF'
+        prefix=/emsdk/upstream/emscripten/cache/sysroot
+        exec_prefix=${prefix}
+        libdir=${exec_prefix}/lib
+        includedir=${prefix}/include
 
-        # Build libzip with our built zlib
+        Name: zlib
+        Description: zlib compression library (Emscripten port)
+        Version: 1.2.11
+        Libs: -lz
+        Cflags: -I${includedir}
+        EOF
+
+        # Create CMake config for zlib
+        mkdir -p install/lib/cmake/ZLIB
+        cat > install/lib/cmake/ZLIB/ZLIBConfig.cmake << 'EOF'
+        set(ZLIB_FOUND TRUE)
+        set(ZLIB_INCLUDE_DIRS "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include")
+        set(ZLIB_LIBRARIES "z")
+        set(ZLIB_LIBRARY "z")
+        set(ZLIB_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include")
+
+        add_library(ZLIB::ZLIB INTERFACE IMPORTED)
+        set_target_properties(ZLIB::ZLIB PROPERTIES
+          INTERFACE_COMPILE_OPTIONS "-s;USE_ZLIB=1"
+          INTERFACE_LINK_OPTIONS "-s;USE_ZLIB=1"
+        )
+        EOF
+
+        # Build a minimal libzip without zlib dependency checks
         if [ ! -d "libzip-1.10.1" ]; then
           wget https://github.com/nih-at/libzip/releases/download/v1.10.1/libzip-1.10.1.tar.gz
           tar -xzf libzip-1.10.1.tar.gz
           cd libzip-1.10.1
+
+          # Patch CMakeLists.txt to skip zlib version check
+          sed -i 's/find_package(ZLIB 1.1.2 REQUIRED)/find_package(ZLIB REQUIRED)/' CMakeLists.txt
+
           mkdir -p build && cd build
 
-          # Point to our installed zlib
-          emcmake cmake .. \
+          # Configure with Emscripten's zlib
+          CFLAGS="-s USE_ZLIB=1" LDFLAGS="-s USE_ZLIB=1" emcmake cmake .. \
             -DENABLE_COMMONCRYPTO=OFF \
             -DENABLE_GNUTLS=OFF \
             -DENABLE_MBEDTLS=OFF \
@@ -95,7 +103,6 @@ jobs:
             -DBUILD_REGRESS=OFF \
             -DBUILD_EXAMPLES=OFF \
             -DBUILD_DOC=OFF \
-            -DZLIB_ROOT=$PWD/../../../emscripten-deps/install \
             -DCMAKE_PREFIX_PATH=$PWD/../../../emscripten-deps/install \
             -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
           emmake make -j4
@@ -149,10 +156,18 @@ jobs:
       run: |
         export EMSCRIPTEN=1
         export CMAKE_PREFIX_PATH=$PWD/emscripten-deps/install
+
+        # Ensure Emscripten's zlib is available
+        export CFLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1"
+        export LDFLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1"
+
         emcmake cmake -S . -B build-emscripten \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_PREFIX_PATH=$PWD/emscripten-deps/install \
+          -DCMAKE_C_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
+          -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
+          -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
           -DBUILD_CROWD_CONTROL=OFF \
           -DBUILD_REMOTE_CONTROL=OFF \
           -DUSE_OPENGLES=ON
