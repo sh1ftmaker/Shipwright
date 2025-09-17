@@ -16,10 +16,7 @@ jobs:
         submodules: recursive
 
     - name: Setup Emscripten
-      uses: mymindstorm/setup-emsdk@v12
-      with:
-        version: 3.1.50
-        actions-cache-folder: 'emsdk-cache'
+      uses: mymindstorm/setup-emsdk@v14
 
     - name: Install dependencies
       run: |
