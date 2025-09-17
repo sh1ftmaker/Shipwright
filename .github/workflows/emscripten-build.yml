@@ -71,11 +71,45 @@ jobs:
         set(ZLIB_LIBRARY "z")
         set(ZLIB_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include")
 
-        add_library(ZLIB::ZLIB INTERFACE IMPORTED)
-        set_target_properties(ZLIB::ZLIB PROPERTIES
-          INTERFACE_COMPILE_OPTIONS "-s;USE_ZLIB=1"
-          INTERFACE_LINK_OPTIONS "-s;USE_ZLIB=1"
-        )
+        if(NOT TARGET ZLIB::ZLIB)
+          add_library(ZLIB::ZLIB INTERFACE IMPORTED)
+          set_target_properties(ZLIB::ZLIB PROPERTIES
+            INTERFACE_COMPILE_OPTIONS "-s;USE_ZLIB=1"
+            INTERFACE_LINK_OPTIONS "-s;USE_ZLIB=1"
+          )
+        endif()
+        EOF
+
+        # Create CMake config for SDL2 (Emscripten port)
+        mkdir -p install/lib/cmake/SDL2
+        cat > install/lib/cmake/SDL2/SDL2Config.cmake << 'EOF'
+        set(SDL2_FOUND TRUE)
+        set(SDL2_INCLUDE_DIRS "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include/SDL2")
+        set(SDL2_LIBRARIES "SDL2")
+
+        if(NOT TARGET SDL2::SDL2)
+          add_library(SDL2::SDL2 INTERFACE IMPORTED)
+          set_target_properties(SDL2::SDL2 PROPERTIES
+            INTERFACE_COMPILE_OPTIONS "-s;USE_SDL=2"
+            INTERFACE_LINK_OPTIONS "-s;USE_SDL=2"
+            INTERFACE_INCLUDE_DIRECTORIES "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include/SDL2"
+          )
+        endif()
+
+        # Also create SDL2-static for compatibility
+        if(NOT TARGET SDL2::SDL2-static)
+          add_library(SDL2::SDL2-static INTERFACE IMPORTED)
+          set_target_properties(SDL2::SDL2-static PROPERTIES
+            INTERFACE_COMPILE_OPTIONS "-s;USE_SDL=2"
+            INTERFACE_LINK_OPTIONS "-s;USE_SDL=2"
+            INTERFACE_INCLUDE_DIRECTORIES "${EMSCRIPTEN_ROOT_PATH}/cache/sysroot/include/SDL2"
+          )
+        endif()
+
+        # Also create SDL2main for compatibility
+        if(NOT TARGET SDL2::SDL2main)
+          add_library(SDL2::SDL2main INTERFACE IMPORTED)
+        endif()
         EOF
 
         # Build a minimal libzip without zlib dependency checks
@@ -185,22 +219,26 @@ jobs:
         ls -la install/lib/cmake/ZLIB/ || echo "ZLIB cmake config not found"
 
         echo ""
-        echo "2. Checking libzip:"
+        echo "2. Checking SDL2 (Emscripten port):"
+        ls -la install/lib/cmake/SDL2/ || echo "SDL2 cmake config not found"
+
+        echo ""
+        echo "3. Checking libzip:"
         ls -la install/lib/cmake/libzip/ || echo "libzip cmake config not found"
         ls -la install/lib/*libzip* || echo "libzip library not found"
 
         echo ""
-        echo "3. Checking nlohmann_json:"
+        echo "4. Checking nlohmann_json:"
         ls -la install/include/nlohmann/json.hpp || echo "json.hpp not found"
         ls -la install/lib/cmake/nlohmann_json/nlohmann_jsonConfig.cmake || echo "nlohmann_json cmake config not found"
 
         echo ""
-        echo "4. Checking tinyxml2:"
+        echo "5. Checking tinyxml2:"
         ls -la install/lib/cmake/tinyxml2/ || echo "tinyxml2 cmake config not found"
         ls -la install/lib/*tinyxml2* || echo "tinyxml2 library not found"
 
         echo ""
-        echo "5. Checking spdlog:"
+        echo "6. Checking spdlog:"
         ls -la install/lib/cmake/spdlog/ || echo "spdlog cmake config not found"
         ls -la install/lib/*spdlog* || echo "spdlog library not found"
 
@@ -223,6 +261,7 @@ jobs:
 
         # Help CMake find all libraries specifically
         export ZLIB_DIR=$PWD/emscripten-deps/install/lib/cmake/ZLIB
+        export SDL2_DIR=$PWD/emscripten-deps/install/lib/cmake/SDL2
         export libzip_DIR=$PWD/emscripten-deps/install/lib/cmake/libzip
         export nlohmann_json_DIR=$PWD/emscripten-deps/install/lib/cmake/nlohmann_json
         export tinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2
@@ -246,13 +285,14 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_PREFIX_PATH=$PWD/emscripten-deps/install \
           -DZLIB_DIR=$PWD/emscripten-deps/install/lib/cmake/ZLIB \
+          -DSDL2_DIR=$PWD/emscripten-deps/install/lib/cmake/SDL2 \
           -Dlibzip_DIR=$PWD/emscripten-deps/install/lib/cmake/libzip \
           -Dnlohmann_json_DIR=$PWD/emscripten-deps/install/lib/cmake/nlohmann_json \
           -Dtinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2 \
           -Dspdlog_DIR=$PWD/emscripten-deps/install/lib/cmake/spdlog \
-          -DCMAKE_C_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
-          -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
-          -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1" \
+          -DCMAKE_C_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
+          -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
+          -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
           -DBUILD_CROWD_CONTROL=OFF \
           -DBUILD_REMOTE_CONTROL=OFF \
           -DSUPPRESS_WARNINGS=ON \

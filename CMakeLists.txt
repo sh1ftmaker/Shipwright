@@ -208,47 +208,56 @@ endif()
 
 find_package(Python3 COMPONENTS Interpreter)
 
-# Target to generate OTRs
-add_custom_target(
-    ExtractAssets
-    COMMAND ${CMAKE_COMMAND} -E rm -f oot.o2r oot-mq.o2r soh.o2r
+# Only create ZAPD-dependent targets when ZAPD is available
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Target to generate OTRs
+    add_custom_target(
+        ExtractAssets
+        COMMAND ${CMAKE_COMMAND} -E rm -f oot.o2r oot-mq.o2r soh.o2r
 
-    # copy LUS default shaders into assets/custom
-    COMMAND ${CMAKE_COMMAND} -E rm -r -f ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/src/graphic/Fast3D/shaders/ ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
+        # copy LUS default shaders into assets/custom
+        COMMAND ${CMAKE_COMMAND} -E rm -r -f ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/src/graphic/Fast3D/shaders/ ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
 
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/OTRExporter/extract_assets.py -z "$<TARGET_FILE:ZAPD>" --non-interactive --xml-root assets/xml --custom-otr-file soh.o2r "--custom-assets-path" ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom --port-ver "${CMAKE_PROJECT_VERSION}"
-    COMMAND ${CMAKE_COMMAND} -DSYSTEM_NAME=${CMAKE_SYSTEM_NAME} -DTARGET_DIR="$<TARGET_FILE_DIR:ZAPD>" -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DBINARY_DIR=${CMAKE_BINARY_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/copy-existing-otrs.cmake
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/soh
-    COMMENT "Running asset extraction..."
-    DEPENDS ZAPD
-    BYPRODUCTS oot.o2r ${CMAKE_SOURCE_DIR}/oot.o2r oot-mq.o2r ${CMAKE_SOURCE_DIR}/oot-mq.o2r ${CMAKE_SOURCE_DIR}/soh.o2r
-)
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/OTRExporter/extract_assets.py -z "$<TARGET_FILE:ZAPD>" --non-interactive --xml-root assets/xml --custom-otr-file soh.o2r "--custom-assets-path" ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom --port-ver "${CMAKE_PROJECT_VERSION}"
+        COMMAND ${CMAKE_COMMAND} -DSYSTEM_NAME=${CMAKE_SYSTEM_NAME} -DTARGET_DIR="$<TARGET_FILE_DIR:ZAPD>" -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DBINARY_DIR=${CMAKE_BINARY_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/copy-existing-otrs.cmake
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/soh
+        COMMENT "Running asset extraction..."
+        DEPENDS ZAPD
+        BYPRODUCTS oot.o2r ${CMAKE_SOURCE_DIR}/oot.o2r oot-mq.o2r ${CMAKE_SOURCE_DIR}/oot-mq.o2r ${CMAKE_SOURCE_DIR}/soh.o2r
+    )
 
-# Target to generate headers
-add_custom_target(
-    ExtractAssetHeaders
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/OTRExporter/extract_assets.py -z "$<TARGET_FILE:ZAPD>" --non-interactive --xml-root assets/xml --gen-headers
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/soh
-    COMMENT "Generating asset headers..."
-    DEPENDS ZAPD
-)
+    # Target to generate headers
+    add_custom_target(
+        ExtractAssetHeaders
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/OTRExporter/extract_assets.py -z "$<TARGET_FILE:ZAPD>" --non-interactive --xml-root assets/xml --gen-headers
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/soh
+        COMMENT "Generating asset headers..."
+        DEPENDS ZAPD
+    )
 
-# Target to generate only soh.o2r
-add_custom_target(
-    GenerateSohOtr
-    COMMAND ${CMAKE_COMMAND} -E rm -f soh.o2r
+    # Target to generate only soh.o2r
+    add_custom_target(
+        GenerateSohOtr
+        COMMAND ${CMAKE_COMMAND} -E rm -f soh.o2r
 
-    # copy LUS default shaders into assets/custom
-    COMMAND ${CMAKE_COMMAND} -E rm -r -f ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/src/graphic/Fast3D/shaders/ ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
+        # copy LUS default shaders into assets/custom
+        COMMAND ${CMAKE_COMMAND} -E rm -r -f ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/src/graphic/Fast3D/shaders/ ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
 
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/OTRExporter/extract_assets.py -z "$<TARGET_FILE:ZAPD>" --norom --custom-otr-file soh.o2r "--custom-assets-path" ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom --port-ver "${CMAKE_PROJECT_VERSION}"
-    COMMAND ${CMAKE_COMMAND} -DSYSTEM_NAME=${CMAKE_SYSTEM_NAME} -DTARGET_DIR="$<TARGET_FILE_DIR:ZAPD>" -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DBINARY_DIR=${CMAKE_BINARY_DIR} -DONLYSOHOTR=On -P ${CMAKE_CURRENT_SOURCE_DIR}/copy-existing-otrs.cmake
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/soh
-    COMMENT "Generating soh.o2r..."
-    DEPENDS ZAPD
-)
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/OTRExporter/extract_assets.py -z "$<TARGET_FILE:ZAPD>" --norom --custom-otr-file soh.o2r "--custom-assets-path" ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom --port-ver "${CMAKE_PROJECT_VERSION}"
+        COMMAND ${CMAKE_COMMAND} -DSYSTEM_NAME=${CMAKE_SYSTEM_NAME} -DTARGET_DIR="$<TARGET_FILE_DIR:ZAPD>" -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DBINARY_DIR=${CMAKE_BINARY_DIR} -DONLYSOHOTR=On -P ${CMAKE_CURRENT_SOURCE_DIR}/copy-existing-otrs.cmake
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/soh
+        COMMENT "Generating soh.o2r..."
+        DEPENDS ZAPD
+    )
+else()
+    # For Emscripten, create dummy targets that just copy pre-built OTRs if they exist
+    add_custom_target(GenerateSohOtr
+        COMMAND ${CMAKE_COMMAND} -E echo "Skipping OTR generation for Emscripten build"
+        COMMENT "OTR generation skipped for Emscripten"
+    )
+endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     find_package(ImageMagick COMPONENTS convert)
