@@ -44,12 +44,44 @@ jobs:
         mkdir -p emscripten-deps
         cd emscripten-deps
 
-        # Build libzip
+        # Build zlib first
+        if [ ! -d "zlib-1.3.1" ]; then
+          wget https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
+          tar -xzf zlib-1.3.1.tar.gz
+          cd zlib-1.3.1
+          mkdir -p build && cd build
+          emcmake cmake .. \
+            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
+          emmake make -j4
+          emmake make install
+          cd ../..
+        fi
+
+        # Build libpng
+        if [ ! -d "libpng-1.6.40" ]; then
+          wget https://github.com/glennrp/libpng/archive/refs/tags/v1.6.40.tar.gz -O libpng-1.6.40.tar.gz
+          tar -xzf libpng-1.6.40.tar.gz
+          cd libpng-1.6.40
+          mkdir -p build && cd build
+          emcmake cmake .. \
+            -DPNG_SHARED=OFF \
+            -DPNG_TESTS=OFF \
+            -DZLIB_ROOT=$PWD/../../../emscripten-deps/install \
+            -DCMAKE_PREFIX_PATH=$PWD/../../../emscripten-deps/install \
+            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
+          emmake make -j4
+          emmake make install
+          cd ../..
+        fi
+
+        # Build libzip with our built zlib
         if [ ! -d "libzip-1.10.1" ]; then
           wget https://github.com/nih-at/libzip/releases/download/v1.10.1/libzip-1.10.1.tar.gz
           tar -xzf libzip-1.10.1.tar.gz
           cd libzip-1.10.1
           mkdir -p build && cd build
+
+          # Point to our installed zlib
           emcmake cmake .. \
             -DENABLE_COMMONCRYPTO=OFF \
             -DENABLE_GNUTLS=OFF \
@@ -63,6 +95,8 @@ jobs:
             -DBUILD_REGRESS=OFF \
             -DBUILD_EXAMPLES=OFF \
             -DBUILD_DOC=OFF \
+            -DZLIB_ROOT=$PWD/../../../emscripten-deps/install \
+            -DCMAKE_PREFIX_PATH=$PWD/../../../emscripten-deps/install \
             -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
           emmake make -j4
           emmake make install
