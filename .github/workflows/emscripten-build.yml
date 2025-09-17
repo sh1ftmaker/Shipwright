@@ -116,7 +116,10 @@ jobs:
           tar -xf json.tar.xz
           cd json
           mkdir -p build && cd build
-          emcmake cmake .. -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
+          emcmake cmake .. \
+            -DJSON_BuildTests=OFF \
+            -DJSON_Install=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
           emmake make install
           cd ../..
         fi
