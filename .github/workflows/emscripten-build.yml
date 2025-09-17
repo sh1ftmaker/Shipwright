@@ -26,27 +26,99 @@ jobs:
           ninja-build \
           python3 \
           python3-pip \
-          libpng-dev \
-          libsdl2-dev \
-          libzip-dev \
-          zipcmp zipmerge ziptool
-        sudo apt-get install -y $(cat .github/workflows/apt-deps.txt)
+          wget \
+          git
 
     - name: Cache build files
       uses: actions/cache@v3
       with:
         path: |
           build-emscripten/
+          emscripten-deps/
         key: ${{ runner.os }}-emscripten-build-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-emscripten-build-
 
+    - name: Build Emscripten dependencies
+      run: |
+        mkdir -p emscripten-deps
+        cd emscripten-deps
+
+        # Build libzip
+        if [ ! -d "libzip-1.10.1" ]; then
+          wget https://github.com/nih-at/libzip/releases/download/v1.10.1/libzip-1.10.1.tar.gz
+          tar -xzf libzip-1.10.1.tar.gz
+          cd libzip-1.10.1
+          mkdir -p build && cd build
+          emcmake cmake .. \
+            -DENABLE_COMMONCRYPTO=OFF \
+            -DENABLE_GNUTLS=OFF \
+            -DENABLE_MBEDTLS=OFF \
+            -DENABLE_OPENSSL=OFF \
+            -DENABLE_WINDOWS_CRYPTO=OFF \
+            -DENABLE_BZIP2=OFF \
+            -DENABLE_LZMA=OFF \
+            -DENABLE_ZSTD=OFF \
+            -DBUILD_TOOLS=OFF \
+            -DBUILD_REGRESS=OFF \
+            -DBUILD_EXAMPLES=OFF \
+            -DBUILD_DOC=OFF \
+            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
+          emmake make -j4
+          emmake make install
+          cd ../..
+        fi
+
+        # Install nlohmann_json (header-only)
+        if [ ! -d "json-3.11.3" ]; then
+          wget https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+          tar -xf json.tar.xz
+          cd json
+          mkdir -p build && cd build
+          emcmake cmake .. -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
+          emmake make install
+          cd ../..
+        fi
+
+        # Build tinyxml2
+        if [ ! -d "tinyxml2-10.0.0" ]; then
+          wget https://github.com/leethomason/tinyxml2/archive/refs/tags/10.0.0.tar.gz
+          tar -xzf 10.0.0.tar.gz
+          cd tinyxml2-10.0.0
+          mkdir -p build && cd build
+          emcmake cmake .. \
+            -Dtinyxml2_BUILD_TESTING=OFF \
+            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
+          emmake make -j4
+          emmake make install
+          cd ../..
+        fi
+
+        # Build spdlog
+        if [ ! -d "spdlog-1.14.1" ]; then
+          wget https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz -O spdlog-1.14.1.tar.gz
+          tar -xzf spdlog-1.14.1.tar.gz
+          cd spdlog-1.14.1
+          mkdir -p build && cd build
+          emcmake cmake .. \
+            -DSPDLOG_BUILD_EXAMPLE=OFF \
+            -DSPDLOG_BUILD_TESTS=OFF \
+            -DSPDLOG_BUILD_BENCH=OFF \
+            -DSPDLOG_INSTALL=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
+          emmake make -j4
+          emmake make install
+          cd ../..
+        fi
+
     - name: Configure CMake for Emscripten
       run: |
         export EMSCRIPTEN=1
+        export CMAKE_PREFIX_PATH=$PWD/emscripten-deps/install
         emcmake cmake -S . -B build-emscripten \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH=$PWD/emscripten-deps/install \
           -DBUILD_CROWD_CONTROL=OFF \
           -DBUILD_REMOTE_CONTROL=OFF \
           -DUSE_OPENGLES=ON
