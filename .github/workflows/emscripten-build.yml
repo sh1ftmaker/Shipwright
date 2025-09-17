@@ -30,6 +30,7 @@ jobs:
           libsdl2-dev \
           libzip-dev \
           zipcmp zipmerge ziptool
+        sudo apt-get install -y $(cat .github/workflows/apt-deps.txt)
 
     - name: Cache build files
       uses: actions/cache@v3
@@ -45,9 +46,9 @@ jobs:
         emcmake cmake -S . -B build-emscripten \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
           -DBUILD_CROWD_CONTROL=OFF \
-          -DBUILD_REMOTE_CONTROL=OFF
+          -DBUILD_REMOTE_CONTROL=OFF \
+          -DUSE_OPENGLES=ON
 
     - name: Build soh.o2r
       run: |
