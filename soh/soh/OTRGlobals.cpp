@@ -2455,7 +2455,7 @@ extern "C" int CustomMessage_RetrieveIfExists(PlayState* play) {
             RandomizerHint stoneHint = RH_NONE;
             s16 hintParams = stone->params & 0xFF;
 
-            if (Rando::StaticData::MAP_CONTAINS(stoneParamsToHint, hintParams)) {
+            if (MAP_CONTAINS(Rando::StaticData::stoneParamsToHint, hintParams)) {
                 stoneHint = Rando::StaticData::stoneParamsToHint[hintParams];
             } else if (hintParams == 0x18) {
                 // look for the chest in the actorlist to determine
@@ -2464,7 +2464,7 @@ extern "C" int CustomMessage_RetrieveIfExists(PlayState* play) {
                 for (int i = 0; i < numOfActorLists; i++) {
                     if (play->actorCtx.actorLists[i].length) {
                         if (play->actorCtx.actorLists[i].head->id == 10 &&
-                            Rando::StaticData::MAP_CONTAINS(grottoChestParamsToHint, 
+                            MAP_CONTAINS(Rando::StaticData::grottoChestParamsToHint, 
                                 play->actorCtx.actorLists[i].head->params)) {
                             // use the chest params to find the stone hint
                             stoneHint =

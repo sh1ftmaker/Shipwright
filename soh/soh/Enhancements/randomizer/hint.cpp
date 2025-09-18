@@ -128,7 +128,7 @@ Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
 
 void Hint::FillGapsInData() {
     auto ctx = Rando::Context::GetInstance();
-    if (locations.size() == 0 && StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey)) {
+    if (locations.size() == 0 && MAP_CONTAINS(StaticData::staticHintInfoMap, ownKey)) {
         locations = StaticData::staticHintInfoMap[ownKey].targetChecks;
     }
     bool fillAreas = true;
@@ -221,7 +221,7 @@ void Hint::NamesChosen() {
 
 size_t Hint::GetNumberOfMessages() const {
     size_t numMessages = std::max(messages.size(), hintKeys.size());
-    if (StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey)) {
+    if (MAP_CONTAINS(StaticData::staticHintInfoMap, ownKey)) {
         numMessages = std::max(StaticData::staticHintInfoMap[ownKey].hintKeys.size(), numMessages);
     }
     if (numMessages == 0) {
@@ -245,7 +245,7 @@ const HintText Hint::GetHintText(size_t id) const {
         return StaticData::hintTextTable[hintKeys[id]];
     }
     // If a static hint, load default from staticHintInfoMap
-    if (StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) && StaticData::staticHintInfoMap[ownKey].hintKeys.size() > id) {
+    if (MAP_CONTAINS(StaticData::staticHintInfoMap, ownKey) && StaticData::staticHintInfoMap[ownKey].hintKeys.size() > id) {
         return StaticData::hintTextTable[StaticData::staticHintInfoMap[ownKey].hintKeys[id]];
     }
 
@@ -398,7 +398,7 @@ oJson Hint::toJSON() {
         }
 
         if (hintType != HINT_TYPE_FOOLISH) {
-            if (!(StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) &&
+            if (!(MAP_CONTAINS(StaticData::staticHintInfoMap, ownKey) &&
                   StaticData::staticHintInfoMap[ownKey].targetChecks.size() > 0)) {
                 if (locations.size() == 1) {
                     log["location"] = StaticData::GetLocation(locations[0])
@@ -414,7 +414,7 @@ oJson Hint::toJSON() {
                 }
             }
 
-            if (!(StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) &&
+            if (!(MAP_CONTAINS(StaticData::staticHintInfoMap, ownKey) &&
                   StaticData::staticHintInfoMap[ownKey].targetItems.size() > 0)) {
                 if (items.size() == 1) {
                     log["item"] = StaticData::GetItemTable()[items[0]]
@@ -444,7 +444,7 @@ oJson Hint::toJSON() {
         if (areas.size() == 1) {
             log["area"] =
                 StaticData::hintTextTable[StaticData::areaNames[areas[0]]].GetClear().GetForCurrentLanguage(MF_CLEAN);
-        } else if (areas.size() > 0 && !(StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) &&
+        } else if (areas.size() > 0 && !(MAP_CONTAINS(StaticData::staticHintInfoMap, ownKey) &&
                                          StaticData::staticHintInfoMap[ownKey].targetChecks.size() > 0)) {
             // If we got locations from defaults, areas are derived from them and don't need logging
             std::vector<std::string> areaStrings = {};
