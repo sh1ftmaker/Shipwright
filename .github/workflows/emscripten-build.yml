@@ -310,9 +310,9 @@ jobs:
           -Dnlohmann_json_DIR=$PWD/emscripten-deps/install/lib/cmake/nlohmann_json \
           -Dtinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2 \
           -Dspdlog_DIR=$PWD/emscripten-deps/install/lib/cmake/spdlog \
-          -DCMAKE_C_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
-          -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2 -DSPDLOG_HEADER_ONLY" \
-          -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
+          -DCMAKE_C_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2 -s USE_WEBGL2=1 -s FULL_ES3=1" \
+          -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2 -s USE_WEBGL2=1 -s FULL_ES3=1 -DSPDLOG_HEADER_ONLY" \
+          -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2 -s USE_WEBGL2=1 -s FULL_ES3=1 -s MAX_WEBGL_VERSION=2 -s MIN_WEBGL_VERSION=2" \
           -DBUILD_CROWD_CONTROL=OFF \
           -DBUILD_REMOTE_CONTROL=OFF \
           -DSUPPRESS_WARNINGS=ON \
