@@ -7,9 +7,8 @@
 #include <set>
 #include <unordered_set>
 #include <string>
-
-// std::map/set::contains() is a C++20 feature
-// Provide a compatibility layer for C++17
+#include <algorithm>
+#include <vector>
 
 // Helper namespace with contains functions
 namespace compat {
@@ -23,10 +22,55 @@ namespace compat {
 #define MAP_CONTAINS(map, key) (compat::contains(map, key))
 #define SET_CONTAINS(set, key) (compat::contains(set, key))
 
-// For code that uses std::contains() directly, provide it in std namespace
-// Note: This might not work on all compilers, so the macros above are preferred
+// C++20 compatibility features for C++17
 #if __cplusplus < 202002L
+
+// std::string::starts_with (C++20)
+namespace compat {
+    inline bool starts_with(const std::string& str, const std::string& prefix) {
+        return str.size() >= prefix.size() &&
+               str.compare(0, prefix.size(), prefix) == 0;
+    }
+
+    inline bool starts_with(const std::string& str, char ch) {
+        return !str.empty() && str[0] == ch;
+    }
+
+    inline bool starts_with(const std::string& str, const char* prefix) {
+        return starts_with(str, std::string(prefix));
+    }
+}
+
+// std::erase (C++20) - removes all occurrences of a value from a container
 namespace std {
+    template<typename CharT, typename Traits, typename Allocator, typename U>
+    inline typename basic_string<CharT, Traits, Allocator>::size_type
+    erase(basic_string<CharT, Traits, Allocator>& str, const U& value) {
+        auto it = remove(str.begin(), str.end(), value);
+        auto count = distance(it, str.end());
+        str.erase(it, str.end());
+        return count;
+    }
+
+    template<typename T, typename Allocator, typename U>
+    inline typename vector<T, Allocator>::size_type
+    erase(vector<T, Allocator>& vec, const U& value) {
+        auto it = remove(vec.begin(), vec.end(), value);
+        auto count = distance(it, vec.end());
+        vec.erase(it, vec.end());
+        return count;
+    }
+
+    // For code that uses std::contains() directly
     using compat::contains;
 }
-#endif
+
+// Macro for starts_with
+#define STRING_STARTS_WITH(str, prefix) (compat::starts_with(str, prefix))
+
+#else // C++20 or later
+
+// For C++20, just use the standard features
+#define STRING_STARTS_WITH(str, prefix) ((str).starts_with(prefix))
+
+#endif // __cplusplus < 202002L
