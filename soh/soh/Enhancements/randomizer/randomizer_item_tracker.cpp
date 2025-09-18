@@ -429,7 +429,7 @@ bool HasEquipment(ItemTrackerItem item) {
 void ItemTracker_LoadFromPreset(nlohmann::json trackerInfo) {
     presetLoaded = true;
     for (auto window : itemTrackerWindowIDs) {
-        if (trackerInfo.contains(window)) {
+        if (MAP_CONTAINS(trackerInfo, window)) {
             presetPos[window] = { trackerInfo[window]["pos"]["x"], trackerInfo[window]["pos"]["y"] };
             presetSize[window] = { trackerInfo[window]["size"]["width"], trackerInfo[window]["size"]["height"] };
         }
@@ -1231,7 +1231,7 @@ void BeginFloatingWindows(std::string UniqueName, ImGuiWindowFlags flags = 0) {
     ImGui::PushStyleColor(ImGuiCol_WindowBg, color);
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
-    if (presetLoaded && presetPos.contains(UniqueName)) {
+    if (presetLoaded && MAP_CONTAINS(presetPos, UniqueName)) {
         ImGui::SetNextWindowSize(presetSize[UniqueName]);
         ImGui::SetNextWindowPos(presetPos[UniqueName]);
         presetSize.erase(UniqueName);

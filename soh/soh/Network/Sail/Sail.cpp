@@ -33,7 +33,7 @@ void Sail::OnIncomingJson(nlohmann::json payload) {
     responsePayload["status"] = "failure";
 
     try {
-        if (!payload.contains("id")) {
+        if (!MAP_CONTAINS(payload, "id")) {
             SPDLOG_ERROR("[Sail] Received payload without ID");
             SendJsonToRemote(responsePayload);
             return;
@@ -41,7 +41,7 @@ void Sail::OnIncomingJson(nlohmann::json payload) {
 
         responsePayload["id"] = payload["id"];
 
-        if (!payload.contains("type")) {
+        if (!MAP_CONTAINS(payload, "type")) {
             SPDLOG_ERROR("[Sail] Received payload without type");
             SendJsonToRemote(responsePayload);
             return;
@@ -50,7 +50,7 @@ void Sail::OnIncomingJson(nlohmann::json payload) {
         std::string payloadType = payload["type"].get<std::string>();
 
         if (payloadType == "command") {
-            if (!payload.contains("command")) {
+            if (!MAP_CONTAINS(payload, "command")) {
                 SPDLOG_ERROR("[Sail] Received command payload without command");
                 SendJsonToRemote(responsePayload);
                 return;
@@ -64,7 +64,7 @@ void Sail::OnIncomingJson(nlohmann::json payload) {
             SendJsonToRemote(responsePayload);
             return;
         } else if (payloadType == "effect") {
-            if (!payload.contains("effect") || !payload["effect"].contains("type")) {
+            if (!MAP_CONTAINS(payload, "effect") || !MAP_CONTAINS(payload["effect"], "type")) {
                 SPDLOG_ERROR("[Sail] Received effect payload without effect type");
                 SendJsonToRemote(responsePayload);
                 return;
@@ -74,7 +74,7 @@ void Sail::OnIncomingJson(nlohmann::json payload) {
 
             // Special case for "command" effect, so we can also run commands from the `simple_twitch_sail` script
             if (effectType == "command") {
-                if (!payload["effect"].contains("command")) {
+                if (!MAP_CONTAINS(payload["effect"], "command")) {
                     SPDLOG_ERROR("[Sail] Received command effect payload without command");
                     SendJsonToRemote(responsePayload);
                     return;
@@ -137,7 +137,7 @@ void Sail::OnIncomingJson(nlohmann::json payload) {
 }
 
 GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
-    if (!payload.contains("name")) {
+    if (!MAP_CONTAINS(payload, "name")) {
         return nullptr;
     }
 
@@ -145,7 +145,7 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
 
     if (name == "SetSceneFlag") {
         auto effect = new GameInteractionEffect::SetSceneFlag();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
             effect->parameters[1] = payload["parameters"][1].get<int32_t>();
             effect->parameters[2] = payload["parameters"][2].get<int32_t>();
@@ -153,7 +153,7 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return effect;
     } else if (name == "UnsetSceneFlag") {
         auto effect = new GameInteractionEffect::UnsetSceneFlag();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
             effect->parameters[1] = payload["parameters"][1].get<int32_t>();
             effect->parameters[2] = payload["parameters"][2].get<int32_t>();
@@ -161,21 +161,21 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return effect;
     } else if (name == "SetFlag") {
         auto effect = new GameInteractionEffect::SetFlag();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
             effect->parameters[1] = payload["parameters"][1].get<int32_t>();
         }
         return effect;
     } else if (name == "UnsetFlag") {
         auto effect = new GameInteractionEffect::UnsetFlag();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
             effect->parameters[1] = payload["parameters"][1].get<int32_t>();
         }
         return effect;
     } else if (name == "ModifyHeartContainers") {
         auto effect = new GameInteractionEffect::ModifyHeartContainers();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
@@ -185,7 +185,7 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return new GameInteractionEffect::EmptyMagic();
     } else if (name == "ModifyRupees") {
         auto effect = new GameInteractionEffect::ModifyRupees();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
@@ -193,19 +193,19 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return new GameInteractionEffect::NoUI();
     } else if (name == "ModifyGravity") {
         auto effect = new GameInteractionEffect::ModifyGravity();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "ModifyHealth") {
         auto effect = new GameInteractionEffect::ModifyHealth();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "SetPlayerHealth") {
         auto effect = new GameInteractionEffect::SetPlayerHealth();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
@@ -217,13 +217,13 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return new GameInteractionEffect::ElectrocutePlayer();
     } else if (name == "KnockbackPlayer") {
         auto effect = new GameInteractionEffect::KnockbackPlayer();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "ModifyLinkSize") {
         auto effect = new GameInteractionEffect::ModifyLinkSize();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
@@ -239,13 +239,13 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return new GameInteractionEffect::ReverseControls();
     } else if (name == "ForceEquipBoots") {
         auto effect = new GameInteractionEffect::ForceEquipBoots();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "ModifyMovementSpeedMultiplier") {
         auto effect = new GameInteractionEffect::ModifyMovementSpeedMultiplier();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
@@ -253,31 +253,31 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return new GameInteractionEffect::OneHitKO();
     } else if (name == "ModifyDefenseModifier") {
         auto effect = new GameInteractionEffect::ModifyDefenseModifier();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "GiveOrTakeShield") {
         auto effect = new GameInteractionEffect::GiveOrTakeShield();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "TeleportPlayer") {
         auto effect = new GameInteractionEffect::TeleportPlayer();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "ClearAssignedButtons") {
         auto effect = new GameInteractionEffect::ClearAssignedButtons();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "SetTimeOfDay") {
         auto effect = new GameInteractionEffect::SetTimeOfDay();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
@@ -287,19 +287,19 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return new GameInteractionEffect::RandomizeCosmetics();
     } else if (name == "PressButton") {
         auto effect = new GameInteractionEffect::PressButton();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "PressRandomButton") {
         auto effect = new GameInteractionEffect::PressRandomButton();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
         }
         return effect;
     } else if (name == "AddOrTakeAmmo") {
         auto effect = new GameInteractionEffect::AddOrTakeAmmo();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
             effect->parameters[1] = payload["parameters"][1].get<int32_t>();
         }
@@ -318,14 +318,14 @@ GameInteractionEffectBase* Sail::EffectFromJson(nlohmann::json payload) {
         return new GameInteractionEffect::SlipperyFloor();
     } else if (name == "SpawnEnemyWithOffset") {
         auto effect = new GameInteractionEffect::SpawnEnemyWithOffset();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
             effect->parameters[1] = payload["parameters"][1].get<int32_t>();
         }
         return effect;
     } else if (name == "SpawnActor") {
         auto effect = new GameInteractionEffect::SpawnActor();
-        if (payload.contains("parameters")) {
+        if (MAP_CONTAINS(payload, "parameters")) {
             effect->parameters[0] = payload["parameters"][0].get<int32_t>();
             effect->parameters[1] = payload["parameters"][1].get<int32_t>();
         }

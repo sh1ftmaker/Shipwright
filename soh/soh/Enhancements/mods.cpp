@@ -486,7 +486,7 @@ static std::unordered_map<u16, u16> uniqueEnemyIdToStatCount = {
 void RegisterEnemyDefeatCounts() {
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnEnemyDefeat>([](void* refActor) {
         Actor* actor = static_cast<Actor*>(refActor);
-        if (uniqueEnemyIdToStatCount.contains(actor->id)) {
+        if (MAP_CONTAINS(uniqueEnemyIdToStatCount, actor->id)) {
             gSaveContext.ship.stats.count[uniqueEnemyIdToStatCount[actor->id]]++;
         } else {
             switch (actor->id) {

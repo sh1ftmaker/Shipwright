@@ -511,7 +511,7 @@ bool Randomizer::SpoilerFileExists(const char* spoilerFileName) {
             spoilerFileStream >> contents;
             spoilerFileStream.close();
 
-            bool isValid = contents.contains("version") &&
+            bool isValid = MAP_CONTAINS(contents, "version") &&
                            strcmp(std::string(contents["version"]).c_str(), (char*)gBuildVersion) == 0;
 
             if (!isValid) {
@@ -5851,7 +5851,7 @@ void Randomizer_GameplayStats_SetTimestamp(uint16_t item) {
         return;
     }
 
-    if (randomizerGetToStatsTimeStamp.contains((RandomizerGet)item)) {
+    if (MAP_CONTAINS(randomizerGetToStatsTimeStamp, (RandomizerGet)item)) {
         gSaveContext.ship.stats.itemTimestamp[randomizerGetToStatsTimeStamp[(RandomizerGet)item]] = time;
         return;
     }

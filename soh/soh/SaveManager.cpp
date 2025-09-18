@@ -431,7 +431,7 @@ void SaveManager::Init() {
         nlohmann::json globalBlock;
         input >> globalBlock;
 
-        if (!globalBlock.contains("version")) {
+        if (!MAP_CONTAINS(globalBlock, "version")) {
             SPDLOG_WARN("Global save does not contain a version. We are reconstructing it.");
             CreateDefaultGlobal();
             return;
@@ -1129,7 +1129,7 @@ void SaveManager::LoadFile(int fileNum) {
         bool deleteRando = false;
         saveBlock = nlohmann::json::object();
         input >> saveBlock;
-        if (!saveBlock.contains("version")) {
+        if (!MAP_CONTAINS(saveBlock, "version")) {
             SPDLOG_ERROR("Save at " + fileName.string() + " contains no version");
             assert(false);
         }
@@ -1142,7 +1142,7 @@ void SaveManager::LoadFile(int fileNum) {
                         SohUtils::IsStringEmpty(saveBlock["sections"]["sohStats"]["data"]["buildVersion"]);
                     std::string sectionName = block.key();
                     if (sectionName == "randomizer") {
-                        bool hasStats = saveBlock["sections"].contains("sohStats");
+                        bool hasStats = MAP_CONTAINS(saveBlock["sections"], "sohStats");
                         if (oldVanilla || !hasStats) { // Vanilla "rando" data
                             SohGui::RegisterPopup(
                                 "Loading old file",
@@ -1189,7 +1189,7 @@ void SaveManager::LoadFile(int fileNum) {
                     if (sectionName == "randomizer" && sectionVersion != 1) {
                         sectionVersion = 1;
                     }
-                    if (!sectionLoadHandlers.contains(sectionName)) {
+                    if (!MAP_CONTAINS(sectionLoadHandlers, sectionName)) {
                         // Unloadable sections aren't necessarily errors, they are probably mods that were unloaded
                         // TODO report in a more noticeable manner
                         SPDLOG_WARN("Save " + GetFileName(fileNum).string() + " contains unloadable section " +
@@ -1197,7 +1197,7 @@ void SaveManager::LoadFile(int fileNum) {
                         continue;
                     }
                     SectionLoadHandler& handler = sectionLoadHandlers[sectionName];
-                    if (!handler.contains(sectionVersion)) {
+                    if (!MAP_CONTAINS(handler, sectionVersion)) {
                         // A section that has a loader without a handler for the specific version means that the user
                         // has a mod at an earlier version than the save has. In this case, the user probably wants to
                         // load the save. Report the error so that the user can rectify the error.
@@ -1270,11 +1270,11 @@ void SaveManager::AddInitFunction(InitFunc func) {
 }
 
 void SaveManager::AddLoadFunction(const std::string& name, int version, LoadFunc func) {
-    if (!sectionLoadHandlers.contains(name)) {
+    if (!MAP_CONTAINS(sectionLoadHandlers, name)) {
         sectionLoadHandlers[name] = SectionLoadHandler();
     }
 
-    if (sectionLoadHandlers[name].contains(version)) {
+    if (MAP_CONTAINS(sectionLoadHandlers[name], version)) {
         SPDLOG_ERROR("Adding load function for section and version that already has one: " + name + ", " +
                      std::to_string(version));
         assert(false);
@@ -1286,14 +1286,14 @@ void SaveManager::AddLoadFunction(const std::string& name, int version, LoadFunc
 
 int SaveManager::AddSaveFunction(const std::string& name, int version, SaveFunc func, bool saveWithBase,
                                  int parentSection = -1) {
-    if (sectionRegistry.contains(name)) {
+    if (MAP_CONTAINS(sectionRegistry, name)) {
         SPDLOG_ERROR("Adding save function for section that already has one: " + name);
         assert(false);
         return -1;
     }
 
     int index = sectionIndex;
-    if (coreSectionIDsByName.contains(name)) {
+    if (MAP_CONTAINS(coreSectionIDsByName, name)) {
         index = coreSectionIDsByName.find(name)->second;
     } else {
         sectionIndex++;
@@ -1305,7 +1305,7 @@ int SaveManager::AddSaveFunction(const std::string& name, int version, SaveFunc 
 }
 
 void SaveManager::AddPostFunction(const std::string& name, PostFunc func) {
-    if (postHandlers.contains(name)) {
+    if (MAP_CONTAINS(postHandlers, name)) {
         SPDLOG_ERROR("Adding post function for section that already has one: " + name);
         assert(false);
         return;
@@ -1316,7 +1316,7 @@ void SaveManager::AddPostFunction(const std::string& name, PostFunc func) {
 
 // Returns -1 if section name not found
 int SaveManager::GetSaveSectionID(std::string& sectionName) {
-    if (sectionRegistry.contains(sectionName)) {
+    if (MAP_CONTAINS(sectionRegistry, sectionName)) {
         return sectionRegistry.find(sectionName)->second;
     } else {
         return -1;

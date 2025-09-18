@@ -1743,7 +1743,7 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
                         slot++;
                     }
                     uint16_t itemId = item.GetGIEntry()->itemId;
-                    if (BottleRandomizerGetToItemID.contains(randoGet)) {
+                    if (MAP_CONTAINS(BottleRandomizerGetToItemID, randoGet)) {
                         itemId = BottleRandomizerGetToItemID[randoGet];
                     }
                     if (randoGet == RG_BOTTLE_WITH_BIG_POE) {

@@ -165,7 +165,7 @@ extern "C" uint8_t ResourceMgr_FileExists(const char* filePath) {
         path = path.substr(7);
     }
 
-    return ExtensionCache.contains(path);
+    return MAP_CONTAINS(ExtensionCache, path);
 }
 
 extern "C" uint8_t ResourceMgr_FileAltExists(const char* filePath) {
@@ -178,7 +178,7 @@ extern "C" uint8_t ResourceMgr_FileAltExists(const char* filePath) {
         path = "alt/" + path;
     }
 
-    return ExtensionCache.contains(path);
+    return MAP_CONTAINS(ExtensionCache, path);
 }
 
 extern "C" bool ResourceMgr_IsAltAssetsEnabled() {
@@ -350,7 +350,7 @@ extern "C" void ResourceMgr_PatchGfxByName(const char* path, const char* patchNa
 
     Gfx* gfx = (Gfx*)&res->Instructions[index];
 
-    if (!originalGfx.contains(path) || !originalGfx[path].contains(patchName)) {
+    if (!MAP_CONTAINS(originalGfx, path) || !MAP_CONTAINS(originalGfx[path], patchName)) {
         originalGfx[path][patchName] = { index, *gfx };
     }
 
@@ -370,7 +370,7 @@ extern "C" void ResourceMgr_PatchGfxCopyCommandByName(const char* path, const ch
     Gfx* destinationGfx = (Gfx*)&res->Instructions[destinationIndex];
     Gfx sourceGfx = *(Gfx*)&res->Instructions[sourceIndex];
 
-    if (!originalGfx.contains(path) || !originalGfx[path].contains(patchName)) {
+    if (!MAP_CONTAINS(originalGfx, path) || !MAP_CONTAINS(originalGfx[path], patchName)) {
         originalGfx[path][patchName] = { destinationIndex, *destinationGfx };
     }
 
@@ -378,7 +378,7 @@ extern "C" void ResourceMgr_PatchGfxCopyCommandByName(const char* path, const ch
 }
 
 extern "C" void ResourceMgr_UnpatchGfxByName(const char* path, const char* patchName) {
-    if (originalGfx.contains(path) && originalGfx[path].contains(patchName)) {
+    if (MAP_CONTAINS(originalGfx, path) && MAP_CONTAINS(originalGfx[path], patchName)) {
         auto res = std::static_pointer_cast<Fast::DisplayList>(
             Ship::Context::GetInstance()->GetResourceManager()->LoadResource(path));
 

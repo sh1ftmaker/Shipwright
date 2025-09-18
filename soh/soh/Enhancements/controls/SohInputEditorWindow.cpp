@@ -1299,7 +1299,7 @@ void SohInputEditorWindow::DrawMapping(CustomButtonMap& mapping, float labelWidt
     N64ButtonMask currentButton = CVarGetInteger(mapping.cVarName, mapping.defaultBtn);
 
     const char* preview;
-    if (buttonNames.contains(currentButton)) {
+    if (MAP_CONTAINS(buttonNames, currentButton)) {
         preview = buttonNames[currentButton]->second;
     } else {
         preview = "Unknown";

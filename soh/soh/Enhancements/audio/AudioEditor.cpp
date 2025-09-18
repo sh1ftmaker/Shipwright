@@ -324,7 +324,7 @@ void Draw_SfxTab(const std::string& tabId, SeqType type, const std::string& tabN
         }
         ImGui::TableNextColumn();
         ImGui::PushItemWidth(-FLT_MIN);
-        const int initialValue = map.contains(currentValue) ? currentValue : defaultValue;
+        const int initialValue = MAP_CONTAINS(map, currentValue) ? currentValue : defaultValue;
         UIWidgets::PushStyleCombobox(THEME_COLOR);
         if (ImGui::BeginCombo(hiddenKey.c_str(), map.at(initialValue).label.c_str())) {
             for (const auto& [value, seqData] : map) {

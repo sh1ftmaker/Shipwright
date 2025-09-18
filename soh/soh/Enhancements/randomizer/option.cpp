@@ -161,7 +161,7 @@ void Option::RemoveFlag(const int imFlag_) {
 }
 
 uint8_t Option::GetValueFromText(const std::string text) {
-    if (optionsTextToVar.contains(text)) {
+    if (MAP_CONTAINS(optionsTextToVar, text)) {
         return optionsTextToVar[text];
     } else {
         SPDLOG_ERROR("Option {} does not have a var named {}.", name, text);
@@ -171,7 +171,7 @@ uint8_t Option::GetValueFromText(const std::string text) {
 }
 
 void Option::SetContextIndexFromText(const std::string text) {
-    if (optionsTextToVar.contains(text)) {
+    if (MAP_CONTAINS(optionsTextToVar, text)) {
         SetContextIndex(optionsTextToVar[text]);
     } else {
         SPDLOG_ERROR("Option {} does not have a var named {}.", name, text);
@@ -301,7 +301,7 @@ RandomizerArea TrickOption::GetArea() const {
 }
 
 bool TrickOption::HasTag(const Tricks::Tag tag) const {
-    return mTags.contains(tag);
+    return MAP_CONTAINS(mTags, tag);
 }
 
 const std::set<Tricks::Tag>& TrickOption::GetTags() const {

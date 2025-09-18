@@ -172,14 +172,14 @@ CrowdControl::EffectResult CrowdControl::TranslateGiEnum(GameInteractionEffectQu
 }
 
 CrowdControl::Effect* CrowdControl::ParseMessage(nlohmann::json dataReceived) {
-    if (!dataReceived.contains("id") || !dataReceived.contains("type")) {
+    if (!MAP_CONTAINS(dataReceived, "id") || !MAP_CONTAINS(dataReceived, "type")) {
         SPDLOG_ERROR("[CrowdControl] Invalid payload received:\n{}", dataReceived.dump());
         return nullptr;
     }
 
     SPDLOG_INFO("[CrowdControl] Received payload:\n{}", dataReceived.dump());
 
-    if (!dataReceived.contains("code")) {
+    if (!MAP_CONTAINS(dataReceived, "code")) {
         // This seems to happen when the CC session ends
         SPDLOG_ERROR("[CrowdControl] Payload does not contain code, ignoring.");
         return nullptr;

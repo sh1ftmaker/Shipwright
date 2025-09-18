@@ -39,86 +39,86 @@ Hint::Hint(RandomizerHint ownKey_, std::vector<CustomMessage> messages_) : ownKe
 
 Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
     ownKey = ownKey_;
-    if (json_.contains("enabled") && !json_["enabled"].get<bool>()) {
+    if (MAP_CONTAINS(json_, "enabled") && !json_["enabled"].get<bool>()) {
         return;
     }
     enabled = true;
 
-    if (json_.contains("type")) {
+    if (MAP_CONTAINS(json_, "type")) {
         hintType = (HintType)StaticData::hintTypeNameToEnum[json_["type"].get<std::string>()];
     }
 
     if (hintType == HINT_TYPE_MESSAGE) {
-        if (json_.contains("messages")) {
+        if (MAP_CONTAINS(json_, "messages")) {
             for (auto message : json_["messages"]) {
                 messages.push_back(CustomMessage(message.get<std::string>()));
             }
-        } else if (json_.contains("message")) {
+        } else if (MAP_CONTAINS(json_, "message")) {
             messages.push_back(CustomMessage(json_["message"].get<std::string>()));
         }
     }
 
-    if (json_.contains("distribution")) {
+    if (MAP_CONTAINS(json_, "distribution")) {
         distribution = json_["distribution"].get<std::string>();
     }
 
-    if (json_.contains("locations")) {
+    if (MAP_CONTAINS(json_, "locations")) {
         for (auto loc : json_["locations"]) {
             locations.push_back(StaticData::locationNameToEnum[loc.get<std::string>()]);
         }
-    } else if (json_.contains("location")) {
+    } else if (MAP_CONTAINS(json_, "location")) {
         locations.push_back(StaticData::locationNameToEnum[json_["location"].get<std::string>()]);
     }
 
-    if (json_.contains("itemNamesChosen")) {
+    if (MAP_CONTAINS(json_, "itemNamesChosen")) {
         for (auto name : json_["itemNamesChosen"]) {
             itemNamesChosen.push_back(name.get<uint8_t>());
         }
-    } else if (json_.contains("itemNameChosen")) {
+    } else if (MAP_CONTAINS(json_, "itemNameChosen")) {
         itemNamesChosen.push_back(json_["itemNameChosen"].get<uint8_t>());
     }
 
-    if (json_.contains("areas")) {
+    if (MAP_CONTAINS(json_, "areas")) {
         for (auto area : json_["areas"]) {
             areas.push_back((RandomizerArea)Rando::StaticData::areaNameToEnum[area]);
         }
-    } else if (json_.contains("area")) {
+    } else if (MAP_CONTAINS(json_, "area")) {
         areas.push_back((RandomizerArea)Rando::StaticData::areaNameToEnum[json_["area"]]);
     }
 
-    if (json_.contains("areaNamesChosen")) {
+    if (MAP_CONTAINS(json_, "areaNamesChosen")) {
         for (auto name : json_["areaNamesChosen"]) {
             areaNamesChosen.push_back(name.get<uint8_t>());
         }
-    } else if (json_.contains("areaNameChosen")) {
+    } else if (MAP_CONTAINS(json_, "areaNameChosen")) {
         areaNamesChosen.push_back(json_["areaNameChosen"].get<uint8_t>());
     }
 
-    if (json_.contains("trials")) {
+    if (MAP_CONTAINS(json_, "trials")) {
         for (auto trial : json_["trials"]) {
             trials.push_back((TrialKey)Rando::StaticData::trialNameToEnum[trial]);
         }
-    } else if (json_.contains("trial")) {
+    } else if (MAP_CONTAINS(json_, "trial")) {
         trials.push_back((TrialKey)Rando::StaticData::trialNameToEnum[json_["trial"]]);
     }
 
-    if (json_.contains("hintKeys")) {
+    if (MAP_CONTAINS(json_, "hintKeys")) {
         for (auto hintKey : json_["hintKeys"]) {
             hintKeys.push_back((RandomizerHintTextKey)hintKey.get<uint32_t>());
         }
-    } else if (json_.contains("hintKey")) {
+    } else if (MAP_CONTAINS(json_, "hintKey")) {
         hintKeys.push_back((RandomizerHintTextKey)json_["hintKey"].get<uint32_t>());
     }
 
-    if (json_.contains("hintTextsChosen")) {
+    if (MAP_CONTAINS(json_, "hintTextsChosen")) {
         for (auto name : json_["hintTextsChosen"]) {
             hintTextsChosen.push_back(name.get<uint8_t>());
         }
-    } else if (json_.contains("hintTextChosen")) {
+    } else if (MAP_CONTAINS(json_, "hintTextChosen")) {
         hintTextsChosen.push_back(json_["hintTextChosen"].get<uint8_t>());
     }
 
-    if (json_.contains("num")) {
+    if (MAP_CONTAINS(json_, "num")) {
         num = json_["num"].get<int>();
     }
 
@@ -128,7 +128,7 @@ Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
 
 void Hint::FillGapsInData() {
     auto ctx = Rando::Context::GetInstance();
-    if (locations.size() == 0 && StaticData::staticHintInfoMap.contains(ownKey)) {
+    if (locations.size() == 0 && StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey)) {
         locations = StaticData::staticHintInfoMap[ownKey].targetChecks;
     }
     bool fillAreas = true;
@@ -221,7 +221,7 @@ void Hint::NamesChosen() {
 
 size_t Hint::GetNumberOfMessages() const {
     size_t numMessages = std::max(messages.size(), hintKeys.size());
-    if (StaticData::staticHintInfoMap.contains(ownKey)) {
+    if (StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey)) {
         numMessages = std::max(StaticData::staticHintInfoMap[ownKey].hintKeys.size(), numMessages);
     }
     if (numMessages == 0) {
@@ -245,7 +245,7 @@ const HintText Hint::GetHintText(size_t id) const {
         return StaticData::hintTextTable[hintKeys[id]];
     }
     // If a static hint, load default from staticHintInfoMap
-    if (StaticData::staticHintInfoMap.contains(ownKey) && StaticData::staticHintInfoMap[ownKey].hintKeys.size() > id) {
+    if (StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) && StaticData::staticHintInfoMap[ownKey].hintKeys.size() > id) {
         return StaticData::hintTextTable[StaticData::staticHintInfoMap[ownKey].hintKeys[id]];
     }
 
@@ -398,7 +398,7 @@ oJson Hint::toJSON() {
         }
 
         if (hintType != HINT_TYPE_FOOLISH) {
-            if (!(StaticData::staticHintInfoMap.contains(ownKey) &&
+            if (!(StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) &&
                   StaticData::staticHintInfoMap[ownKey].targetChecks.size() > 0)) {
                 if (locations.size() == 1) {
                     log["location"] = StaticData::GetLocation(locations[0])
@@ -414,7 +414,7 @@ oJson Hint::toJSON() {
                 }
             }
 
-            if (!(StaticData::staticHintInfoMap.contains(ownKey) &&
+            if (!(StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) &&
                   StaticData::staticHintInfoMap[ownKey].targetItems.size() > 0)) {
                 if (items.size() == 1) {
                     log["item"] = StaticData::GetItemTable()[items[0]]
@@ -444,7 +444,7 @@ oJson Hint::toJSON() {
         if (areas.size() == 1) {
             log["area"] =
                 StaticData::hintTextTable[StaticData::areaNames[areas[0]]].GetClear().GetForCurrentLanguage(MF_CLEAN);
-        } else if (areas.size() > 0 && !(StaticData::staticHintInfoMap.contains(ownKey) &&
+        } else if (areas.size() > 0 && !(StaticData::MAP_CONTAINS(staticHintInfoMap, ownKey) &&
                                          StaticData::staticHintInfoMap[ownKey].targetChecks.size() > 0)) {
             // If we got locations from defaults, areas are derived from them and don't need logging
             std::vector<std::string> areaStrings = {};

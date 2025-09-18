@@ -217,7 +217,7 @@ void Extractor::FilterRoms(std::vector<std::string>& roms, RomSearchMode searchM
 
         // Rom doesn't claim to be valid
         // Game type doesn't match search mode
-        if (!verMap.contains(GetRomVerCrc()) || (searchMode == RomSearchMode::Vanilla && IsMasterQuest()) ||
+        if (!MAP_CONTAINS(verMap, GetRomVerCrc()) || (searchMode == RomSearchMode::Vanilla && IsMasterQuest()) ||
             (searchMode == RomSearchMode::MQ && !IsMasterQuest())) {
             it = roms.erase(it);
             continue;

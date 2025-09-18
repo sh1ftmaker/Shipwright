@@ -76,7 +76,7 @@ class ObjectExtension {
             return false;
         }
 
-        return Data.contains(std::make_pair(object, ObjectExtension::Register<T>::Id));
+        return MAP_CONTAINS(Data, std::make_pair(object, ObjectExtension::Register<T>::Id));
     }
 
     // Removes data of type T from an object

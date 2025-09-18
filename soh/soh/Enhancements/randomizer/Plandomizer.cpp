@@ -576,7 +576,7 @@ void PlandomizerLoadSpoilerLog(std::string logFile) {
             file >> spoilerLogInput;
             file.close();
 
-            if (spoilerLogInput.contains("file_hash")) {
+            if (MAP_CONTAINS(spoilerLogInput, "file_hash")) {
                 auto hash = spoilerLogInput["file_hash"];
                 for (auto& load : hash) {
                     spoilerHash.push_back(load);
@@ -584,7 +584,7 @@ void PlandomizerLoadSpoilerLog(std::string logFile) {
                 }
             }
 
-            if (spoilerLogInput.contains("Gossip Stone Hints")) {
+            if (MAP_CONTAINS(spoilerLogInput, "Gossip Stone Hints")) {
                 auto hints = spoilerLogInput["Gossip Stone Hints"];
                 for (auto& [key, value] : hints.items()) {
                     SpoilerHintObject hintObject;
@@ -597,7 +597,7 @@ void PlandomizerLoadSpoilerLog(std::string logFile) {
                 }
             }
 
-            if (spoilerLogInput.contains("locations")) {
+            if (MAP_CONTAINS(spoilerLogInput, "locations")) {
                 auto locations = spoilerLogInput["locations"];
                 for (auto& [key, value] : locations.items()) {
                     if (key == "Ganon" || key == "Completed Triforce") {

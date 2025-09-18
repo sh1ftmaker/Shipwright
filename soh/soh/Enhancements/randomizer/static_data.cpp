@@ -221,7 +221,7 @@ StaticData::PopulateTranslationMap(std::unordered_map<uint32_t, CustomMessage> i
     for (const auto& [key, message] : input) {
         std::vector<std::string> strings = message.GetAllMessages();
         for (std::string string : strings) {
-            if (output.contains(string)) {
+            if (MAP_CONTAINS(output, string)) {
                 if (output[string] != key) {
                     // RANDOTODO should this cause an error of some kind?
                     SPDLOG_DEBUG("\tREPEATED STRING IN " + message.GetEnglish(MF_CLEAN) + "\n\n");
@@ -240,7 +240,7 @@ StaticData::PopulateTranslationMap(std::unordered_map<uint32_t, RandomizerHintTe
     for (const auto& [key, text] : input) {
         std::vector<std::string> strings = hintTextTable[text].GetClear().GetAllMessages();
         for (std::string string : strings) {
-            if (output.contains(string)) {
+            if (MAP_CONTAINS(output, string)) {
                 if (output[string] != key) {
                     // RANDOTODO should this cause an error of some kind?
                     SPDLOG_DEBUG("\tREPEATED STRING WITH " + string + "\n\n");

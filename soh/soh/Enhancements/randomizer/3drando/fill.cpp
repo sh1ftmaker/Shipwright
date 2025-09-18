@@ -667,7 +667,7 @@ void LookForExternalArea(Region* currentRegion, std::set<Region*>& alreadyChecke
     for (const auto& entrance : currentRegion->entrances) {
         // if the region is arealess and hasn't already been checked, recursivly check what connects to it
         // if this entrance does not pass areas, only process it if we are in low priority mode
-        if ((LowPriorityMode || entrance->DoesSpreadAreas()) && !alreadyChecked.contains(entrance->GetParentRegion())) {
+        if ((LowPriorityMode || entrance->DoesSpreadAreas()) && !MAP_CONTAINS(alreadyChecked, entrance->GetParentRegion())) {
             std::set<RandomizerArea> otherAreas = entrance->GetParentRegion()->GetAllAreas();
             if (otherAreas.size() == 0) {
                 alreadyChecked.insert(entrance->GetParentRegion());

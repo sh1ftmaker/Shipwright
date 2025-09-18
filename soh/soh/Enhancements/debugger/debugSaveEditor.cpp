@@ -551,7 +551,7 @@ void DrawFlagTableArray16(const FlagTable& flagTable, uint16_t row, uint16_t& fl
     for (int32_t flagIndex = 15; flagIndex >= 0; flagIndex--) {
         ImGui::SameLine();
         ImGui::PushID(flagIndex);
-        bool hasDescription = !!flagTable.flagDescriptions.contains(row * 16 + flagIndex);
+        bool hasDescription = !!MAP_CONTAINS(flagTable.flagDescriptions, row * 16 + flagIndex);
         uint32_t bitMask = 1 << flagIndex;
         ImVec4 themeColor = ColorValues.at(THEME_COLOR);
         ImVec4 colorDark = { themeColor.x * 0.4f, themeColor.y * 0.4f, themeColor.z * 0.4f, themeColor.z };

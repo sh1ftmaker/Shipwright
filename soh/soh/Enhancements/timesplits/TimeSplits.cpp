@@ -390,7 +390,7 @@ void TimeSplitsFileManagement(uint32_t action, const char* listEntry, std::vecto
     }
 
     if (action == SPLIT_ACTION_LOAD) {
-        if (saveFile.contains(listEntry)) {
+        if (MAP_CONTAINS(saveFile, listEntry)) {
             listArray = saveFile[listEntry];
             splitList.clear();
 
@@ -420,7 +420,7 @@ void TimeSplitsFileManagement(uint32_t action, const char* listEntry, std::vecto
     }
 
     if (action == SPLIT_ACTION_DELETE) {
-        if (saveFile.contains(listEntry)) {
+        if (MAP_CONTAINS(saveFile, listEntry)) {
             saveFile.erase(listEntry);
 
             std::ofstream outputFile(filename);
@@ -758,7 +758,7 @@ void TimeSplitsDrawItemList(uint32_t type) {
                 ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), split.splitTint);
             ImGui::PopStyleVar();
             if (ret) {
-                if (popupList.contains(split.splitID) && (split.splitType < SPLIT_TYPE_BOSS)) {
+                if (MAP_CONTAINS(popupList, split.splitID) && (split.splitType < SPLIT_TYPE_BOSS)) {
                     popupID = split.splitID;
                     ImGui::OpenPopup("TimeSplitsPopUp");
                 } else {

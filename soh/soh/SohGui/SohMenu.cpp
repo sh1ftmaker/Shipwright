@@ -25,11 +25,11 @@ void SohMenu::AddSidebarEntry(std::string sectionName, std::string sidebarName, 
 
 WidgetInfo& SohMenu::AddWidget(WidgetPath& pathInfo, std::string widgetName, WidgetType widgetType) {
     assert(!widgetName.empty());                        // Must be unique
-    assert(menuEntries.contains(pathInfo.sectionName)); // Section/header must already exist
-    assert(menuEntries.at(pathInfo.sectionName).sidebars.contains(pathInfo.sidebarName)); // Sidebar must already exist
+    assert(MAP_CONTAINS(menuEntries, pathInfo.sectionName)); // Section/header must already exist
+    assert(menuEntries.at(pathInfo.sectionName).MAP_CONTAINS(sidebars, pathInfo.sidebarName)); // Sidebar must already exist
     std::unordered_map<std::string, SidebarEntry>& sidebar = menuEntries.at(pathInfo.sectionName).sidebars;
     uint8_t column = pathInfo.column;
-    if (sidebar.contains(pathInfo.sidebarName)) {
+    if (MAP_CONTAINS(sidebar, pathInfo.sidebarName)) {
         while (sidebar.at(pathInfo.sidebarName).columnWidgets.size() < column + 1) {
             sidebar.at(pathInfo.sidebarName).columnWidgets.push_back({});
         }

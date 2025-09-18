@@ -569,8 +569,8 @@ void Menu::DrawElement() {
     const char* headerCvar = CVAR_SETTING("Menu.ActiveHeader");
 
     if (navigateToWidget) {
-        if (menuEntries.contains(navigateMainEntry) &&
-            menuEntries.at(navigateMainEntry).sidebars.contains(navigateSidebar)) {
+        if (MAP_CONTAINS(menuEntries, navigateMainEntry) &&
+            menuEntries.at(navigateMainEntry).MAP_CONTAINS(sidebars, navigateSidebar)) {
             menuSearch.Clear();
             CVarSetString(headerCvar, navigateMainEntry);
             const char* sidebarCvar = menuEntries.at(navigateMainEntry).sidebarCvar;

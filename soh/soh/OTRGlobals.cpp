@@ -467,7 +467,7 @@ void OTRGlobals::Initialize() {
     auto versions = context->GetResourceManager()->GetArchiveManager()->GetGameVersions();
 
     for (uint32_t version : versions) {
-        if (!ValidHashes.contains(version)) {
+        if (!MAP_CONTAINS(ValidHashes, version)) {
 #if defined(__SWITCH__)
             SPDLOG_ERROR("Invalid OTR File!");
 #elif defined(__WIIU__)
@@ -913,7 +913,7 @@ std::unordered_map<ItemID, GetItemID> ItemIDtoGetItemIDMap{
 };
 
 extern "C" GetItemID RetrieveGetItemIDFromItemID(ItemID itemID) {
-    if (ItemIDtoGetItemIDMap.contains(itemID)) {
+    if (MAP_CONTAINS(ItemIDtoGetItemIDMap, itemID)) {
         return ItemIDtoGetItemIDMap.at(itemID);
     }
     return GI_MAX;
@@ -945,7 +945,7 @@ std::unordered_map<ItemID, RandomizerGet> ItemIDtoRandomizerGetMap{
 };
 
 extern "C" RandomizerGet RetrieveRandomizerGetFromItemID(ItemID itemID) {
-    if (ItemIDtoRandomizerGetMap.contains(itemID)) {
+    if (MAP_CONTAINS(ItemIDtoRandomizerGetMap, itemID)) {
         return ItemIDtoRandomizerGetMap.at(itemID);
     }
     return RG_MAX;
@@ -1613,7 +1613,7 @@ std::map<std::string, SoundFontSample*> cachedCustomSFs;
 extern "C" SoundFontSample* ReadCustomSample(const char* path) {
     return nullptr;
     /*
-    if (!ExtensionCache.contains(path))
+    if (!MAP_CONTAINS(ExtensionCache, path))
         return nullptr;
 
     ExtensionEntry entry = ExtensionCache[path];
@@ -2455,7 +2455,7 @@ extern "C" int CustomMessage_RetrieveIfExists(PlayState* play) {
             RandomizerHint stoneHint = RH_NONE;
             s16 hintParams = stone->params & 0xFF;
 
-            if (Rando::StaticData::stoneParamsToHint.contains(hintParams)) {
+            if (Rando::StaticData::MAP_CONTAINS(stoneParamsToHint, hintParams)) {
                 stoneHint = Rando::StaticData::stoneParamsToHint[hintParams];
             } else if (hintParams == 0x18) {
                 // look for the chest in the actorlist to determine
@@ -2464,7 +2464,7 @@ extern "C" int CustomMessage_RetrieveIfExists(PlayState* play) {
                 for (int i = 0; i < numOfActorLists; i++) {
                     if (play->actorCtx.actorLists[i].length) {
                         if (play->actorCtx.actorLists[i].head->id == 10 &&
-                            Rando::StaticData::grottoChestParamsToHint.contains(
+                            Rando::StaticData::MAP_CONTAINS(grottoChestParamsToHint, 
                                 play->actorCtx.actorLists[i].head->params)) {
                             // use the chest params to find the stone hint
                             stoneHint =
@@ -2788,14 +2788,14 @@ void SoH_ProcessDroppedFiles(std::string filePath) {
         configStream >> configJson;
 
         // #region SOH [Randomizer] TODO: Refactor spoiler file handling for randomizer
-        if (configJson.contains("version") && configJson.contains("finalSeed")) {
+        if (MAP_CONTAINS(configJson, "version") && MAP_CONTAINS(configJson, "finalSeed")) {
             CVarSetString(CVAR_GENERAL("RandomizerDroppedFile"), filePath.c_str());
             CVarSetInteger(CVAR_GENERAL("RandomizerNewFileDropped"), 1);
             return;
         }
         // #endregion
 
-        if (!configJson.contains("CVars")) {
+        if (!MAP_CONTAINS(configJson, "CVars")) {
             return;
         }
 

@@ -836,7 +836,7 @@ void SaveStateMgr::ProcessSaveStateRequests(void) {
 
         switch (request.type) {
             case RequestType::SAVE:
-                if (!this->states.contains(request.slot)) {
+                if (!this->MAP_CONTAINS(states, request.slot)) {
                     this->states[request.slot] =
                         std::make_shared<SaveState>(OTRGlobals::Instance->gSaveStateMgr, request.slot);
                 }
@@ -845,7 +845,7 @@ void SaveStateMgr::ProcessSaveStateRequests(void) {
                     1.0f, true, "saved state %u", request.slot);
                 break;
             case RequestType::LOAD:
-                if (this->states.contains(request.slot)) {
+                if (this->MAP_CONTAINS(states, request.slot)) {
                     this->states[request.slot]->Load();
                     Ship::Context::GetInstance()->GetWindow()->GetGui()->GetGameOverlay()->TextDrawNotification(
                         1.0f, true, "loaded state %u", request.slot);
@@ -874,7 +874,7 @@ SaveStateReturn SaveStateMgr::AddRequest(const SaveStateRequest request) {
             requests.push(request);
             return SaveStateReturn::SUCCESS;
         case RequestType::LOAD:
-            if (states.contains(request.slot)) {
+            if (MAP_CONTAINS(states, request.slot)) {
                 requests.push(request);
                 return SaveStateReturn::SUCCESS;
             } else {

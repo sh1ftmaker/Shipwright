@@ -106,14 +106,14 @@ bool Context::IsLocationShuffled(const RandomizerCheck locKey) {
 }
 
 ItemOverride& Context::GetItemOverride(RandomizerCheck locKey) {
-    if (!overrides.contains(locKey)) {
+    if (!MAP_CONTAINS(overrides, locKey)) {
         overrides.emplace(locKey, ItemOverride());
     }
     return overrides.at(locKey);
 }
 
 ItemOverride& Context::GetItemOverride(size_t locKey) {
-    if (!overrides.contains(static_cast<RandomizerCheck>(locKey))) {
+    if (!MAP_CONTAINS(overrides, static_cast<RandomizerCheck>(locKey))) {
         overrides.emplace(static_cast<RandomizerCheck>(locKey), ItemOverride());
     }
     return overrides.at(static_cast<RandomizerCheck>(locKey));
@@ -365,7 +365,7 @@ GetItemEntry Context::GetFinalGIEntry(const RandomizerCheck rc, const bool check
         return ItemTableManager::Instance->RetrieveItemEntry(MOD_NONE, GI_RUPEE_BLUE);
     }
     GetItemEntry giEntry = itemLoc->GetPlacedItem().GetGIEntry_Copy();
-    if (overrides.contains(rc)) {
+    if (MAP_CONTAINS(overrides, rc)) {
         const auto fakeGiEntry = StaticData::RetrieveItem(overrides[rc].LooksLike()).GetGIEntry();
         giEntry.gid = fakeGiEntry->gid;
         giEntry.gi = fakeGiEntry->gi;
@@ -441,7 +441,7 @@ void Context::WriteHintJson(nlohmann::ordered_json& spoilerFileJson) {
 nlohmann::json getValueForMessage(std::unordered_map<std::string, nlohmann::json> map, CustomMessage message) {
     std::vector<std::string> strings = message.GetAllMessages();
     for (uint8_t language = 0; language < LANGUAGE_MAX; language++) {
-        if (map.contains(strings[language])) {
+        if (MAP_CONTAINS(map, strings[language])) {
             return strings[language];
         }
     }

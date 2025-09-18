@@ -80,18 +80,18 @@ std::string FormatPresetPath(std::string name) {
 void applyPreset(std::string presetName, std::vector<PresetSection> includeSections) {
     auto& info = presets[presetName];
     for (int i = PRESET_SECTION_SETTINGS; i < PRESET_SECTION_MAX; i++) {
-        if (info.apply[i] && info.presetValues["blocks"].contains(blockInfo[i].names[1])) {
+        if (info.apply[i] && MAP_CONTAINS(info.presetValues["blocks"], blockInfo[i].names[1])) {
             if (!includeSections.empty() &&
                 std::find(includeSections.begin(), includeSections.end(), i) == includeSections.end()) {
                 continue;
             }
             if (i == PRESET_SECTION_TRACKERS) {
                 ItemTracker_LoadFromPreset(info.presetValues["blocks"][blockInfo[i].names[1]]["windows"]);
-                if (info.presetValues["blocks"][blockInfo[i].names[1]]["windows"].contains("Check Tracker")) {
+                if (MAP_CONTAINS(info.presetValues["blocks"][blockInfo[i].names[1]]["windows"], "Check Tracker")) {
                     CheckTracker::CheckTracker_LoadFromPreset(
                         info.presetValues["blocks"][blockInfo[i].names[1]]["windows"]["Check Tracker"]);
                 }
-                if (info.presetValues["blocks"][blockInfo[i].names[1]]["windows"].contains("Entrance Tracker")) {
+                if (MAP_CONTAINS(info.presetValues["blocks"][blockInfo[i].names[1]]["windows"], "Entrance Tracker")) {
                     EntranceTracker_LoadFromPreset(
                         info.presetValues["blocks"][blockInfo[i].names[1]]["windows"]["Entrance Tracker"]);
                 }
@@ -183,11 +183,11 @@ void ParsePreset(nlohmann::json& json, std::string name) {
     try {
         presets[json["presetName"]].presetValues = json;
         presets[json["presetName"]].fileName = name;
-        if (json.contains("isBuiltIn")) {
+        if (MAP_CONTAINS(json, "isBuiltIn")) {
             presets[json["presetName"]].isBuiltIn = json["isBuiltIn"];
         }
         for (int i = 0; i < PRESET_SECTION_MAX; i++) {
-            if (presets[json["presetName"]].presetValues["blocks"].contains(blockInfo[i].names[1])) {
+            if (MAP_CONTAINS(presets[json["presetName"]].presetValues["blocks"], blockInfo[i].names[1])) {
                 presets[json["presetName"]].apply[i] = true;
             }
         }
@@ -203,7 +203,7 @@ void LoadPresets() {
             std::ifstream ifs(preset.path());
 
             auto json = nlohmann::json::parse(ifs);
-            if (!json.contains("presetName")) {
+            if (!MAP_CONTAINS(json, "presetName")) {
                 spdlog::error(fmt::format("Attempted to load file {} as a preset, but was not a preset file.",
                                           preset.path().filename().string()));
             } else {
@@ -399,7 +399,7 @@ void PresetsCustomWidget(WidgetInfo& info) {
             ImGui::Text("%s", name.c_str());
             for (int i = PRESET_SECTION_SETTINGS; i < PRESET_SECTION_MAX; i++) {
                 ImGui::TableNextColumn();
-                DrawSectionCheck(name, !info.presetValues["blocks"].contains(blockInfo[i].names[1]), &info.apply[i],
+                DrawSectionCheck(name, !MAP_CONTAINS(info.presetValues["blocks"], blockInfo[i].names[1]), &info.apply[i],
                                  blockInfo[i].names[1]);
             }
             ImGui::TableNextColumn();

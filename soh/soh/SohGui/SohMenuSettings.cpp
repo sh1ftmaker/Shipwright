@@ -114,7 +114,7 @@ static const std::array<MessageTableEntry**, LANGUAGE_MAX> messageTables = {
 void SohMenu::UpdateLanguageMap(std::unordered_map<int32_t, const char*>& languageMap) {
     for (int32_t i = LANGUAGE_ENG; i < LANGUAGE_MAX; i++) {
         if (*messageTables.at(i) != NULL) {
-            if (!languageMap.contains(i)) {
+            if (!MAP_CONTAINS(languageMap, i)) {
                 languageMap.insert(std::make_pair(i, languages.at(i)));
             }
         } else {

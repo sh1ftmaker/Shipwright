@@ -476,7 +476,7 @@ ActorDB::ActorDB() {
 
 // Adds an actor at the given index. The name must be unique.
 ActorDB::Entry& ActorDB::AddEntry(const std::string& name, const std::string& desc, size_t index) {
-    assert(!nameTable.contains(name)); // TODO this should maybe throw instead. We'll need to think about error handling
+    assert(!MAP_CONTAINS(nameTable, name)); // TODO this should maybe throw instead. We'll need to think about error handling
                                        // for mods that try to declare the same actor.
 
     if (db.size() < (index + 1)) {

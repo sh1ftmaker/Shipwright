@@ -389,7 +389,7 @@ uint16_t AudioCollection::GetReplacementSequence(uint16_t seqId) {
     const auto& sequenceInfo = sequenceMap.at(seqId);
     const std::string cvarKey = GetCvarKey(sequenceInfo.sfxKey);
     int replacementSeq = CVarGetInteger(cvarKey.c_str(), seqId);
-    if (!sequenceMap.contains(replacementSeq)) {
+    if (!MAP_CONTAINS(sequenceMap, replacementSeq)) {
         replacementSeq = seqId;
     }
     return static_cast<uint16_t>(replacementSeq);
@@ -434,7 +434,7 @@ extern "C" void AudioCollection_AddToCollection(char* otrPath, uint16_t seqNum) 
 }
 
 bool AudioCollection::HasSequenceNum(uint16_t seqId) {
-    return sequenceMap.contains(seqId);
+    return MAP_CONTAINS(sequenceMap, seqId);
 }
 
 const char* AudioCollection::GetSequenceName(uint16_t seqId) {

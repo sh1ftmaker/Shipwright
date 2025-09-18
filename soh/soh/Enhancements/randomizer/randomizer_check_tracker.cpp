@@ -1619,7 +1619,7 @@ void UpdateAllAreas() {
 }
 
 void UpdateAreas(RandomizerCheckArea area) {
-    if (checksByArea.contains(area)) {
+    if (MAP_CONTAINS(checksByArea, area)) {
         areasFullyChecked[area] = areaChecksGotten[area] == checksByArea.find(area)->second.size();
     }
 }
@@ -1633,7 +1633,7 @@ void UpdateAllOrdering() {
 
 void UpdateOrdering(RandomizerCheckArea rcArea) {
     // Sort a single area
-    if (checksByArea.contains(rcArea)) {
+    if (MAP_CONTAINS(checksByArea, rcArea)) {
         std::sort(checksByArea.find(rcArea)->second.begin(), checksByArea.find(rcArea)->second.end(), CompareChecks);
     }
     RecalculateAllAreaTotals();
@@ -1762,7 +1762,7 @@ void DrawLocation(RandomizerCheck rc) {
     }
 
     // Main Text
-    if (checkNameOverrides.contains(loc->GetRandomizerCheck())) {
+    if (MAP_CONTAINS(checkNameOverrides, loc->GetRandomizerCheck())) {
         txt = checkNameOverrides[loc->GetRandomizerCheck()];
     } else {
         txt = loc->GetShortName();

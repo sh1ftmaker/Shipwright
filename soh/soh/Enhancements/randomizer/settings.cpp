@@ -2576,7 +2576,7 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
 
     for (const auto locationKey : this->everyPossibleLocation) {
         if (const auto location = this->GetItemLocation(locationKey);
-            excludedLocations.contains(location->GetRandomizerCheck())) {
+            MAP_CONTAINS(excludedLocations, location->GetRandomizerCheck())) {
             location->SetExcludedOption(1);
         } else {
             location->SetExcludedOption(0);
@@ -2909,7 +2909,7 @@ void Settings::ParseJson(nlohmann::json spoilerFileJson) {
     for (auto it = settingsJson.begin(); it != settingsJson.end(); ++it) {
         // todo load into cvars for UI
         // RANDOTODO handle numeric value to options conversion better than brute froce
-        if (StaticData::optionNameToEnum.contains(it.key())) {
+        if (StaticData::MAP_CONTAINS(optionNameToEnum, it.key())) {
             const RandomizerSettingKey index = StaticData::optionNameToEnum[it.key()];
             mContext->GetOption(index).Set(mOptions[index].GetValueFromText(it.value()));
         }
