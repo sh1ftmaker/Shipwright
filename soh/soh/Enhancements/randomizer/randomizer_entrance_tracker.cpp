@@ -1,4 +1,5 @@
 #include "randomizer_entrance_tracker.h"
+#include <compat.h>
 #include "soh/OTRGlobals.h"
 #include "soh/cvar_prefixes.h"
 #include "soh/SohGui/SohGui.hpp"
@@ -874,7 +875,7 @@ void EntranceTrackerWindow::DrawElement() {
             }
 
             // RANDOTODO: Only show blue warps if bluewarp shuffle is on
-            if (original->metaTag.ends_with("bw") || override->metaTag.ends_with("bw")) {
+            if (STRING_ENDS_WITH(original->metaTag, "bw") || STRING_ENDS_WITH(override->metaTag, "bw")) {
                 continue;
             }
 

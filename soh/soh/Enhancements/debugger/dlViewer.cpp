@@ -1,4 +1,5 @@
 #include "actorViewer.h"
+#include <compat.h>
 #include "soh/util.h"
 #include "soh/SohGui/UIWidgets.hpp"
 #include "soh/SohGui/SohGui.hpp"
@@ -73,7 +74,7 @@ void PerformDisplayListSearch() {
     // Filter the file results even further as StormLib can only use wildcard searching
     for (size_t i = 0; i < result->size(); i++) {
         std::string val = result->at(i);
-        if (val.ends_with("DL") || val.find("DL_") != std::string::npos) {
+        if (STRING_ENDS_WITH(val, "DL") || val.find("DL_") != std::string::npos) {
             displayListSearchResults.push_back(val);
         }
     }

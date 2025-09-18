@@ -39,6 +39,19 @@ namespace compat {
     inline bool starts_with(const std::string& str, const char* prefix) {
         return starts_with(str, std::string(prefix));
     }
+
+    inline bool ends_with(const std::string& str, const std::string& suffix) {
+        return str.size() >= suffix.size() &&
+               str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+
+    inline bool ends_with(const std::string& str, char ch) {
+        return !str.empty() && str[str.size() - 1] == ch;
+    }
+
+    inline bool ends_with(const std::string& str, const char* suffix) {
+        return ends_with(str, std::string(suffix));
+    }
 }
 
 // std::popcount (C++20) - counts the number of 1 bits in an integer
@@ -98,12 +111,14 @@ namespace std {
     using compat::contains;
 }
 
-// Macro for starts_with
+// Macros for string operations
 #define STRING_STARTS_WITH(str, prefix) (compat::starts_with(str, prefix))
+#define STRING_ENDS_WITH(str, suffix) (compat::ends_with(str, suffix))
 
 #else // C++20 or later
 
 // For C++20, just use the standard features
 #define STRING_STARTS_WITH(str, prefix) ((str).starts_with(prefix))
+#define STRING_ENDS_WITH(str, suffix) ((str).ends_with(suffix))
 
 #endif // __cplusplus < 202002L
