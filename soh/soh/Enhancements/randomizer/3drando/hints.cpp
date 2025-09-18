@@ -368,7 +368,7 @@ bool IsReachableWithout(std::vector<RandomizerCheck> locsToCheck, RandomizerChec
 static void SetAllInAreaAsHintAccesible(RandomizerArea area, std::vector<RandomizerCheck> locations) {
     auto ctx = Rando::Context::GetInstance();
     std::vector<RandomizerCheck> locsInArea = FilterFromPool(locations, [area, ctx](const RandomizerCheck loc) {
-        return ctx->GetItemLocation(loc)->GetAreas().contains(area);
+        return SET_CONTAINS(ctx->GetItemLocation(loc)->GetAreas(), area);
     });
     for (RandomizerCheck loc : locsInArea) {
         ctx->GetItemLocation(loc)->SetHintAccesible();
