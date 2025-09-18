@@ -1,4 +1,5 @@
 #include "logic.h"
+#include <compat.h>
 #include "../debugger/performanceTimer.h"
 
 #include <algorithm>

@@ -1,6 +1,7 @@
 #ifdef ENABLE_REMOTE_CONTROL
 
 #include "Sail.h"
+#include <compat.h>
 #include <libultraship/bridge.h>
 #include <libultraship/libultraship.h>
 #include <nlohmann/json.hpp>

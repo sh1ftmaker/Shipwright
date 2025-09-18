@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <compat.h>
 #include <map>
 #include <string>
 #include <vector>

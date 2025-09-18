@@ -1,4 +1,5 @@
 #include "SaveManager.h"
+#include <compat.h>
 #include "OTRGlobals.h"
 #include "Enhancements/game-interactor/GameInteractor.h"
 #include "Enhancements/randomizer/context.h"

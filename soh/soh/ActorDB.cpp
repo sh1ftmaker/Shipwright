@@ -1,4 +1,5 @@
 #include "ActorDB.h"
+#include <compat.h>
 
 #include <assert.h>
 

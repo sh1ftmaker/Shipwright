@@ -1,4 +1,5 @@
 #include "AudioEditor.h"
+#include <compat.h>
 #include "sequence.h"
 
 #include <map>

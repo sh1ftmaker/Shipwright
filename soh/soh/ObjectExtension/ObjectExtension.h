@@ -3,6 +3,7 @@
 #ifdef __cplusplus
 
 #include <libultraship/libultraship.h>
+#include <compat.h>
 
 #include <any>
 #include <limits>

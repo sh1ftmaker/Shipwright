@@ -1,4 +1,5 @@
 #include "Menu.h"
+#include <compat.h>
 #include "UIWidgets.hpp"
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/controls/SohInputEditorWindow.h"

@@ -1,4 +1,5 @@
 #include <vector>
+#include <compat.h>
 #include <fstream>
 #include <filesystem>
 

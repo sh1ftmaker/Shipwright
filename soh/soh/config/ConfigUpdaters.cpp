@@ -1,4 +1,5 @@
 #include "ConfigUpdaters.h"
+#include <compat.h>
 #include "ConfigMigrators.h"
 #include "soh/Enhancements/audio/AudioCollection.h"
 

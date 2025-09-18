@@ -1,6 +1,7 @@
 #include "Presets.h"
 #include <variant>
 #include <string>
+#include <compat.h>
 #include <fstream>
 #include <config/Config.h>
 #include <libultraship/classes.h>
@@ -131,7 +132,7 @@ void DrawPresetSelector(std::vector<PresetSection> includeSections, std::string 
     }
     std::string selectorCvar = fmt::format(CVAR_GENERAL("{}SelectedPreset"), presetLoc);
     std::string currentIndex = CVarGetString(selectorCvar.c_str(), includedPresets[0].c_str());
-    if (!presets.contains(currentIndex)) {
+    if (!std::contains(presets, currentIndex)) {
         currentIndex = *includedPresets.begin();
         CVarSetString(selectorCvar.c_str(), currentIndex.c_str());
     }
@@ -244,7 +245,7 @@ static std::string newPresetName;
 static bool saveSection[PRESET_SECTION_MAX];
 
 void DrawNewPresetPopup() {
-    bool nameExists = presets.contains(newPresetName);
+    bool nameExists = std::contains(presets, newPresetName);
     UIWidgets::InputString("Preset Name", &newPresetName,
                            UIWidgets::InputOptions()
                                .Color(THEME_COLOR)
@@ -253,7 +254,7 @@ void DrawNewPresetPopup() {
                                .LabelPosition(UIWidgets::LabelPositions::Near)
                                .ErrorText("Preset name already exists")
                                .HasError(nameExists));
-    nameExists = presets.contains(newPresetName);
+    nameExists = std::contains(presets, newPresetName);
     bool noneSelected = true;
     for (int i = PRESET_SECTION_SETTINGS; i < PRESET_SECTION_MAX; i++) {
         if (saveSection[i]) {

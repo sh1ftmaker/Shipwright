@@ -1,4 +1,5 @@
 #include "context.h"
+#include <compat.h>
 #include "static_data.h"
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/item-tables/ItemTableManager.h"

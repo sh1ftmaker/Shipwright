@@ -1,4 +1,5 @@
 #include "Plandomizer.h"
+#include <compat.h>
 #include <soh/SohGui/SohGui.hpp>
 #include "soh/SohGui/UIWidgets.hpp"
 #include "soh/util.h"

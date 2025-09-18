@@ -1,4 +1,5 @@
 #include "settings.h"
+#include <compat.h>
 #include "trial.h"
 #include "dungeon.h"
 

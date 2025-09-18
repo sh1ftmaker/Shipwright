@@ -1,4 +1,5 @@
 #include <unordered_map>
+#include <compat.h>
 #include "static_data.h"
 #include <spdlog/spdlog.h>
 

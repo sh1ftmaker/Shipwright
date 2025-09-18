@@ -1,6 +1,7 @@
 #ifdef ENABLE_REMOTE_CONTROL
 
 #include "CrowdControl.h"
+#include <compat.h>
 #include "CrowdControlTypes.h"
 #include <libultraship/bridge.h>
 #include <libultraship/libultraship.h>

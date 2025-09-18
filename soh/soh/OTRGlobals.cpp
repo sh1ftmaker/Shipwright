@@ -1,4 +1,5 @@
 #include "OTRGlobals.h"
+#include <compat.h>
 #include "OTRAudio.h"
 #include <iostream>
 #include <algorithm>

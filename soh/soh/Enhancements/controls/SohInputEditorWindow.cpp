@@ -1,4 +1,5 @@
 #include "SohInputEditorWindow.h"
+#include <compat.h>
 #include <utils/StringHelper.h>
 #include "soh/OTRGlobals.h"
 #include "soh/SohGui/SohMenu.h"

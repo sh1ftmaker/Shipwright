@@ -1,4 +1,5 @@
 #include "savestates.h"
+#include <compat.h>
 
 #include <soh/GameVersions.h>
 

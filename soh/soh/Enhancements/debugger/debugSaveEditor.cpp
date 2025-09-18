@@ -1,4 +1,5 @@
 #include "debugSaveEditor.h"
+#include <compat.h>
 #include "soh/util.h"
 #include "soh/SohGui/ImGuiUtils.h"
 #include "soh/OTRGlobals.h"

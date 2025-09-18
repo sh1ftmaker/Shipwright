@@ -1,4 +1,5 @@
 #include "ResourceManagerHelpers.h"
+#include <compat.h>
 #include "OTRGlobals.h"
 #include "variables.h"
 #include "z64.h"

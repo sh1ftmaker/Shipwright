@@ -1,4 +1,5 @@
 #include "hint.h"
+#include <compat.h>
 #include "map"
 #include "string"
 #include "context.h"

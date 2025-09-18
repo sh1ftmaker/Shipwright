@@ -1,4 +1,5 @@
 #include "fill.hpp"
+#include <compat.h>
 
 #include "../dungeon.h"
 #include "../context.h"

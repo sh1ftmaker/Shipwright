@@ -1,4 +1,5 @@
 #include "hints.hpp"
+#include <compat.h>
 
 #include "item_pool.hpp"
 #include "random.hpp"

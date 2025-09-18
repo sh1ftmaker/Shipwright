@@ -1,4 +1,5 @@
 #include "randomizer_check_tracker.h"
+#include <compat.h>
 #include "randomizer_entrance_tracker.h"
 #include "randomizer_item_tracker.h"
 #include "randomizerTypes.h"

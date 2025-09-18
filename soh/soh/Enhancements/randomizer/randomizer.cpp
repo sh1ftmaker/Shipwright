@@ -1,4 +1,5 @@
 #include "randomizer.h"
+#include <compat.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <variables.h>

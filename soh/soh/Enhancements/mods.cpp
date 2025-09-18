@@ -1,4 +1,5 @@
 #include "mods.h"
+#include <compat.h>
 #include <libultraship/bridge.h>
 #include "game-interactor/GameInteractor.h"
 #include "tts/tts.h"

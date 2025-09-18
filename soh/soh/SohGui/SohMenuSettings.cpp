@@ -1,4 +1,5 @@
 #include "SohMenu.h"
+#include <compat.h>
 #include "soh/Notification/Notification.h"
 #include "soh/Enhancements/controls/SohInputEditorWindow.h"
 #include "SohModals.h"

@@ -1,4 +1,5 @@
 #include "option.h"
+#include <compat.h>
 #include "libultraship/bridge.h"
 #include <Context.h>
 #include <imgui.h>

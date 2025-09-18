@@ -1,4 +1,5 @@
 #include "AudioCollection.h"
+#include <compat.h>
 #include "sequence.h"
 #include "sfx.h"
 #include "soh/cvar_prefixes.h"
