@@ -205,17 +205,24 @@ jobs:
           cd ../..
         fi
 
-        # Build spdlog
-        if [ ! -d "spdlog-1.14.1" ]; then
-          wget https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz -O spdlog-1.14.1.tar.gz
-          tar -xzf spdlog-1.14.1.tar.gz
-          cd spdlog-1.14.1
+        # Build spdlog (use older version that works better with Emscripten)
+        echo "Building spdlog..."
+        if [ ! -d "spdlog-1.12.0" ]; then
+          echo "Building spdlog 1.12.0 (better Emscripten compatibility)..."
+          wget https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.tar.gz -O spdlog-1.12.0.tar.gz
+          tar -xzf spdlog-1.12.0.tar.gz
+          cd spdlog-1.12.0
           mkdir -p build && cd build
+
+          # Configure as header-only to avoid compilation issues
           emcmake cmake .. \
             -DSPDLOG_BUILD_EXAMPLE=OFF \
             -DSPDLOG_BUILD_TESTS=OFF \
             -DSPDLOG_BUILD_BENCH=OFF \
             -DSPDLOG_INSTALL=ON \
+            -DSPDLOG_HEADER_ONLY=ON \
+            -DSPDLOG_FMT_EXTERNAL=OFF \
+            -DCMAKE_CXX_STANDARD=17 \
             -DCMAKE_INSTALL_PREFIX=$PWD/../../../emscripten-deps/install
           emmake make -j4
           emmake make install
@@ -295,6 +302,7 @@ jobs:
         emcmake cmake -S . -B build-emscripten \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_STANDARD=17 \
           -DCMAKE_PREFIX_PATH=$PWD/emscripten-deps/install \
           -DZLIB_DIR=$PWD/emscripten-deps/install/lib/cmake/ZLIB \
           -DSDL2_DIR=$PWD/emscripten-deps/install/lib/cmake/SDL2 \
@@ -303,7 +311,7 @@ jobs:
           -Dtinyxml2_DIR=$PWD/emscripten-deps/install/lib/cmake/tinyxml2 \
           -Dspdlog_DIR=$PWD/emscripten-deps/install/lib/cmake/spdlog \
           -DCMAKE_C_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
-          -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
+          -DCMAKE_CXX_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2 -DSPDLOG_HEADER_ONLY" \
           -DCMAKE_EXE_LINKER_FLAGS="-s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_SDL=2" \
           -DBUILD_CROWD_CONTROL=OFF \
           -DBUILD_REMOTE_CONTROL=OFF \
