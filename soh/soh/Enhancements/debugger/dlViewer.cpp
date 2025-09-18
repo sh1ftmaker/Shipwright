@@ -7,7 +7,6 @@
 #include "soh/OTRGlobals.h"
 
 #include <array>
-#include <bit>
 #include <map>
 #include <string>
 #include <libultraship/libultraship.h>

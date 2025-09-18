@@ -41,6 +41,39 @@ namespace compat {
     }
 }
 
+// std::popcount (C++20) - counts the number of 1 bits in an integer
+// std::rotr (C++20) - rotate bits right
+namespace std {
+    template<typename T>
+    inline int popcount(T value) {
+        static_assert(std::is_unsigned_v<T>, "popcount requires unsigned type");
+        int count = 0;
+        while (value) {
+            count += value & 1;
+            value >>= 1;
+        }
+        return count;
+    }
+
+    template<typename T>
+    inline T rotr(T value, int shift) {
+        static_assert(std::is_unsigned_v<T>, "rotr requires unsigned type");
+        const int bits = sizeof(T) * 8;
+        shift %= bits;
+        if (shift == 0) return value;
+        return (value >> shift) | (value << (bits - shift));
+    }
+
+    template<typename T>
+    inline T rotl(T value, int shift) {
+        static_assert(std::is_unsigned_v<T>, "rotl requires unsigned type");
+        const int bits = sizeof(T) * 8;
+        shift %= bits;
+        if (shift == 0) return value;
+        return (value << shift) | (value >> (bits - shift));
+    }
+}
+
 // std::erase (C++20) - removes all occurrences of a value from a container
 namespace std {
     template<typename CharT, typename Traits, typename Allocator, typename U>

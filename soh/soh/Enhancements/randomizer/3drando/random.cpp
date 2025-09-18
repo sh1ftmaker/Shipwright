@@ -1,6 +1,6 @@
 #include "random.hpp"
 
-#include <bit>
+#include <compat.h>
 #include <random>
 #include <cassert>
 

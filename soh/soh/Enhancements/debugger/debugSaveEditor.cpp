@@ -8,7 +8,6 @@
 
 #include <spdlog/fmt/fmt.h>
 #include <array>
-#include <bit>
 #include <map>
 #include <string>
 #include <libultraship/bridge.h>
