@@ -1,4 +1,5 @@
 #include "ObjectExtension.h"
+#include <compat.h>
 
 ObjectExtension& ObjectExtension::GetInstance() {
     static ObjectExtension instance;

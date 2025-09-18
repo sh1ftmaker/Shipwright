@@ -1,5 +1,6 @@
 #include "resource/ResourceManager.h"
 #include "Skeleton.h"
+#include <compat.h>
 #include "soh/OTRGlobals.h"
 #include "libultraship/libultraship.h"
 #include <soh_assets.h>
@@ -37,12 +38,12 @@ void SkeletonPatcher::RegisterSkeleton(std::string& path, SkelAnime* skelAnime) 
 
     static const std::string sOtr = "__OTR__";
 
-    if (path.starts_with(sOtr)) {
+    if (STRING_STARTS_WITH(path, sOtr)) {
         path = path.substr(sOtr.length());
     }
 
     // Determine if we're using an alternate skeleton
-    if (path.starts_with(Ship::IResource::gAltAssetPrefix)) {
+    if (STRING_STARTS_WITH(path, Ship::IResource::gAltAssetPrefix)) {
         info.vanillaSkeletonPath = path.substr(Ship::IResource::gAltAssetPrefix.length(),
                                                path.size() - Ship::IResource::gAltAssetPrefix.length());
     } else {

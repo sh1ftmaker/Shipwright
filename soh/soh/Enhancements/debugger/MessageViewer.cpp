@@ -6,6 +6,7 @@
 #include "soh/OTRGlobals.h"
 
 #include <textures/message_static/message_static.h>
+#include <compat.h>
 
 #include "../custom-message/CustomMessageManager.h"
 #include "functions.h"

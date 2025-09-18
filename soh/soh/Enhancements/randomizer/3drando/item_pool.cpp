@@ -1,5 +1,6 @@
 #include "item_pool.hpp"
 
+#include <compat.h>
 #include "../dungeon.h"
 #include "fill.hpp"
 #include "../static_data.h"
