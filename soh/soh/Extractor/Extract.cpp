@@ -5,6 +5,10 @@
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 #endif
+
+#ifdef __EMSCRIPTEN__
+#include <compat.h>
+#endif
 #include "Extract.h"
 #include "portable-file-dialogs.h"
 #include <utils/binarytools/BitConverter.h>

@@ -16,9 +16,11 @@
 #define DR_FLAC_IMPLEMENTATION
 #include <dr_flac.h>
 
+#ifndef __EMSCRIPTEN__
 #include <ogg/ogg.h>
 #include <vorbis/codec.h>
 #include "vorbis/vorbisfile.h"
+#endif
 #include <tinyxml2.h>
 
 struct OggFileData {
@@ -47,6 +49,7 @@ static size_t VorbisReadCallback(void* out, size_t size, size_t elems, void* src
     return toRead / size;
 }
 
+#ifndef __EMSCRIPTEN__
 static int VorbisSeekCallback(void* src, ogg_int64_t pos, int whence) {
     OggFileData* data = static_cast<OggFileData*>(src);
     size_t newPos;
@@ -116,6 +119,7 @@ static OggType GetOggType(OggFileData* data) {
     ogg_sync_clear(&oy);
     return type;
 }
+#endif
 
 static void Mp3DecoderWorker(std::shared_ptr<SOH::AudioSample> audioSample, std::shared_ptr<Ship::File> sampleFile) {
     drmp3 mp3;
@@ -138,6 +142,7 @@ static void FlacDecoderWorker(std::shared_ptr<SOH::AudioSample> audioSample, std
     drflac_close(flac);
 }
 
+#ifndef __EMSCRIPTEN__
 static void OggDecoderWorker(std::shared_ptr<SOH::AudioSample> audioSample, std::shared_ptr<Ship::File> sampleFile,
                              std::shared_ptr<Ship::ResourceInitData> initData) {
     OggVorbis_File vf;
@@ -188,6 +193,14 @@ static void OggDecoderWorker(std::shared_ptr<SOH::AudioSample> audioSample, std:
         }
     }
 }
+#else
+// Emscripten stub for OggDecoderWorker
+static void OggDecoderWorker(std::shared_ptr<SOH::AudioSample> audioSample, std::shared_ptr<Ship::File> sampleFile,
+                             std::shared_ptr<Ship::ResourceInitData> initData) {
+    // No-op for Emscripten - Ogg/Vorbis not supported
+    throw std::runtime_error("Ogg/Vorbis not supported in Emscripten build");
+}
+#endif
 
 namespace SOH {
 std::shared_ptr<Ship::IResource>

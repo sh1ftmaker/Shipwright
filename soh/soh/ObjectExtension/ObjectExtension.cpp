@@ -15,10 +15,13 @@ void ObjectExtension::Free(const void* object) {
         return;
     }
 
-    std::erase_if(Data, [&object](const auto& iter) {
-        auto const& [key, value] = iter;
-        return key.first == object;
-    });
+    for (auto iter = Data.begin(); iter != Data.end();) {
+        if (iter->first.first == object) {
+            iter = Data.erase(iter);
+        } else {
+            ++iter;
+        }
+    }
 }
 
 extern "C" void ObjectExtension_Free(const void* object) {

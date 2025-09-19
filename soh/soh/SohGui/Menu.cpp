@@ -1,6 +1,7 @@
 #include "Menu.h"
 #include <compat.h>
 #include "UIWidgets.hpp"
+#include <algorithm>
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/controls/SohInputEditorWindow.h"
 #include "window/gui/GuiMenuBar.h"
@@ -93,7 +94,11 @@ void Menu::RemoveSidebarSearch() {
     uint32_t curIndex = GetVectorIndexOf(menuEntries["Settings"].sidebarOrder,
                                          CVarGetString(menuEntries["Settings"].sidebarCvar, "General"));
     menuEntries["Settings"].sidebars.erase("Search");
-    std::erase_if(menuEntries["Settings"].sidebarOrder, [](std::string& name) { return name == "Search"; });
+    menuEntries["Settings"].sidebarOrder.erase(
+        std::remove_if(menuEntries["Settings"].sidebarOrder.begin(),
+                      menuEntries["Settings"].sidebarOrder.end(),
+                      [](std::string& name) { return name == "Search"; }),
+        menuEntries["Settings"].sidebarOrder.end());
     if (curIndex > searchSidebarIndex) {
         curIndex--;
     } else if (curIndex >= menuEntries["Settings"].sidebarOrder.size()) {
@@ -570,7 +575,7 @@ void Menu::DrawElement() {
 
     if (navigateToWidget) {
         if (MAP_CONTAINS(menuEntries, navigateMainEntry) &&
-            menuEntries.at(navigateMainEntry).MAP_CONTAINS(sidebars, navigateSidebar)) {
+            MAP_CONTAINS(menuEntries.at(navigateMainEntry).sidebars, navigateSidebar)) {
             menuSearch.Clear();
             CVarSetString(headerCvar, navigateMainEntry);
             const char* sidebarCvar = menuEntries.at(navigateMainEntry).sidebarCvar;
@@ -823,7 +828,7 @@ void Menu::DrawElement() {
     const char* sidebarCvar = menuEntries.at(headerIndex).sidebarCvar;
 
     std::string sectionIndex = CVarGetString(sidebarCvar, "");
-    if (!sidebar->contains(sectionIndex)) {
+    if (!MAP_CONTAINS(*sidebar, sectionIndex)) {
         sectionIndex = menuEntries.at(headerIndex).sidebarOrder.at(0);
     }
     float sectionCenterX = pos.x + (sidebarWidth / 2);
@@ -899,8 +904,8 @@ void Menu::DrawElement() {
         }
     } else {
         std::string menuLabel = menuEntries.at(headerIndex).label;
-        if (MenuInit::GetUpdateFuncs().contains(menuLabel)) {
-            if (MenuInit::GetUpdateFuncs()[menuLabel].contains(sectionIndex)) {
+        if (MAP_CONTAINS(MenuInit::GetUpdateFuncs(), menuLabel)) {
+            if (MAP_CONTAINS(MenuInit::GetUpdateFuncs()[menuLabel], sectionIndex)) {
                 for (auto& updateFunc : MenuInit::GetUpdateFuncs()[menuLabel][sectionIndex]) {
                     updateFunc();
                 }

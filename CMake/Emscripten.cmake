@@ -30,11 +30,8 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 set(EMSCRIPTEN_FLAGS "")
 list(APPEND EMSCRIPTEN_FLAGS
     "-s USE_SDL=2"
-    "-s USE_SDL_NET=2"
     "-s USE_ZLIB=1"
     "-s USE_LIBPNG=1"
-    "-s USE_OGG=1"
-    "-s USE_VORBIS=1"
     "-s USE_WEBGL2=1"
     "-s FULL_ES3=1"
     "-s ALLOW_MEMORY_GROWTH=1"

@@ -469,7 +469,7 @@ extern "C" SkeletonHeader* ResourceMgr_LoadSkeletonByName(const char* path, Skel
     std::string pathStr = std::string(path);
     static const std::string sOtr = "__OTR__";
 
-    if (pathStr.starts_with(sOtr)) {
+    if (pathStr.substr(0, sOtr.length()) == sOtr) {
         pathStr = pathStr.substr(sOtr.length());
     }
 

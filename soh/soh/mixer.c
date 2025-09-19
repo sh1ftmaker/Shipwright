@@ -104,9 +104,12 @@ void aLoadBufferImpl(const void* source_addr, uint16_t dest_addr, uint16_t nbyte
 #endif
 }
 
+#ifndef __EMSCRIPTEN__
 #include <opus/opus.h>
 #include <opusfile.h>
+#endif
 
+#ifndef __EMSCRIPTEN__
 void aOPUSdecImpl(void* source_addr, uint16_t dest_addr, uint16_t nbytes, struct OggOpusFile** decState, int32_t pos,
                   uint32_t size) {
     int readSamples = 0;
@@ -130,6 +133,17 @@ void aOPUSdecImpl(void* source_addr, uint16_t dest_addr, uint16_t nbytes, struct
 void aOPUSFree(struct OggOpusFile* opusFile) {
     op_free(opusFile);
 }
+#else
+// Emscripten stubs for Opus functions
+void aOPUSdecImpl(void* source_addr, uint16_t dest_addr, uint16_t nbytes, struct OggOpusFile** decState, int32_t pos,
+                  uint32_t size) {
+    // No-op for Emscripten - Opus not supported
+}
+
+void aOPUSFree(struct OggOpusFile* opusFile) {
+    // No-op for Emscripten
+}
+#endif
 
 void aSaveBufferImpl(uint16_t source_addr, int16_t* dest_addr, uint16_t nbytes) {
     memcpy(dest_addr, BUF_S16(source_addr), ROUND_DOWN_16(nbytes));
