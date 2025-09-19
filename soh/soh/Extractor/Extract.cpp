@@ -611,7 +611,14 @@ std::string Extractor::Mkdtemp() {
     return tmppath;
 }
 
+#ifndef __EMSCRIPTEN__
 extern "C" int zapd_main(int argc, char** argv);
+#else
+// Emscripten stub for zapd_main - asset extraction not supported in web builds
+extern "C" int zapd_main(int argc, char** argv) {
+    return -1; // Indicate failure/not supported
+}
+#endif
 static void MessageboxWorker();
 
 bool Extractor::CallZapd(std::string installPath, std::string exportdir) {
