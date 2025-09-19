@@ -99,6 +99,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # Emscripten-specific settings
     set(USE_OPENGLES ON CACHE BOOL "Use OpenGL ES for Emscripten" FORCE)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    # Add pthread support globally for Emscripten
+    add_compile_options(-pthread -s PTHREAD_POOL_SIZE=4)
+    add_link_options(-pthread -s PTHREAD_POOL_SIZE=4)
 endif()
 
 ################################################################################

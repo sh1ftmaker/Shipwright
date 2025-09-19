@@ -256,7 +256,7 @@
         }
 
         async function downloadOTR() {
-            updateStatus('Checking for OTR files...');
+            updateStatus('Loading required OTR files...');
 
             // Try to fetch pre-built OTR files
             const otrFiles = ['oot.o2r', 'soh.o2r'];
@@ -264,6 +264,7 @@
 
             for (const fileName of otrFiles) {
                 try {
+                    updateStatus(`Loading ${fileName}...`);
                     const response = await fetch(fileName);
                     if (response.ok) {
                         const data = await response.arrayBuffer();
@@ -272,19 +273,25 @@
                         if (Module && Module.FS) {
                             Module.FS.writeFile('/' + fileName, uint8Array);
                             loadedCount++;
-                            updateStatus(`Loaded ${fileName}`);
+                            updateStatus(`Loaded ${fileName} successfully`);
                         }
+                    } else {
+                        console.error(`Failed to fetch ${fileName}: ${response.status} ${response.statusText}`);
+                        updateStatus(`Error: Could not load ${fileName} (${response.status})`);
+                        return false;
                     }
                 } catch (error) {
-                    console.log(`Could not fetch ${fileName}:`, error);
+                    console.error(`Error fetching ${fileName}:`, error);
+                    updateStatus(`Error: Could not load ${fileName}`);
+                    return false;
                 }
             }
 
-            if (loadedCount > 0) {
-                updateStatus('OTR files loaded');
+            if (loadedCount === otrFiles.length) {
+                updateStatus('All OTR files loaded successfully');
                 return true;
             } else {
-                updateStatus('Please select a ROM file to generate assets');
+                updateStatus(`Error: Only ${loadedCount}/${otrFiles.length} OTR files loaded`);
                 return false;
             }
         }
@@ -311,16 +318,20 @@
                 postRun: [
                     async function() {
                         updateStatus('Game initialized');
-                        document.getElementById('loading-overlay').classList.add('hidden');
-                        document.getElementById('controls').classList.remove('hidden');
 
                         // Focus canvas for input
                         document.getElementById('canvas').focus();
 
-                        // Check for OTR files
+                        // Automatically load OTR files
                         const hasOTR = await downloadOTR();
-                        if (!hasOTR) {
+                        if (hasOTR) {
+                            document.getElementById('loading-overlay').classList.add('hidden');
+                            document.getElementById('controls').classList.remove('hidden');
+                            updateStatus('Ready to play!');
+                        } else {
+                            // Show file input as fallback if OTR files can't be loaded
                             document.getElementById('file-input').classList.remove('hidden');
+                            updateStatus('Could not load OTR files - please select a ROM file');
                         }
                     }
                 ],
@@ -404,10 +415,10 @@
         });
     </script>
 
-    <!-- Load the compiled JavaScript -->
-    <script async type="text/javascript" src="soh.js"></script>
+    <!-- Emscripten will inject the compiled JavaScript here -->
+    {{{ SCRIPT }}}
     <script>
-        // Initialize Module when script loads
+        // Initialize Module after Emscripten loads
         if (typeof createModule !== 'undefined') {
             Module = createModule();
         }
