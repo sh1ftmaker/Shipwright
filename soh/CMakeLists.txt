@@ -629,29 +629,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     )
 
     # Emscripten linker settings
-    target_link_options(${PROJECT_NAME} PRIVATE
-        -s USE_SDL=2
-        -s USE_ZLIB=1
-        -s USE_LIBPNG=1
-        -s USE_WEBGL2=1
-        -s FULL_ES3=1
-        -s ALLOW_MEMORY_GROWTH=1
-        -s MAXIMUM_MEMORY=4GB
-        -s INITIAL_MEMORY=512MB
-        -s ASSERTIONS=1
-        -s WASM=1
-        -s ASYNCIFY=1
-        -s FETCH=1
-        -s FORCE_FILESYSTEM=1
-        -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS','IDBFS']"
-        -s "EXPORTED_FUNCTIONS=['_main','_malloc','_free']"
-        -s ENVIRONMENT=web
-        -s MODULARIZE=1
-        -s "EXPORT_NAME='createModule'"
-        -s SINGLE_FILE=0
-        --preload-file ${CMAKE_SOURCE_DIR}/soh/assets@/assets
-        -lidbfs.js
-        --shell-file ${CMAKE_SOURCE_DIR}/web/index.html
+    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY LINK_FLAGS
+        " -s USE_SDL=2 -s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_WEBGL2=1 -s FULL_ES3=1 -s ALLOW_MEMORY_GROWTH=1 -s MAXIMUM_MEMORY=4GB -s INITIAL_MEMORY=512MB -s ASSERTIONS=1 -s WASM=1 -s ASYNCIFY=1 -s FETCH=1 -s FORCE_FILESYSTEM=1 -s \"EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS','IDBFS']\" -s \"EXPORTED_FUNCTIONS=['_main','_malloc','_free']\" -s ENVIRONMENT=web -s MODULARIZE=1 -s \"EXPORT_NAME='createModule'\" -s SINGLE_FILE=0 --preload-file ${CMAKE_SOURCE_DIR}/soh/assets@/assets -lidbfs.js --shell-file ${CMAKE_SOURCE_DIR}/web/index.html"
     )
 endif()
 ################################################################################
