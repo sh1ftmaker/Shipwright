@@ -5,7 +5,9 @@
 #pragma comment(lib, "Shlwapi.lib")
 #endif
 #include "Extract.h"
+#ifndef __EMSCRIPTEN__
 #include "portable-file-dialogs.h"
+#endif
 #include <ship/utils/binarytools/BitConverter.h>
 #include "soh/ShipUtils.h"
 #include "variables.h"
@@ -41,7 +43,9 @@
 
 #include <stdlib.h>
 
+#ifndef __EMSCRIPTEN__
 #include <SDL2/SDL_messagebox.h>
+#endif
 
 #include <array>
 #include <fstream>
@@ -110,7 +114,9 @@ enum class ButtonId : int {
 };
 
 void Extractor::ShowErrorBox(const char* title, const char* text) {
-#ifdef _WIN32
+#ifdef __EMSCRIPTEN__
+    fprintf(stderr, "[Extractor] %s: %s\n", title, text);
+#elif defined(_WIN32)
     MessageBoxA(nullptr, text, title, MB_OK | MB_ICONERROR);
 #else
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, text, nullptr);
@@ -136,6 +142,10 @@ void Extractor::ShowCompressedErrorBox() const {
 }
 
 int Extractor::ShowRomPickBox(uint32_t verCrc) const {
+#ifdef __EMSCRIPTEN__
+    // On web, always accept the ROM automatically
+    return (int)ButtonId::YES;
+#else
     std::unique_ptr<char[]> boxBuffer = std::make_unique<char[]>(mCurrentRomPath.size() + 100);
     SDL_MessageBoxData boxData = { 0 };
     SDL_MessageBoxButtonData buttons[3] = { { 0 } };
@@ -162,11 +172,15 @@ int Extractor::ShowRomPickBox(uint32_t verCrc) const {
 
     SDL_ShowMessageBox(&boxData, &ret);
     return ret;
+#endif
 }
 
 int Extractor::ShowYesNoBox(const char* title, const char* box) {
     int ret;
-#ifdef _WIN32
+#ifdef __EMSCRIPTEN__
+    fprintf(stderr, "[Extractor] %s: %s\n", title, box);
+    ret = IDYES;
+#elif defined(_WIN32)
     ret = MessageBoxA(nullptr, box, title, MB_YESNO | MB_ICONQUESTION);
 #else
     SDL_MessageBoxData boxData = { 0 };
@@ -280,7 +294,10 @@ void Extractor::GetRoms(std::vector<std::string>& roms) {
 }
 
 bool Extractor::GetRomPathFromBox() {
-#ifdef _WIN32
+#ifdef __EMSCRIPTEN__
+    // On web, ROM path is set directly by the JS bridge
+    return false;
+#elif defined(_WIN32)
     OPENFILENAMEA box = { 0 };
     char nameBuffer[512];
     nameBuffer[0] = 0;
@@ -619,6 +636,12 @@ const char* Extractor::GetZapdVerStr() const {
 }
 
 std::string Extractor::Mkdtemp() {
+#ifdef __EMSCRIPTEN__
+    // On Emscripten, use MEMFS /tmp directly
+    std::string tmppath = "/tmp/zapd-extract";
+    std::filesystem::create_directories(tmppath);
+    return tmppath;
+#else
     std::string temp_dir = std::filesystem::temp_directory_path().string();
 
     // create 6 random alphanumeric characters
@@ -633,6 +656,7 @@ std::string Extractor::Mkdtemp() {
     std::string tmppath = temp_dir + "/extractor-" + randchr;
     std::filesystem::create_directory(tmppath);
     return tmppath;
+#endif
 }
 
 extern "C" int zapd_report(int argc, char** argv, std::atomic<size_t>* extractCount, std::atomic<size_t>* totalExtract);
@@ -648,6 +672,20 @@ bool Extractor::CallZapd(std::string installPath, std::string exportdir, std::at
     const char* version = GetZapdVerStr();
     const char* otrFile = IsMasterQuest() ? "oot-mq.o2r" : "oot.o2r";
 
+#ifdef __EMSCRIPTEN__
+    // On Emscripten, assets are preloaded at /assets/ and ROM is already in MEMFS
+    std::string romPath = mCurrentRomPath;
+    std::string tempdir = Mkdtemp();
+    std::string curdir = "/";
+
+    // Assets are already available at /assets/ via --preload-file
+    // Create symlink from tempdir to the preloaded assets
+    if (!std::filesystem::exists(tempdir + "/assets")) {
+        std::filesystem::create_symlink("/assets", tempdir + "/assets");
+    }
+
+    std::filesystem::current_path(tempdir);
+#else
     std::string romPath = std::filesystem::absolute(mCurrentRomPath).string();
     installPath = std::filesystem::absolute(installPath).string();
     exportdir = std::filesystem::absolute(exportdir).string();
@@ -662,6 +700,7 @@ bool Extractor::CallZapd(std::string installPath, std::string exportdir, std::at
 #endif
 
     std::filesystem::current_path(tempdir);
+#endif // __EMSCRIPTEN__
 
     snprintf(xmlPath, 1024, "assets/xml/%s", version);
     snprintf(confPath, 1024, "assets/Config_%s.xml", version);
@@ -692,7 +731,15 @@ bool Extractor::CallZapd(std::string installPath, std::string exportdir, std::at
 
     zapd_report(argc, (char**)argv.data(), extractCount, totalExtract);
 
+#ifdef __EMSCRIPTEN__
+    // Copy output to the target path
+    std::string outputFile = std::string(otrFile);
+    if (std::filesystem::exists(outputFile)) {
+        std::filesystem::copy(outputFile, exportdir + "/" + otrFile, std::filesystem::copy_options::overwrite_existing);
+    }
+#else
     std::filesystem::copy(otrFile, exportdir + "/" + otrFile, std::filesystem::copy_options::overwrite_existing);
+#endif
 
     // Go back to where this game was executed from
     std::filesystem::current_path(curdir);
@@ -701,9 +748,12 @@ bool Extractor::CallZapd(std::string installPath, std::string exportdir, std::at
     return false;
 }
 
+
 static void MessageboxWorker() {
+#ifndef __EMSCRIPTEN__
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Extracting",
                              "Extraction will now begin in the background.\n\nPlease be patient for the process to "
                              "finish. Do not close the main program.",
                              nullptr);
+#endif
 }

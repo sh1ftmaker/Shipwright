@@ -27,6 +27,21 @@ void web_save_to_idb(void);
  */
 void web_fs_init(void);
 
+/**
+ * Extracts a .z64 ROM file into a .o2r archive using ZAPD.
+ * @param romPath   Path to the ROM in MEMFS (e.g., "/rom.z64")
+ * @param outputPath Path for the output .o2r file (e.g., "/oot.o2r")
+ * @return 0 on success, negative error code on failure
+ */
+int web_extract_rom(const char* romPath, const char* outputPath);
+
+/**
+ * Returns the ROM version string for a given ROM file.
+ * @param romPath Path to the ROM in MEMFS
+ * @return Static string with version info (e.g., "Vanilla", "MQ Master Quest")
+ */
+const char* web_get_rom_version(const char* romPath);
+
 #ifdef __cplusplus
 }
 #endif

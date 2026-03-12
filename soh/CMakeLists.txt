@@ -93,10 +93,8 @@ if (NOT TARGET libultraship)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../libultraship ${CMAKE_BINARY_DIR}/libultraship)
 endif()
 
-if (NOT BUILD_FOR_WEB)
-    if (NOT TARGET ZAPDLib)
-        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../ZAPDTR/ZAPD ${CMAKE_BINARY_DIR}/ZAPD)
-    endif()
+if (NOT TARGET ZAPDLib)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../ZAPDTR/ZAPD ${CMAKE_BINARY_DIR}/ZAPD)
 endif()
 
 set(PROJECT_NAME soh)
@@ -158,9 +156,8 @@ else()
     list(FILTER soh__ EXCLUDE REGEX "soh/Enhancements/speechsynthesizer/(Darwin|SAPI)")
 endif()
 
-# For Emscripten, exclude extractor and add web sources
+# For Emscripten, exclude network modules (but keep Extractor for ROM extraction)
 if(BUILD_FOR_WEB)
-    list(FILTER soh__ EXCLUDE REGEX "soh/Extractor/")
     list(FILTER soh__ EXCLUDE REGEX "soh/Network/CrowdControl/")
     list(FILTER soh__ EXCLUDE REGEX "soh/Network/Sail/")
 endif()
@@ -173,7 +170,7 @@ endif()
 # soh/Extractor {{{
 list(FILTER ship__ EXCLUDE REGEX "soh/Extractor/*")
 
-if(NOT CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch|CafeOS" AND NOT BUILD_FOR_WEB)
+if(NOT CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch|CafeOS")
     file(GLOB_RECURSE soh__Extractor RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
         "soh/Extractor/*.c"
         "soh/Extractor/*.cpp"
@@ -596,6 +593,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
             target_compile_options(${PROJECT_NAME} PRIVATE
                 -sUSE_OGG=1
                 -sUSE_VORBIS=1
+                -sUSE_LIBPNG=1
                 -w
                 -Wno-c++11-narrowing
                 -Wno-narrowing
@@ -615,6 +613,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
                 -sUSE_ZLIB=1
                 -sUSE_OGG=1
                 -sUSE_VORBIS=1
+                -sUSE_LIBPNG=1
                 -sWASM=1
                 -sASSERTIONS=1
                 -sALLOW_MEMORY_GROWTH=1
@@ -625,10 +624,12 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
                 -sFULL_ES2=1
                 -sFORCE_FILESYSTEM=1
                 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,allocateUTF8
-                -sEXPORTED_FUNCTIONS=_main,_web_otr_loaded,_web_get_otr_status,_web_save_to_idb,_web_fs_init,_malloc,_free
+                -sEXPORTED_FUNCTIONS=_main,_web_otr_loaded,_web_get_otr_status,_web_save_to_idb,_web_fs_init,_web_extract_rom,_web_get_rom_version,_malloc,_free
                 -lidbfs.js
                 -lwebsocket.js
                 --shell-file=${CMAKE_CURRENT_SOURCE_DIR}/soh/web/shell.html
+                --preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets/xml@assets/xml
+                --preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets/extractor@assets
             )
         else()
             if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
@@ -693,7 +694,7 @@ endif()
 add_dependencies(${PROJECT_NAME}
     libultraship
 )
-if(NOT CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch|CafeOS" AND NOT BUILD_FOR_WEB)
+if(NOT CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch|CafeOS")
 add_dependencies(${PROJECT_NAME}
     ZAPDLib
 )
@@ -769,6 +770,8 @@ elseif(BUILD_FOR_WEB)
     # Emscripten provides SDL2 and other libraries as ports
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "libultraship;"
+        "ZAPDLib;"
+        "OTRExporter;"
     )
 else()
     find_package(SDL2)

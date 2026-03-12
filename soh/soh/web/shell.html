@@ -140,9 +140,9 @@
 
     <div id="otr-picker" onclick="document.getElementById('otr-file').click()">
       <p>Click or drag to load game files</p>
-      <p class="hint">Requires oot.otr (or .o2r) and soh.o2r</p>
+      <p class="hint">Requires soh.o2r and either oot.o2r or a .z64 ROM</p>
     </div>
-    <input type="file" id="otr-file" accept=".otr,.o2r" multiple>
+    <input type="file" id="otr-file" accept=".otr,.o2r,.z64,.n64,.v64" multiple>
 
     <div id="progress-container">
       <div id="progress-bar-outer">
@@ -234,6 +234,11 @@
       document.getElementById('progress-container').style.display = 'flex';
     }
 
+    function hideProgress() {
+      document.getElementById('otr-picker').style.display = '';
+      document.getElementById('progress-container').style.display = 'none';
+    }
+
     function hideOverlay() {
       var el = document.getElementById('overlay');
       if (el.classList.contains('hidden')) return;
@@ -303,6 +308,76 @@
       waitForGameRender();
     }
 
+    // ---- ROM detection helpers ----
+
+    function isRomFile(name) {
+      var ext = name.toLowerCase().split('.').pop();
+      return ext === 'z64' || ext === 'n64' || ext === 'v64';
+    }
+
+    function extractRomInBrowser(romArrayBuffer, romFileName) {
+      setStatus('Writing ROM to virtual filesystem...');
+      setProgress(20);
+
+      var romData = new Uint8Array(romArrayBuffer);
+      try {
+        FS.writeFile('/rom.z64', romData);
+      } catch (e) {
+        showError('Failed to write ROM to virtual filesystem: ' + e.message);
+        hideProgress();
+        return;
+      }
+
+      setStatus('Extracting ROM assets... This may take several minutes.');
+      setProgress(30);
+
+      // Run extraction (synchronous — ZAPD runs single-threaded)
+      // Use setTimeout to allow the UI to update before blocking
+      setTimeout(function() {
+        var romPathPtr = Module.allocateUTF8('/rom.z64');
+        var outPathPtr = Module.allocateUTF8('/oot.o2r');
+        var result = Module._web_extract_rom(romPathPtr, outPathPtr);
+        Module._free(romPathPtr);
+        Module._free(outPathPtr);
+
+        if (result < 0) {
+          showError('ROM extraction failed (error ' + result + '). Check the browser console for details.');
+          hideProgress();
+          try { FS.unlink('/rom.z64'); } catch(e) {}
+          return;
+        }
+
+        // result: 0 = vanilla (oot.o2r), 1 = MQ (oot-mq.o2r)
+        var actualOutputName = result === 1 ? 'oot-mq.o2r' : 'oot.o2r';
+        var actualOutputPath = '/' + actualOutputName;
+
+        setStatus('Caching extracted archive...');
+        setProgress(80);
+
+        // Read the generated .o2r from MEMFS and cache it
+        try {
+          var o2rData = FS.readFile(actualOutputPath);
+          var o2rBuffer = o2rData.buffer;
+
+          cacheFile(actualOutputName, o2rBuffer).then(function() {
+            console.log('[Web] Cached ' + actualOutputName + ' to IndexedDB (' + o2rData.length + ' bytes)');
+            // Clean up ROM from MEMFS (save memory)
+            try { FS.unlink('/rom.z64'); } catch(e) {}
+            setProgress(90);
+            setStatus('Extraction complete.');
+            finalizeOtrLoad();
+          }).catch(function(err) {
+            console.warn('[Web] Failed to cache ' + actualOutputName + ':', err);
+            try { FS.unlink('/rom.z64'); } catch(e) {}
+            finalizeOtrLoad();
+          });
+        } catch (e) {
+          showError('Failed to read extracted archive: ' + e.message);
+          hideProgress();
+        }
+      }, 50);
+    }
+
     // ---- File handler ----
 
     function handleOtrFiles(files) {
@@ -311,33 +386,69 @@
       setStatus('Reading game files...');
       setProgress(10);
 
-      var processed = 0;
-      var total = files.length;
+      var romFiles = [];
+      var otrFiles = [];
 
       for (var i = 0; i < files.length; i++) {
+        if (isRomFile(files[i].name)) {
+          romFiles.push(files[i]);
+        } else {
+          otrFiles.push(files[i]);
+        }
+      }
+
+      var processed = 0;
+      var totalOtr = otrFiles.length;
+      var pendingRom = romFiles.length > 0 ? romFiles[0] : null;
+
+      function onAllOtrProcessed() {
+        if (pendingRom) {
+          // Read and extract the ROM after OTR files are loaded
+          setStatus('Reading ROM file...');
+          setProgress(15);
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            extractRomInBrowser(e.target.result, pendingRom.name);
+          };
+          reader.onerror = function() {
+            showError('Failed to read ROM file: ' + pendingRom.name);
+            hideProgress();
+          };
+          reader.readAsArrayBuffer(pendingRom);
+        } else {
+          setProgress(90);
+          setStatus('All files loaded.');
+          finalizeOtrLoad();
+        }
+      }
+
+      if (totalOtr === 0) {
+        onAllOtrProcessed();
+        return;
+      }
+
+      for (var i = 0; i < otrFiles.length; i++) {
         (function(file) {
           var reader = new FileReader();
           reader.onload = function(e) {
             var buf = e.target.result;
             var name = file.name.toLowerCase();
 
-            setProgress(10 + (processed / total) * 60);
+            setProgress(10 + (processed / totalOtr) * 60);
             setStatus('Caching ' + file.name + '...');
 
             // Cache for future visits
             cacheFile(name, buf).then(function() {
               writeOtrToFS(name, buf);
               processed++;
-              if (processed === total) {
-                setProgress(90);
-                setStatus('All files loaded.');
-                finalizeOtrLoad();
+              if (processed === totalOtr) {
+                onAllOtrProcessed();
               }
             }).catch(function() {
               writeOtrToFS(name, buf);
               processed++;
-              if (processed === total) {
-                finalizeOtrLoad();
+              if (processed === totalOtr) {
+                onAllOtrProcessed();
               }
             });
           };
@@ -345,7 +456,7 @@
             showError('Failed to read ' + file.name);
           };
           reader.readAsArrayBuffer(file);
-        })(files[i]);
+        })(otrFiles[i]);
       }
     }
 
@@ -404,6 +515,74 @@
       }, 200);
       // Fallback: hide after 10 seconds
       setTimeout(function() { clearInterval(checkInterval); hideOverlay(); }, 10000);
+    }
+
+    // ---- URL hash parameter: #rom=URL ----
+
+    function getHashParams() {
+      var params = {};
+      var hash = window.location.hash.substring(1);
+      if (!hash) return params;
+      hash.split('&').forEach(function(part) {
+        var eq = part.indexOf('=');
+        if (eq > 0) {
+          params[decodeURIComponent(part.substring(0, eq))] = decodeURIComponent(part.substring(eq + 1));
+        }
+      });
+      return params;
+    }
+
+    function fetchRomFromUrl(url) {
+      showProgress();
+      setStatus('Downloading ROM from URL...');
+      setProgress(5);
+      console.log('[Web] Fetching ROM from: ' + url);
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'arraybuffer';
+
+      xhr.onprogress = function(e) {
+        if (e.lengthComputable) {
+          var pct = Math.round((e.loaded / e.total) * 100);
+          setProgress(5 + pct * 0.4);
+          setStatus('Downloading ROM... ' + pct + '%');
+        }
+      };
+
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          console.log('[Web] ROM downloaded: ' + xhr.response.byteLength + ' bytes');
+          setStatus('ROM downloaded. Preparing extraction...');
+          setProgress(50);
+
+          // Determine filename from URL or use default
+          var urlPath = url.split('?')[0].split('#')[0];
+          var fileName = urlPath.split('/').pop() || 'rom.z64';
+          if (!isRomFile(fileName)) fileName = 'rom.z64';
+
+          extractRomInBrowser(xhr.response, fileName);
+        } else {
+          showError('Failed to download ROM: HTTP ' + xhr.status);
+          hideProgress();
+        }
+      };
+
+      xhr.onerror = function() {
+        showError('Failed to download ROM. Check CORS and URL.');
+        hideProgress();
+      };
+
+      xhr.send();
+    }
+
+    function checkHashRom() {
+      var params = getHashParams();
+      if (params.rom) {
+        fetchRomFromUrl(params.rom);
+        return true;
+      }
+      return false;
     }
 
     // ---- Check for cached OTR files on load ----
@@ -478,7 +657,10 @@
 
       onRuntimeInitialized: function() {
         setStatus('Runtime initialized. Checking for game files...');
-        checkCachedOtr();
+        // Check URL hash for ROM parameter first, then fall back to cached files
+        if (!checkHashRom()) {
+          checkCachedOtr();
+        }
       },
 
       locateFile: function(path) {
