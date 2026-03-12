@@ -36,12 +36,7 @@ jobs:
         uses: mymindstorm/setup-emsdk@v14
         with:
           version: 3.1.64
-
-      - name: Cache Emscripten system libs
-        uses: actions/cache@v4
-        with:
-          path: ~/.emscripten_cache
-          key: emsdk-3.1.64-${{ runner.os }}
+          actions-cache-folder: emsdk-cache
 
       - name: Cache CMake build objects
         uses: actions/cache@v4
@@ -53,11 +48,6 @@ jobs:
 
       - name: Verify Emscripten
         run: emcc --version
-
-      - name: Clean stale CMake cache
-        run: |
-          rm -f build-web/CMakeCache.txt
-          rm -rf build-web/CMakeFiles
 
       - name: Configure CMake
         run: |
