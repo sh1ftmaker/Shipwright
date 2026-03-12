@@ -48,9 +48,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build-web
-          key: build-web-${{ runner.os }}-${{ hashFiles('soh/**', 'libultraship/**', 'CMakeLists.txt', 'soh/CMakeLists.txt') }}
+          key: build-web-${{ runner.os }}
           restore-keys: |
-            build-web-${{ runner.os }}-
+            build-web-${{ runner.os }}
 
       - name: Verify Emscripten
         run: emcc --version
