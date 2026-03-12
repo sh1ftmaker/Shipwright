@@ -571,15 +571,11 @@ static void RunFrameWeb(void) {
     }
 
     // Game tick rate depends on R_UPDATE_RATE (changes with game state).
-    // Base rate is always 20fps (R_UPDATE_RATE=3). Lower R_UPDATE_RATE
-    // means faster updates: tick_fps = 20 * (3 / R_UPDATE_RATE).
-    //   =3 → 20fps (normal gameplay)
-    //   =2 → 30fps (pause menu)
-    //   =1 → 60fps (file select)
+    // R_UPDATE_RATE counts display frames between game logic updates.
+    // Derived from the measured rAF rate so it adapts to any refresh rate.
     int updateRate = R_UPDATE_RATE;
     if (updateRate < 1) updateRate = 1;
-    if (updateRate > 3) updateRate = 3;
-    double gameTickTime = (double)updateRate / (20.0 * 3.0);
+    double gameTickTime = (double)updateRate / (double)gWebMeasuredFPS;
 
     double elapsed = now - sLastTickTime;
 
