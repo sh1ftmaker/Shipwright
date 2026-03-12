@@ -522,7 +522,10 @@ static void RunFrame() {
 
 
 #ifdef __EMSCRIPTEN__
-// OoT game logic runs at 20fps (R_UPDATE_RATE=3, 60/3=20).
+// OoT game logic runs at 60/R_UPDATE_RATE fps:
+//   R_UPDATE_RATE=3 → 20fps (normal gameplay)
+//   R_UPDATE_RATE=2 → 30fps (pause menu)
+//   R_UPDATE_RATE=1 → 60fps (file select, title)
 // rAF fires at display refresh rate. We accumulate time and only
 // step game logic when a full game tick has elapsed.
 //
@@ -531,8 +534,6 @@ static void RunFrame() {
 //    to render 1 frame with identity matrices and return immediately.
 // 2. Every rAF, we re-render the last display list with an interpolation
 //    delta_frac that smoothly goes 0→1 between game ticks.
-#define OOT_GAME_HZ 20
-static const double sGameTickTime = 1.0 / (double)OOT_GAME_HZ;
 static double sLastTickTime = 0;
 static Gfx* sLastDisplayList = NULL;
 static bool sGameTickReady = false;
@@ -569,16 +570,27 @@ static void RunFrameWeb(void) {
         sLastTickTime = now;
     }
 
+    // Game tick rate depends on R_UPDATE_RATE (changes with game state).
+    // Base rate is always 20fps (R_UPDATE_RATE=3). Lower R_UPDATE_RATE
+    // means faster updates: tick_fps = 20 * (3 / R_UPDATE_RATE).
+    //   =3 → 20fps (normal gameplay)
+    //   =2 → 30fps (pause menu)
+    //   =1 → 60fps (file select)
+    int updateRate = R_UPDATE_RATE;
+    if (updateRate < 1) updateRate = 1;
+    if (updateRate > 3) updateRate = 3;
+    double gameTickTime = (double)updateRate / (20.0 * 3.0);
+
     double elapsed = now - sLastTickTime;
 
-    // Step 1: Run game logic at 20Hz when enough time has accumulated.
+    // Step 1: Run game logic at 60/R_UPDATE_RATE Hz when enough time has accumulated.
     // Graph_ProcessGfxCommands inside RunFrame is short-circuited on web
     // to render 1 frame with identity and return (like coopdx's
     // produce_interpolation_frames_and_delay on web).
-    if (elapsed >= sGameTickTime) {
-        int ticks = (int)(elapsed / sGameTickTime);
-        if (ticks > 2) {
-            ticks = 2;
+    if (elapsed >= gameTickTime) {
+        int ticks = (int)(elapsed / gameTickTime);
+        if (ticks > 3) {
+            ticks = 3;
         }
 
         for (int i = 0; i < ticks; i++) {
@@ -588,8 +600,8 @@ static void RunFrameWeb(void) {
 
         sLastDisplayList = runFrameContext.gfxCtx.workBuffer;
 
-        sLastTickTime += ticks * sGameTickTime;
-        if (now - sLastTickTime > sGameTickTime) {
+        sLastTickTime += ticks * gameTickTime;
+        if (now - sLastTickTime > gameTickTime) {
             sLastTickTime = now;
         }
 
@@ -602,7 +614,7 @@ static void RunFrameWeb(void) {
     // delta_frac goes from 0 (just after tick) to ~1 (just before next tick).
     // This smoothly interpolates between the previous and current game state.
     if (sGameTickReady && sLastDisplayList != NULL) {
-        float delta_frac = (float)(elapsed / sGameTickTime);
+        float delta_frac = (float)(elapsed / gameTickTime);
         if (delta_frac < 0.0f) delta_frac = 0.0f;
         if (delta_frac > 1.0f) delta_frac = 1.0f;
 
