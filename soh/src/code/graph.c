@@ -570,12 +570,13 @@ static void RunFrameWeb(void) {
         sLastTickTime = now;
     }
 
-    // Game tick rate depends on R_UPDATE_RATE (changes with game state).
-    // R_UPDATE_RATE counts display frames between game logic updates.
-    // Derived from the measured rAF rate so it adapts to any refresh rate.
+    // R_UPDATE_RATE is the number of N64 VI frames (60 Hz) per game logic tick.
+    // R_UPDATE_RATE=3 → 20fps gameplay, =2 → 30fps pause menu, =1 → 60fps file select.
+    // This is a fixed N64 hardware constant, NOT the display refresh rate.
+    #define N64_VI_HZ 60.0
     int updateRate = R_UPDATE_RATE;
     if (updateRate < 1) updateRate = 1;
-    double gameTickTime = (double)updateRate / (double)gWebMeasuredFPS;
+    double gameTickTime = (double)updateRate / N64_VI_HZ;
 
     double elapsed = now - sLastTickTime;
 

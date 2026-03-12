@@ -38,6 +38,21 @@ jobs:
           version: 3.1.64
           actions-cache-folder: emsdk-cache
 
+      # On cache miss, setup-emsdk runs from a random temp dir but copies to
+      # $GITHUB_WORKSPACE/emsdk-cache/. Force env to always use the workspace
+      # copy so CMakeCache.txt paths stay stable across runs.
+      - name: Pin emsdk to deterministic path
+        run: |
+          EXPECTED="$GITHUB_WORKSPACE/emsdk-cache/emsdk-main"
+          if [ "$EMSDK" != "$EXPECTED" ]; then
+            echo "Redirecting EMSDK from $EMSDK to $EXPECTED"
+            echo "EMSDK=$EXPECTED" >> $GITHUB_ENV
+            NODE_DIR=$(ls -d "$EXPECTED"/node/*/bin 2>/dev/null | head -1)
+            echo "EMSDK_NODE=$NODE_DIR/node" >> $GITHUB_ENV
+            echo "$EXPECTED" >> $GITHUB_PATH
+            echo "$EXPECTED/upstream/emscripten" >> $GITHUB_PATH
+          fi
+
       - name: Cache Emscripten system libs
         uses: actions/cache@v4
         with:
