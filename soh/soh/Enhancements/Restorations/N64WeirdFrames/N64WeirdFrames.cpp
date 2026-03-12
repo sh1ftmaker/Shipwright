@@ -9,6 +9,7 @@
 
 extern "C" {
 #include "macros.h"
+#include "variables.h"
 #include "z64player.h"
 
 #include "objects/gameplay_keep/gameplay_keep.h"

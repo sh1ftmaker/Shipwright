@@ -1,7 +1,11 @@
 name: generate-builds
 on:
   push:
+    branches-ignore:
+      - 'feature/emscripten-*'
   pull_request:
+    branches-ignore:
+      - 'feature/emscripten-*'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

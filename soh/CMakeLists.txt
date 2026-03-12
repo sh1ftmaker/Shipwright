@@ -768,10 +768,10 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "CafeOS")
     )
 elseif(BUILD_FOR_WEB)
     # Emscripten provides SDL2 and other libraries as ports
+    # Note: OTRExporter is already linked via ZAPDLib's --whole-archive
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "libultraship;"
         "ZAPDLib;"
-        "OTRExporter;"
     )
 else()
     find_package(SDL2)
