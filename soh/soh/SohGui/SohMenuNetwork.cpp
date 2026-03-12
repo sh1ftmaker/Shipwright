@@ -16,7 +16,7 @@ void SohMenu::AddMenuNetwork() {
     AddMenuEntry("Network", CVAR_SETTING("Menu.NetworkSidebarSection"));
     WidgetPath path;
 
-#ifndef ENABLE_REMOTE_CONTROL
+#if !defined(ENABLE_REMOTE_CONTROL) && !defined(__EMSCRIPTEN__)
     path = { "Network", "Info", SECTION_COLUMN_1 };
     AddSidebarEntry("Network", path.sidebarName, 2);
 
@@ -28,6 +28,7 @@ void SohMenu::AddMenuNetwork() {
     return;
 #endif
 
+#ifdef ENABLE_REMOTE_CONTROL
     // Sail
     path = { "Network", "Sail", SECTION_COLUMN_1 };
     AddSidebarEntry("Network", path.sidebarName, 3);
@@ -180,6 +181,8 @@ void SohMenu::AddMenuNetwork() {
         .RaceDisable(true)
         .Options(CheckboxOptions().Tooltip("Enemies spawned by CrowdControl won't be considered for \"clear enemy "
                                            "rooms\", so they don't need to be killed to complete these rooms."));
+#endif // ENABLE_REMOTE_CONTROL
+
     path.sidebarName = "Anchor";
     AddSidebarEntry("Network", path.sidebarName, 2);
 }
