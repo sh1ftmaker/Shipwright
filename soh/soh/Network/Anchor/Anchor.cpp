@@ -16,10 +16,10 @@ extern PlayState* gPlayState;
 void Anchor::Enable() {
 #ifdef __EMSCRIPTEN__
     // For web builds, connect via WebSocket to PartyKit server
-    // Default: ws://localhost:1999/party/default (local dev)
-    // Production: wss://soh-anchor.<user>.partykit.dev/party/<room>
+    // Production: wss://soh-anchor.zalo.partykit.dev/party/<room>
+    // Local dev: ws://localhost:1999/party/<room>
     const char* wsUrl = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"),
-                                       "ws://localhost:1999/party/default");
+                                       "wss://soh-anchor.zalo.partykit.dev/party/default");
     Network::EnableWebSocket(std::string(wsUrl));
     isEnabled = true;
 #else

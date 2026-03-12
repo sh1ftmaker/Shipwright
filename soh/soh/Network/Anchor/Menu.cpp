@@ -21,7 +21,7 @@ void AnchorMainMenu(WidgetInfo& info) {
     std::string anchorName = CVarGetString(CVAR_REMOTE_ANCHOR("Name"), "");
 
 #ifdef __EMSCRIPTEN__
-    std::string wsUrl = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), "ws://localhost:1999/party/default");
+    std::string wsUrl = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), "wss://soh-anchor.zalo.partykit.dev/party/default");
     bool isFormValid = !SohUtils::IsStringEmpty(wsUrl) && !SohUtils::IsStringEmpty(anchorName);
 #else
     std::string host = CVarGetString(CVAR_REMOTE_ANCHOR("Host"), "anchor.hm64.org");
@@ -92,7 +92,7 @@ void AnchorMainMenu(WidgetInfo& info) {
                                                   .Size(ImVec2(ImGui::GetContentRegionAvail().x / 2, 0))
                                                   .Color(UIWidgets::Colors::Red))) {
 #ifdef __EMSCRIPTEN__
-        CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), "ws://localhost:1999/party/default");
+        CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), "wss://soh-anchor.zalo.partykit.dev/party/default");
 #else
         CVarSetString(CVAR_REMOTE_ANCHOR("Host"), "anchor.hm64.org");
         CVarSetInteger(CVAR_REMOTE_ANCHOR("Port"), 43383);
