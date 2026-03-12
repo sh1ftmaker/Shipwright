@@ -78,7 +78,7 @@ jobs:
           path: _site
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/emscripten-web-port')
     needs: build-web
     runs-on: ubuntu-latest
     environment:
