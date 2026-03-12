@@ -54,6 +54,11 @@ jobs:
       - name: Verify Emscripten
         run: emcc --version
 
+      - name: Clean stale CMake cache
+        run: |
+          rm -f build-web/CMakeCache.txt
+          rm -rf build-web/CMakeFiles
+
       - name: Configure CMake
         run: |
           emcmake cmake -B build-web -G Ninja \
