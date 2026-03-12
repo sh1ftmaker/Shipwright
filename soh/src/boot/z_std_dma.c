@@ -435,7 +435,13 @@ s32 DmaMgr_SendRequest2(DmaRequest* req, uintptr_t ram, uintptr_t vrom, size_t s
 }
 
 s32 DmaMgr_SendRequest1(void* ram0, uintptr_t vrom, size_t size, const char* file, s32 line) {
-    // printf("DmaMgr_SendRequest1 called...\n");
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+    // ROM Direct Loading: load data from ROM via DMA table
+    extern s32 RomDirect_DmaLoad(void* dest, uintptr_t vrom, size_t size);
+    if (vrom != 0 && size != 0) {
+        return RomDirect_DmaLoad(ram0, vrom, size);
+    }
+#endif
     return 0;
 
 #if 0

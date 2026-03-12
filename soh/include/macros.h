@@ -33,8 +33,13 @@
 #define PHYSICAL_TO_VIRTUAL(addr) (void*)((uintptr_t)(addr) + 0x80000000)
 #define VIRTUAL_TO_PHYSICAL(addr) (uintptr_t)((u8*)(addr) - 0x80000000)
 // Upstream TODO: Document reasoning for change
-//#define SEGMENTED_TO_VIRTUAL(addr) PHYSICAL_TO_VIRTUAL(gSegments[SEGMENT_NUMBER(addr)] + SEGMENT_OFFSET(addr))
+// In OTR builds, segments are already virtual addresses (identity mapping).
+// For Emscripten ROM direct loading, restore proper N64 segment resolution.
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+#define SEGMENTED_TO_VIRTUAL(addr) PHYSICAL_TO_VIRTUAL(gSegments[SEGMENT_NUMBER(addr)] + SEGMENT_OFFSET(addr))
+#else
 #define SEGMENTED_TO_VIRTUAL(addr) addr
+#endif
 
 #ifndef SQ
 #define SQ(x) ((x)*(x))

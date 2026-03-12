@@ -590,7 +590,32 @@ s32 AudioLoad_SyncInitSeqPlayerInternal(s32 playerIdx, s32 seqId, s32 arg2) {
         authCachePolicy = seqCachePolicyMap[seqId];
         seqId = gAudioContext.seqToPlay[playerIdx];
     }
-    SequenceData seqData2 = ResourceMgr_LoadSeqByName(sequenceMap[seqId]);
+    SequenceData seqData2;
+    memset(&seqData2, 0, sizeof(seqData2));
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+    if (seqId < sequenceMapSize && sequenceMap[seqId] != NULL) {
+#endif
+        seqData2 = ResourceMgr_LoadSeqByName(sequenceMap[seqId]);
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+    } else {
+        // ROM direct: sequence not in OTR, use ROM data directly
+        extern s32 RomDirectAudio_GetSequenceData(u32 seqId, const u8** outData, u32* outSize);
+        extern s32 RomDirectAudio_IsInitialized(void);
+        const u8* romSeqData = NULL;
+        u32 romSeqSize = 0;
+        if (RomDirectAudio_IsInitialized() &&
+            RomDirectAudio_GetSequenceData(seqId, &romSeqData, &romSeqSize) == 0) {
+            seqData2.seqData = (char*)romSeqData;
+            seqData2.seqDataSize = romSeqSize;
+            seqData2.seqNumber = seqId;
+            seqData2.medium = 2;
+            seqData2.cachePolicy = 0;
+            seqData2.numFonts = 0; // No font info available from ROM direct yet
+        } else {
+            return 0;
+        }
+    }
+#endif
     if (authCachePolicy != -1) {
         seqData2.cachePolicy = authCachePolicy;
     }
@@ -744,18 +769,54 @@ uintptr_t AudioLoad_SyncLoad(u32 tableType, u32 id, s32* didAllocate) {
         SoundFont* fnt;
 
         if (tableType == SEQUENCE_TABLE) {
-            SequenceData sData = ResourceMgr_LoadSeqByName(sequenceMap[id]);
-            seqData = sData.seqData;
-            size = sData.seqDataSize;
-            medium = sData.medium;
-            cachePolicy = sData.cachePolicy;
-            romAddr = 0;
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+            // ROM direct fallback: if no OTR sequence available, load from ROM
+            if (id < sequenceMapSize && sequenceMap[id] != NULL) {
+#endif
+                SequenceData sData = ResourceMgr_LoadSeqByName(sequenceMap[id]);
+                seqData = sData.seqData;
+                size = sData.seqDataSize;
+                medium = sData.medium;
+                cachePolicy = sData.cachePolicy;
+                romAddr = 0;
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+            } else {
+                extern s32 RomDirectAudio_GetSequenceData(u32 seqId, const u8** outData, u32* outSize);
+                extern s32 RomDirectAudio_IsInitialized(void);
+                const u8* romSeqData = NULL;
+                u32 romSeqSize = 0;
+                if (RomDirectAudio_IsInitialized() &&
+                    RomDirectAudio_GetSequenceData(id, &romSeqData, &romSeqSize) == 0) {
+                    seqData = (char*)romSeqData;
+                    size = romSeqSize;
+                    medium = 2; // MEDIUM_RAM
+                    cachePolicy = 0;
+                    romAddr = 0;
+                } else {
+                    return (uintptr_t)NULL;
+                }
+            }
+#endif
         } else if (tableType == FONT_TABLE) {
-            fnt = ResourceMgr_LoadAudioSoundFontByName(fontMap[id]);
-            size = sizeof(SoundFont);
-            medium = 2;
-            cachePolicy = 0;
-            romAddr = 0;
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+            if (id < fontMapSize && fontMap[id] != NULL) {
+#endif
+                fnt = ResourceMgr_LoadAudioSoundFontByName(fontMap[id]);
+                size = sizeof(SoundFont);
+                medium = 2;
+                cachePolicy = 0;
+                romAddr = 0;
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+            } else {
+                // TODO: Implement ROM direct font loading.
+                // This requires parsing the raw N64 Audiobank binary format
+                // into SoundFont structures, which is complex.
+                // For now, fonts must come from an OTR archive (soh.o2r).
+                fprintf(stderr, "[RomDirectAudio] Font %u not available via OTR, "
+                        "ROM direct font loading not yet implemented\n", id);
+                return (uintptr_t)NULL;
+            }
+#endif
         } else {
             // table = AudioLoad_GetLoadTable(tableType);
             // size = table->entries[realId].size;
@@ -1342,7 +1403,22 @@ void AudioLoad_Init(void* heap, size_t heapSize) {
     char** seqList = ResourceMgr_ListFiles("audio/sequences*", &seqListSize);
     char** customSeqList = ResourceMgr_ListFiles("custom/music/*", &customSeqListSize);
     sequenceMapSize = (size_t)(seqListSize + customSeqListSize);
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+    // When ROM direct audio is active, ensure the sequence map is large enough
+    // to cover all ROM sequences even if no OTR audio resources exist
+    {
+        extern u32 RomDirectAudio_GetSequenceCount(void);
+        extern s32 RomDirectAudio_IsInitialized(void);
+        if (RomDirectAudio_IsInitialized()) {
+            u32 romSeqCount = RomDirectAudio_GetSequenceCount();
+            if (romSeqCount > sequenceMapSize) {
+                sequenceMapSize = romSeqCount;
+            }
+        }
+    }
+#endif
     sequenceMap = malloc((sequenceMapSize + 0xF) * sizeof(char*));
+    memset(sequenceMap, 0, (sequenceMapSize + 0xF) * sizeof(char*));
 
     gAudioContext.seqLoadStatus = malloc(sequenceMapSize);
     memset(gAudioContext.seqLoadStatus, 5, sequenceMapSize);
@@ -1364,9 +1440,21 @@ void AudioLoad_Init(void* heap, size_t heapSize) {
     char** fntList = ResourceMgr_ListFiles("audio/fonts*", &fntListSize);
     char** customFntList = ResourceMgr_ListFiles("custom/fonts/*", &customFntListSize);
 
-    gAudioContext.fontLoadStatus = calloc(customFntListSize + fntListSize, sizeof(u8));
-    fontMap = calloc(customFntListSize + fntListSize, sizeof(char*));
     fontMapSize = customFntListSize + fntListSize;
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+    {
+        extern u32 RomDirectAudio_GetFontCount(void);
+        extern s32 RomDirectAudio_IsInitialized(void);
+        if (RomDirectAudio_IsInitialized()) {
+            u32 romFontCount = RomDirectAudio_GetFontCount();
+            if (romFontCount > fontMapSize) {
+                fontMapSize = romFontCount;
+            }
+        }
+    }
+#endif
+    gAudioContext.fontLoadStatus = calloc(fontMapSize, sizeof(u8));
+    fontMap = calloc(fontMapSize, sizeof(char*));
     for (int i = 0; i < fntListSize; i++) {
         SoundFont* sf = ResourceMgr_LoadAudioSoundFontByName(fntList[i]);
         fontMap[sf->fntIndex] = strdup(fntList[i]);
@@ -1649,7 +1737,28 @@ s32 AudioLoad_SlowLoadSeq(s32 seqId, u8* ramAddr, s8* isDone) {
     slowLoad->sample.sampleAddr = NULL;
     slowLoad->isDone = isDone;
 
-    SequenceData sData = ResourceMgr_LoadSeqByName(sequenceMap[seqId]);
+    SequenceData sData;
+    memset(&sData, 0, sizeof(sData));
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+    if (seqId < sequenceMapSize && sequenceMap[seqId] != NULL) {
+#endif
+        sData = ResourceMgr_LoadSeqByName(sequenceMap[seqId]);
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+    } else {
+        extern s32 RomDirectAudio_GetSequenceData(u32 seqId, const u8** outData, u32* outSize);
+        extern s32 RomDirectAudio_IsInitialized(void);
+        const u8* romSeqData = NULL;
+        u32 romSeqSize = 0;
+        if (RomDirectAudio_IsInitialized() &&
+            RomDirectAudio_GetSequenceData(seqId, &romSeqData, &romSeqSize) == 0) {
+            sData.seqData = (char*)romSeqData;
+            sData.seqDataSize = romSeqSize;
+            sData.medium = 2;
+        } else {
+            return 0;
+        }
+    }
+#endif
     char* seqData = sData.seqData;
     size = sData.seqDataSize;
     slowLoad->curDevAddr = seqData;

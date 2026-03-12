@@ -13,6 +13,11 @@
 #include <ship/resource/type/Blob.h>
 #include <memory>
 #include <cassert>
+
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+#include "soh/web/web_main.h"
+#include "soh/web/RomArchive.h"
+#endif
 #include "soh/resource/type/scenecommand/SetCameraSettings.h"
 #include "soh/resource/type/scenecommand/SetCutscenes.h"
 #include "soh/resource/type/scenecommand/SetStartPositionList.h"
@@ -506,6 +511,33 @@ extern "C" s32 OTRfunc_8009728C(PlayState* play, RoomContext* roomCtx, s32 roomN
             (void*)ALIGN16((uintptr_t)roomCtx->bufPtrs[roomCtx->unk_30] - ((size + 8) * roomCtx->unk_30 + 7));
 
         osCreateMesgQueue(&roomCtx->loadQueue, &roomCtx->loadMsg, 1);
+
+#if defined(__EMSCRIPTEN__) && defined(ROM_DIRECT_LOADING)
+        // ROM Direct Loading: load raw room data from ROM via DMA
+        auto romArchive = web_get_rom_archive();
+        if (romArchive != nullptr && romArchive->GetDma() != nullptr) {
+            u32 vromStart = play->roomList[roomNum].vromStart;
+            u32 vromEnd = play->roomList[roomNum].vromEnd;
+
+            if (vromStart != 0 && vromEnd > vromStart) {
+                auto roomRawData = romArchive->GetDma()->LoadVrom(vromStart, vromEnd);
+                if (!roomRawData.empty()) {
+                    // Copy raw room data to the allocated buffer
+                    memcpy(roomCtx->unk_34, roomRawData.data(), roomRawData.size());
+                    roomCtx->curRoom.segment = roomCtx->unk_34;
+                    roomCtx->status = 1;
+                    roomCtx->unk_30 ^= 1;
+
+                    SPDLOG_INFO("Room Init (ROM Direct) - curRoom.num: {0:#x}, vrom: 0x{1:X}-0x{2:X}, size: {3}",
+                                roomCtx->curRoom.num, vromStart, vromEnd, roomRawData.size());
+                    return 1;
+                }
+                SPDLOG_WARN("ROM Direct: Failed to load room {} from VROM 0x{:X}", roomNum, vromStart);
+            }
+            // Fall through to OTR path if VROM addresses are not set
+        }
+#endif
+
         // DmaMgr_SendRequest2(&roomCtx->dmaRequest, roomCtx->unk_34, play->roomList[roomNum].vromStart, size, 0,
         //&roomCtx->loadQueue, NULL, __FILE__, __LINE__);
 

@@ -431,6 +431,7 @@ if(BUILD_FOR_WEB)
         ENABLE_OPENGL
         USE_OPENGLES
         F3DEX_GBI_2
+        ROM_DIRECT_LOADING
         SPDLOG_ACTIVE_LEVEL=${SPDLOG_MIN_CUTOFF}
         LOG_LEVEL_GAME_PRINTS=${SPDLOG_LEVEL_OFF}
     )
@@ -624,12 +625,13 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
                 -sFULL_ES2=1
                 -sFORCE_FILESYSTEM=1
                 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,allocateUTF8
-                -sEXPORTED_FUNCTIONS=_main,_web_otr_loaded,_web_get_otr_status,_web_save_to_idb,_web_fs_init,_web_extract_rom,_web_get_rom_version,_malloc,_free
+                -sEXPORTED_FUNCTIONS=_main,_web_otr_loaded,_web_get_otr_status,_web_save_to_idb,_web_fs_init,_web_extract_rom,_web_get_rom_version,_web_load_rom_direct,_web_get_rom_direct_status,_malloc,_free
                 -lidbfs.js
                 -lwebsocket.js
                 --shell-file=${CMAKE_CURRENT_SOURCE_DIR}/soh/web/shell.html
                 --preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets/xml@assets/xml
                 --preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets/extractor@assets
+                --preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets/extractor/filelists@/soh/assets/extractor/filelists
             )
         else()
             if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
@@ -768,10 +770,10 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "CafeOS")
     )
 elseif(BUILD_FOR_WEB)
     # Emscripten provides SDL2 and other libraries as ports
+    # Note: OTRExporter is already linked via ZAPDLib's --whole-archive
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "libultraship;"
         "ZAPDLib;"
-        "OTRExporter;"
     )
 else()
     find_package(SDL2)

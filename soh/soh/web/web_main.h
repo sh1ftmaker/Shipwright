@@ -36,6 +36,18 @@ void web_fs_init(void);
 int web_extract_rom(const char* romPath, const char* outputPath);
 
 /**
+ * Loads a ROM directly into memory for DMA-based asset loading (no ZAPD extraction).
+ * @param romPath Path to the ROM in MEMFS (e.g., "/rom.z64")
+ * @return 0 = vanilla, 1 = MQ, negative = error
+ */
+int web_load_rom_direct(const char* romPath);
+
+/**
+ * Returns 1 if ROM direct loading is active, 0 otherwise.
+ */
+int web_get_rom_direct_status(void);
+
+/**
  * Returns the ROM version string for a given ROM file.
  * @param romPath Path to the ROM in MEMFS
  * @return Static string with version info (e.g., "Vanilla", "MQ Master Quest")
@@ -44,6 +56,15 @@ const char* web_get_rom_version(const char* romPath);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+class RomArchive;
+#include <memory>
+/**
+ * Returns the shared RomArchive instance if ROM direct loading is active.
+ */
+std::shared_ptr<RomArchive> web_get_rom_archive(void);
 #endif
 
 #endif /* __EMSCRIPTEN__ */

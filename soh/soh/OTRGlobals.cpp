@@ -20,6 +20,8 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/html5.h>
+#include "soh/web/web_main.h"
+#include "soh/web/RomArchive.h"
 #elif defined(_WIN32)
 #include <Windows.h>
 #else
@@ -791,6 +793,37 @@ void OTRGlobals::RunExtract(int argc, char* argv[]) {
 
 void OTRGlobals::Initialize() {
     SPDLOG_DEBUG("[Web Debug] Initialize: loading oot archives");
+
+#ifdef __EMSCRIPTEN__
+    // Check if ROM direct loading is active (bypasses ZAPD extraction)
+    auto romArchive = web_get_rom_archive();
+    if (romArchive != nullptr) {
+        SPDLOG_INFO("[Web] ROM direct loading active — registering RomArchive");
+        // Load() calls Open() which parses DMA table and builds file index,
+        // then reads "version" file and marks the archive as loaded.
+        auto archivePtr = std::dynamic_pointer_cast<Ship::Archive>(romArchive);
+        archivePtr->Load();
+        if (archivePtr->IsLoaded()) {
+            context->GetResourceManager()->GetArchiveManager()->AddArchive(archivePtr);
+            SPDLOG_DEBUG("[Web Debug] Initialize: RomArchive registered successfully");
+
+            // Populate game tables with VROM addresses from the ROM DMA table
+            // so that DmaMgr_SendRequest1 can load data directly from ROM
+#if defined(ROM_DIRECT_LOADING)
+            extern void RomDirect_PopulateObjectTable(void);
+            extern void RomDirect_PopulateSceneTable(void);
+            extern int32_t RomDirectAudio_Init(void);
+            RomDirect_PopulateObjectTable();
+            RomDirect_PopulateSceneTable();
+            RomDirectAudio_Init();
+#endif
+        } else {
+            SPDLOG_ERROR("[Web] RomArchive failed to load — falling back to OTR path");
+        }
+    }
+    // Also try to load OTR archives (soh.o2r for custom assets, or as fallback)
+    {
+#endif
     std::string mqPath = Ship::Context::LocateFileAcrossAppDirs("oot-mq.o2r", appShortName);
     if (std::filesystem::exists(mqPath)) {
         context->GetResourceManager()->GetArchiveManager()->AddArchive(mqPath);
@@ -799,6 +832,9 @@ void OTRGlobals::Initialize() {
     if (std::filesystem::exists(ootPath)) {
         context->GetResourceManager()->GetArchiveManager()->AddArchive(ootPath);
     }
+#ifdef __EMSCRIPTEN__
+    }
+#endif
     SPDLOG_DEBUG("[Web Debug] Initialize: archives loaded");
 
     std::unordered_set<uint32_t> ValidHashes = {

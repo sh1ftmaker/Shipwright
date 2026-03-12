@@ -140,7 +140,7 @@
 
     <div id="otr-picker" onclick="document.getElementById('otr-file').click()">
       <p>Click or drag to load game files</p>
-      <p class="hint">Requires soh.o2r and either oot.o2r or a .z64 ROM</p>
+      <p class="hint">Upload a .z64 ROM for instant play, or soh.o2r + oot.o2r</p>
     </div>
     <input type="file" id="otr-file" accept=".otr,.o2r,.z64,.n64,.v64" multiple>
 
@@ -315,6 +315,57 @@
       return ext === 'z64' || ext === 'n64' || ext === 'v64';
     }
 
+    // ---- ROM Direct Loading (no ZAPD extraction) ----
+
+    function loadRomDirect(romArrayBuffer, romFileName) {
+      setStatus('Loading ROM directly (no extraction needed)...');
+      setProgress(40);
+
+      var romData = new Uint8Array(romArrayBuffer);
+      try {
+        FS.writeFile('/rom.z64', romData);
+      } catch (e) {
+        showError('Failed to write ROM to virtual filesystem: ' + e.message);
+        hideProgress();
+        return;
+      }
+
+      setProgress(60);
+      setStatus('Parsing ROM...');
+
+      setTimeout(function() {
+        var romPathPtr = Module.allocateUTF8('/rom.z64');
+        var result = Module._web_load_rom_direct(romPathPtr);
+        Module._free(romPathPtr);
+
+        if (result < 0) {
+          showError('ROM loading failed (error ' + result + '). Check the browser console.');
+          hideProgress();
+          try { FS.unlink('/rom.z64'); } catch(e) {}
+          return;
+        }
+
+        var version = result === 1 ? 'Master Quest' : 'Vanilla';
+        setStatus('ROM loaded (' + version + '). Starting game...');
+        setProgress(100);
+
+        // Cache the ROM for future visits
+        cacheFile('__rom_direct__.z64', romArrayBuffer).then(function() {
+          console.log('[Web] ROM cached to IndexedDB for future visits');
+        }).catch(function(err) {
+          console.warn('[Web] Failed to cache ROM:', err);
+        });
+
+        otrFilesReady = true;
+        if (typeof Module._web_otr_loaded === 'function') {
+          Module._web_otr_loaded();
+        }
+        waitForGameRender();
+      }, 50);
+    }
+
+    // ---- Legacy ZAPD extraction path (fallback) ----
+
     function extractRomInBrowser(romArrayBuffer, romFileName) {
       setStatus('Writing ROM to virtual filesystem...');
       setProgress(20);
@@ -403,12 +454,18 @@
 
       function onAllOtrProcessed() {
         if (pendingRom) {
-          // Read and extract the ROM after OTR files are loaded
+          // Read the ROM file
           setStatus('Reading ROM file...');
           setProgress(15);
           var reader = new FileReader();
           reader.onload = function(e) {
-            extractRomInBrowser(e.target.result, pendingRom.name);
+            // Use ROM direct loading (fast, no ZAPD) when only a ROM is provided
+            // Fall back to ZAPD extraction if soh.o2r is also provided (legacy path)
+            if (totalOtr === 0) {
+              loadRomDirect(e.target.result, pendingRom.name);
+            } else {
+              extractRomInBrowser(e.target.result, pendingRom.name);
+            }
           };
           reader.onerror = function() {
             showError('Failed to read ROM file: ' + pendingRom.name);
@@ -590,34 +647,67 @@
     function checkCachedOtr() {
       listCachedFiles().then(function(keys) {
         if (keys.length > 0) {
+          // Check if we have a cached ROM direct file
+          var hasRomDirect = keys.indexOf('__rom_direct__.z64') >= 0;
+          var hasOtrFiles = keys.some(function(k) {
+            return k !== '__rom_direct__.z64';
+          });
+
           showProgress();
-          setStatus('Found cached game files. Loading...');
-          setProgress(10);
 
-          var loaded = 0;
-          var total = keys.length;
+          if (hasRomDirect && !hasOtrFiles) {
+            // ROM direct loading from cache
+            setStatus('Found cached ROM. Loading directly...');
+            setProgress(20);
 
-          function tryLoadCached() {
-            if (typeof FS === 'undefined') {
-              setTimeout(tryLoadCached, 100);
-              return;
-            }
+            function tryLoadCachedRom() {
+              if (typeof FS === 'undefined' || typeof Module._web_load_rom_direct === 'undefined') {
+                setTimeout(tryLoadCachedRom, 100);
+                return;
+              }
 
-            keys.forEach(function(key) {
-              getCachedFile(key).then(function(buf) {
+              getCachedFile('__rom_direct__.z64').then(function(buf) {
                 if (buf) {
-                  writeOtrToFS(key, buf);
-                }
-                loaded++;
-                setProgress(10 + (loaded / total) * 80);
-                if (loaded === total) {
-                  finalizeOtrLoad();
+                  loadRomDirect(buf, 'cached_rom.z64');
+                } else {
+                  showError('Cached ROM not found. Please re-upload.');
+                  hideProgress();
                 }
               });
-            });
-          }
+            }
 
-          tryLoadCached();
+            tryLoadCachedRom();
+          } else if (hasOtrFiles) {
+            // Standard OTR loading from cache
+            setStatus('Found cached game files. Loading...');
+            setProgress(10);
+
+            var otrKeys = keys.filter(function(k) { return k !== '__rom_direct__.z64'; });
+            var loaded = 0;
+            var total = otrKeys.length;
+
+            function tryLoadCached() {
+              if (typeof FS === 'undefined') {
+                setTimeout(tryLoadCached, 100);
+                return;
+              }
+
+              otrKeys.forEach(function(key) {
+                getCachedFile(key).then(function(buf) {
+                  if (buf) {
+                    writeOtrToFS(key, buf);
+                  }
+                  loaded++;
+                  setProgress(10 + (loaded / total) * 80);
+                  if (loaded === total) {
+                    finalizeOtrLoad();
+                  }
+                });
+              });
+            }
+
+            tryLoadCached();
+          }
         }
       }).catch(function() {
         // No cached files
