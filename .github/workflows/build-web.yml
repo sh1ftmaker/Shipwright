@@ -53,18 +53,6 @@ jobs:
             echo "$EXPECTED/upstream/emscripten" >> $GITHUB_PATH
           fi
 
-      - name: Cache Emscripten system libs
-        uses: actions/cache@v4
-        with:
-          path: ~/.emscripten_cache
-          key: emsdk-syslibs-3.1.64-${{ runner.os }}
-
-      - name: Configure ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: emscripten-ccache
-          max-size: 1G
-
       - name: Verify Emscripten
         run: emcc --version
 
@@ -73,9 +61,7 @@ jobs:
           emcmake cmake -B build-web -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_FLAGS_RELEASE="-O1 -DNDEBUG" \
-            -DCMAKE_CXX_FLAGS_RELEASE="-O1 -DNDEBUG" \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_FLAGS_RELEASE="-O1 -DNDEBUG"
 
       - name: Build for web
         run: |
