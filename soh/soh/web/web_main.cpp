@@ -21,6 +21,8 @@ extern "C" {
 #include "functions.h"
 #include "macros.h"
 extern PlayState* gPlayState;
+void Sram_InitNewSave(void);
+void GameInteractor_ExecuteOnLoadGame(int32_t fileNum);
 }
 
 // Convert ASCII character to OoT NES font encoding
