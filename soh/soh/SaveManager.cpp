@@ -1,5 +1,8 @@
 #include "SaveManager.h"
 #include "OTRGlobals.h"
+#ifdef __EMSCRIPTEN__
+extern "C" void web_save_to_idb(void);
+#endif
 #include "Enhancements/game-interactor/GameInteractor.h"
 #include "Enhancements/randomizer/SeedContext.h"
 #include "Enhancements/randomizer/entrance.h"
@@ -1207,8 +1210,6 @@ void SaveManager::SaveFileThreaded(int fileNum, SaveContext* saveContext, int se
     GameInteractor::Instance->ExecuteHooks<GameInteractor::OnSaveFile>(fileNum, sectionID);
     SPDLOG_INFO("Save File Finish - fileNum: {}", fileNum);
 #ifdef __EMSCRIPTEN__
-    // Persist MEMFS save files to IndexedDB
-    extern "C" void web_save_to_idb(void);
     web_save_to_idb();
 #endif
     saveMtx.unlock();
