@@ -53,6 +53,20 @@ jobs:
             echo "$EXPECTED/upstream/emscripten" >> $GITHUB_PATH
           fi
 
+      - name: Cache Emscripten system libs
+        uses: actions/cache@v4
+        with:
+          path: ~/.emscripten_cache
+          key: emsdk-syslibs-3.1.64-${{ runner.os }}
+
+      - name: Cache build directory
+        uses: actions/cache@v4
+        with:
+          path: build-web
+          key: build-web-${{ runner.os }}-${{ hashFiles('soh/CMakeLists.txt', 'CMakeLists.txt', 'soh/src/**', 'soh/soh/**', 'libultraship', 'ZAPDTR', 'OTRExporter') }}
+          restore-keys: |
+            build-web-${{ runner.os }}-
+
       - name: Verify Emscripten
         run: emcc --version
 
