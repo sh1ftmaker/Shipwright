@@ -13,6 +13,84 @@
 #include <libultraship/libultraship.h>
 #include "soh/cvar_prefixes.h"
 #include "soh/Enhancements/enhancementTypes.h"
+#include "soh/Enhancements/game-interactor/GameInteractor.h"
+#include "soh/ShipInit.hpp"
+
+extern "C" {
+#include "variables.h"
+#include "functions.h"
+#include "macros.h"
+extern PlayState* gPlayState;
+}
+
+// Convert ASCII character to OoT NES font encoding
+static uint8_t AsciiToOot(char c) {
+    if (c >= 'A' && c <= 'Z') return 0xAB + (c - 'A');
+    if (c >= 'a' && c <= 'z') return 0xAB + (c - 'a');
+    if (c >= '0' && c <= '9') return 0xA1 + (c - '0');
+    if (c == ' ') return 0xDF;
+    if (c == '-') return 0xE4;
+    if (c == '.') return 0xE5;
+    return 0xDF; // space for unknown chars
+}
+
+#define CVAR_WEB_AUTOSTART CVAR_SETTING("WebAutoStart")
+#define CVAR_WEB_PLAYERNAME CVAR_SETTING("WebPlayerName")
+
+static void RegisterWebAutoStart() {
+    COND_HOOK(OnZTitleUpdate, CVarGetInteger(CVAR_WEB_AUTOSTART, 0) == 1, [](void* gameState) {
+        TitleContext* titleContext = (TitleContext*)gameState;
+
+        // Create a fresh new save on file slot 0
+        gSaveContext.gameMode = GAMEMODE_NORMAL;
+        gSaveContext.fileNum = 0;
+        Sram_InitNewSave();
+
+        // Set player name from CVar
+        const char* playerName = CVarGetString(CVAR_WEB_PLAYERNAME, "LINK");
+        for (int i = 0; i < 8; i++) {
+            if (playerName[i] == '\0') {
+                // Pad rest with spaces
+                for (int j = i; j < 8; j++) {
+                    gSaveContext.playerName[j] = AsciiToOot(' ');
+                }
+                break;
+            }
+            gSaveContext.playerName[i] = AsciiToOot(playerName[i]);
+        }
+
+        // Set up save state for starting a new game
+        gSaveContext.magicFillTarget = gSaveContext.magic;
+        gSaveContext.magic = 0;
+        gSaveContext.magicCapacity = 0;
+        gSaveContext.magicLevel = gSaveContext.magic;
+        gSaveContext.sceneSetupIndex = 0;
+        gSaveContext.cutsceneIndex = 0xFFF3; // Skip intro cutscene
+        gSaveContext.linkAge = 0; // Child Link
+        gSaveContext.nightFlag = 0;
+        gSaveContext.skyboxTime = gSaveContext.dayTime = 0x8000;
+        gSaveContext.entranceIndex = ENTR_LINKS_HOUSE_CHILD_SPAWN;
+
+        for (int i = 0; i < ARRAY_COUNT(gSaveContext.buttonStatus); i++) {
+            gSaveContext.buttonStatus[i] = BTN_ENABLED;
+        }
+        gSaveContext.forceRisingButtonAlphas = gSaveContext.unk_13E8 =
+            gSaveContext.unk_13EA = gSaveContext.unk_13EC = 0;
+        Audio_QueueSeqCmd(SEQ_PLAYER_BGM_MAIN << 24 | NA_BGM_STOP);
+
+        gSaveContext.seqId = (u8)NA_BGM_DISABLED;
+        gSaveContext.natureAmbienceId = 0xFF;
+        gSaveContext.showTitleCard = true;
+        gWeatherMode = 0;
+        titleContext->state.running = false;
+        SET_NEXT_GAMESTATE(&titleContext->state, Play_Init, PlayState);
+        GameInteractor_ExecuteOnLoadGame(gSaveContext.fileNum);
+
+        printf("[Web] Auto-started new game as '%s'\n", playerName);
+    });
+}
+
+static RegisterShipInitFunc webAutoStartInit(RegisterWebAutoStart, { CVAR_WEB_AUTOSTART });
 
 static int s_otr_loaded = 0;
 
@@ -148,10 +226,15 @@ void web_configure_anchor(const char* room, const char* name, const char* color,
     // Enable Anchor networking
     CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
 
-    // Skip to file select on boot so players get into the game quickly
-    CVarSetInteger(CVAR_SETTING("BootSequence"), BOOTSEQUENCE_FILESELECT);
+    // Set player name for auto-start save file
+    std::string pName = (name && name[0]) ? name : "LINK";
+    CVarSetString(CVAR_WEB_PLAYERNAME, pName.c_str());
 
-    printf("[Web] Anchor configured. WebSocket URL: %s\n", wsUrl.c_str());
+    // Enable auto-start: skip title and file select, boot directly into the game
+    CVarSetInteger(CVAR_WEB_AUTOSTART, 1);
+
+    printf("[Web] Anchor configured. WebSocket URL: %s, auto-start as '%s'\n",
+           wsUrl.c_str(), pName.c_str());
 }
 
 } // extern "C"
