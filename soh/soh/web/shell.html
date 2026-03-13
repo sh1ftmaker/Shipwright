@@ -131,6 +131,58 @@
       min-height: 1.5em;
       text-align: center;
     }
+
+    /* Touch Gamepad */
+    #touch-gamepad {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 5; pointer-events: none; user-select: none; -webkit-user-select: none;
+    }
+    #touch-gamepad.visible { display: block; }
+    #touch-stick-zone {
+      position: absolute; left: 10px; bottom: 10px; width: 160px; height: 160px;
+      pointer-events: auto; touch-action: none;
+    }
+    #touch-stick-base {
+      position: absolute; left: 20px; bottom: 20px; width: 120px; height: 120px;
+      border-radius: 50%; background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.2);
+    }
+    #touch-stick-knob {
+      position: absolute; width: 50px; height: 50px; border-radius: 50%;
+      background: rgba(255,255,255,0.35); left: 35px; top: 35px;
+      pointer-events: none; transition: none;
+    }
+    .touch-btn {
+      position: absolute; pointer-events: auto; touch-action: none;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-family: monospace; font-weight: bold; color: rgba(255,255,255,0.7);
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+    .touch-btn:active, .touch-btn.pressed { background: rgba(255,255,255,0.3) !important; }
+    #tb-a { right: 20px; bottom: 100px; width: 64px; height: 64px; background: rgba(255,255,255,0.12); font-size: 22px; }
+    #tb-b { right: 90px; bottom: 50px; width: 56px; height: 56px; background: rgba(255,255,255,0.1); font-size: 18px; }
+    #tb-z { right: 160px; bottom: 100px; width: 50px; height: 50px; background: rgba(255,255,255,0.08); font-size: 16px; }
+    #tb-start { top: 10px; left: 50%; transform: translateX(-50%); width: 60px; height: 34px;
+      border-radius: 17px; background: rgba(255,255,255,0.08); font-size: 11px; }
+    #tb-r { right: 20px; top: 10px; width: 50px; height: 34px;
+      border-radius: 17px; background: rgba(255,255,255,0.08); font-size: 14px; }
+    #tb-l { left: 10px; top: 10px; width: 50px; height: 34px;
+      border-radius: 17px; background: rgba(255,255,255,0.08); font-size: 14px; }
+    .touch-cbtn {
+      position: absolute; pointer-events: auto; touch-action: none;
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: monospace; font-size: 12px; font-weight: bold;
+      color: rgba(255,200,50,0.7); background: rgba(255,200,50,0.08);
+      border: 2px solid rgba(255,200,50,0.15);
+    }
+    .touch-cbtn:active, .touch-cbtn.pressed { background: rgba(255,200,50,0.3) !important; }
+    #tb-cu { right: 110px; bottom: 210px; }
+    #tb-cd { right: 110px; bottom: 140px; }
+    #tb-cl { right: 145px; bottom: 175px; }
+    #tb-cr { right: 75px; bottom: 175px; }
+    #tb-esc { top: 10px; right: 80px; width: 34px; height: 34px;
+      border-radius: 8px; background: rgba(255,255,255,0.08); font-size: 10px;
+      letter-spacing: -0.5px; }
   </style>
 </head>
 <body>
@@ -155,6 +207,25 @@
   </div>
 
   <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+  <div id="touch-gamepad">
+    <div id="touch-stick-zone">
+      <div id="touch-stick-base">
+        <div id="touch-stick-knob"></div>
+      </div>
+    </div>
+    <div class="touch-btn" id="tb-a">A</div>
+    <div class="touch-btn" id="tb-b">B</div>
+    <div class="touch-btn" id="tb-z">Z</div>
+    <div class="touch-btn" id="tb-start">START</div>
+    <div class="touch-btn" id="tb-r">R</div>
+    <div class="touch-btn" id="tb-l">L</div>
+    <div class="touch-btn" id="tb-esc">ESC</div>
+    <div class="touch-cbtn" id="tb-cu">▲</div>
+    <div class="touch-cbtn" id="tb-cd">▼</div>
+    <div class="touch-cbtn" id="tb-cl">◀</div>
+    <div class="touch-cbtn" id="tb-cr">▶</div>
+  </div>
 
   <script>
     var OTR_DB_NAME = 'soh_otr_files';
@@ -688,28 +759,15 @@
       var params = getHashParams();
       if (!params.room && !params.name && !params.color && !params.team) return false;
 
-      var room  = params.room  || 'default';
-      var name  = params.name  || '';
-      var color = params.color || '';
-      var team  = params.team  || 'default';
+      // Store config as globals for C++ to read via EM_JS during game init
+      window._anchorConfig = {
+        room:  params.room  || 'default',
+        name:  params.name  || '',
+        color: params.color || '',
+        team:  params.team  || 'default'
+      };
 
-      console.log('[Web] Anchor config from URL: room=' + room + ' name=' + name + ' color=' + color + ' team=' + team);
-
-      // Call C++ to set CVars — must be called after runtime init
-      if (typeof Module._web_configure_anchor === 'function') {
-        var roomPtr  = Module.allocateUTF8(room);
-        var namePtr  = Module.allocateUTF8(name);
-        var colorPtr = Module.allocateUTF8(color);
-        var teamPtr  = Module.allocateUTF8(team);
-        Module._web_configure_anchor(roomPtr, namePtr, colorPtr, teamPtr);
-        Module._free(roomPtr);
-        Module._free(namePtr);
-        Module._free(colorPtr);
-        Module._free(teamPtr);
-      } else {
-        console.warn('[Web] _web_configure_anchor not available');
-      }
-
+      console.log('[Web] Anchor config stored for game init:', window._anchorConfig);
       return true;
     }
 
@@ -803,6 +861,138 @@
         showError('An error occurred. Check the browser console for details.');
       }
     };
+
+    // ---- Touch Gamepad (UI only — WASM integration handled separately) ----
+    var TouchGamepad = {
+      _active: false,
+      _stickX: 0,       // -128..127
+      _stickY: 0,       // -128..127
+      _buttons: {},      // id -> true/false
+      _stickTouchId: null,
+      _stickCenterX: 0,
+      _stickCenterY: 0,
+      _knob: null,
+
+      // Button IDs for the integration layer to read
+      BUTTON_IDS: ['tb-a', 'tb-b', 'tb-z', 'tb-start', 'tb-r', 'tb-l', 'tb-cu', 'tb-cd', 'tb-cl', 'tb-cr', 'tb-esc'],
+
+      init: function() {
+        if (!('ontouchstart' in window) && navigator.maxTouchPoints <= 0) return;
+        this._knob = document.getElementById('touch-stick-knob');
+        document.getElementById('touch-gamepad').classList.add('visible');
+        this._active = true;
+        this._setupButtons();
+        this._setupStick();
+        console.log('[TouchGamepad] Initialized for touch device');
+      },
+
+      // Public API for WASM integration
+      isActive: function() { return this._active; },
+      getStickX: function() { return this._stickX; },
+      getStickY: function() { return this._stickY; },
+      isButtonPressed: function(id) { return !!this._buttons[id]; },
+
+      _setupButtons: function() {
+        var self = this;
+        this.BUTTON_IDS.forEach(function(id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            el.classList.add('pressed');
+            self._buttons[id] = true;
+          }, { passive: false });
+          el.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            el.classList.remove('pressed');
+            self._buttons[id] = false;
+          }, { passive: false });
+          el.addEventListener('touchcancel', function(e) {
+            el.classList.remove('pressed');
+            self._buttons[id] = false;
+          });
+        });
+      },
+
+      _setupStick: function() {
+        var self = this;
+        var zone = document.getElementById('touch-stick-zone');
+        var base = document.getElementById('touch-stick-base');
+        var RADIUS = 50;
+
+        zone.addEventListener('touchstart', function(e) {
+          e.preventDefault();
+          var touch = e.changedTouches[0];
+          self._stickTouchId = touch.identifier;
+          var rect = base.getBoundingClientRect();
+          self._stickCenterX = rect.left + rect.width / 2;
+          self._stickCenterY = rect.top + rect.height / 2;
+          self._updateStick(touch.clientX, touch.clientY, RADIUS);
+        }, { passive: false });
+
+        zone.addEventListener('touchmove', function(e) {
+          e.preventDefault();
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === self._stickTouchId) {
+              self._updateStick(e.changedTouches[i].clientX, e.changedTouches[i].clientY, RADIUS);
+              break;
+            }
+          }
+        }, { passive: false });
+
+        var endStick = function(e) {
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === self._stickTouchId) {
+              self._stickTouchId = null;
+              self._knob.style.transform = 'translate(0px, 0px)';
+              self._stickX = 0;
+              self._stickY = 0;
+              break;
+            }
+          }
+        };
+        zone.addEventListener('touchend', endStick, { passive: false });
+        zone.addEventListener('touchcancel', endStick);
+      },
+
+      _updateStick: function(touchX, touchY, maxR) {
+        var dx = touchX - this._stickCenterX;
+        var dy = touchY - this._stickCenterY;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > maxR) { dx = dx / dist * maxR; dy = dy / dist * maxR; }
+        this._knob.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+        this._stickX = Math.round((dx / maxR) * 127);
+        this._stickY = Math.round((-dy / maxR) * 127);
+      }
+    };
+
+    // ESC button: dispatch real keyboard events so SDL/emscripten picks them up
+    (function() {
+      var escEl = document.getElementById('tb-esc');
+      if (!escEl) return;
+      var canvas = document.getElementById('canvas');
+      escEl.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        escEl.classList.add('pressed');
+        canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+      }, { passive: false });
+      escEl.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        escEl.classList.remove('pressed');
+        canvas.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+      }, { passive: false });
+      escEl.addEventListener('touchcancel', function() {
+        escEl.classList.remove('pressed');
+        canvas.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+      });
+    })();
+
+    // Auto-init when page loads
+    if (document.readyState === 'complete') {
+      TouchGamepad.init();
+    } else {
+      window.addEventListener('load', function() { TouchGamepad.init(); });
+    }
   </script>
 
   {{{ SCRIPT }}}

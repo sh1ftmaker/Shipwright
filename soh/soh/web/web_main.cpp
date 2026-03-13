@@ -13,17 +13,6 @@
 #include <libultraship/libultraship.h>
 #include "soh/cvar_prefixes.h"
 #include "soh/Enhancements/enhancementTypes.h"
-#include "soh/Enhancements/game-interactor/GameInteractor.h"
-#include "soh/ShipInit.hpp"
-
-extern "C" {
-#include "variables.h"
-#include "functions.h"
-#include "macros.h"
-extern PlayState* gPlayState;
-void Sram_InitNewSave(void);
-void GameInteractor_ExecuteOnLoadGame(int32_t fileNum);
-}
 
 // ---- Touch Gamepad Bridge ----
 // Read touch gamepad state from JavaScript and merge into OSContPad
@@ -85,74 +74,61 @@ extern "C" void WebTouchGamepad_MergeInput(OSContPad* pad) {
     }
 }
 
-// Convert ASCII character to OoT NES font encoding
-static uint8_t AsciiToOot(char c) {
-    if (c >= 'A' && c <= 'Z') return 0xAB + (c - 'A');
-    if (c >= 'a' && c <= 'z') return 0xAB + (c - 'a');
-    if (c >= '0' && c <= '9') return 0xA1 + (c - '0');
-    if (c == ' ') return 0xDF;
-    if (c == '-') return 0xE4;
-    if (c == '.') return 0xE5;
-    return 0xDF; // space for unknown chars
+// ---- Anchor config from URL hash (read JS globals set by shell.html) ----
+
+EM_JS(int, web_has_anchor_config, (), {
+    return (typeof window._anchorConfig !== 'undefined') ? 1 : 0;
+});
+
+EM_JS(const char*, web_anchor_config_get, (const char* key), {
+    if (typeof window._anchorConfig === 'undefined') return 0;
+    var k = UTF8ToString(key);
+    var val = window._anchorConfig[k] || '';
+    var len = lengthBytesUTF8(val) + 1;
+    var ptr = _malloc(len);
+    stringToUTF8(val, ptr, len);
+    return ptr;
+});
+
+// Called from OTRGlobals.cpp after the CVar system is ready
+void web_apply_anchor_config() {
+    if (!web_has_anchor_config()) return;
+
+    char* room  = (char*)web_anchor_config_get("room");
+    char* name  = (char*)web_anchor_config_get("name");
+    char* color = (char*)web_anchor_config_get("color");
+    char* team  = (char*)web_anchor_config_get("team");
+
+    printf("[Web] Applying Anchor config: room=%s name=%s color=%s team=%s\n",
+           room ? room : "", name ? name : "", color ? color : "", team ? team : "");
+
+    // Build WebSocket URL
+    std::string roomId = (room && room[0]) ? room : "default";
+    std::string wsUrl = "wss://soh-anchor.zalo.partykit.dev/party/" + roomId;
+    CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), wsUrl.c_str());
+    CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), roomId.c_str());
+
+    if (name && name[0]) {
+        CVarSetString(CVAR_REMOTE_ANCHOR("Name"), name);
+    }
+
+    if (color && color[0] && strlen(color) == 6) {
+        unsigned int r = 100, g = 255, b = 100;
+        sscanf(color, "%02x%02x%02x", &r, &g, &b);
+        CVarSetColor24(CVAR_REMOTE_ANCHOR("Color.Value"), { (uint8_t)r, (uint8_t)g, (uint8_t)b });
+    }
+
+    if (team && team[0]) {
+        CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), team);
+    }
+
+    // Enable Anchor and skip to file select
+    CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
+    CVarSetInteger(CVAR_SETTING("BootSequence"), BOOTSEQUENCE_FILESELECT);
+
+    free(room); free(name); free(color); free(team);
+    printf("[Web] Anchor configured. WebSocket URL: %s\n", wsUrl.c_str());
 }
-
-#define CVAR_WEB_AUTOSTART CVAR_SETTING("WebAutoStart")
-#define CVAR_WEB_PLAYERNAME CVAR_SETTING("WebPlayerName")
-
-static void RegisterWebAutoStart() {
-    COND_HOOK(OnZTitleUpdate, CVarGetInteger(CVAR_WEB_AUTOSTART, 0) == 1, [](void* gameState) {
-        TitleContext* titleContext = (TitleContext*)gameState;
-
-        // Create a fresh new save on file slot 0
-        gSaveContext.gameMode = GAMEMODE_NORMAL;
-        gSaveContext.fileNum = 0;
-        Sram_InitNewSave();
-
-        // Set player name from CVar
-        const char* playerName = CVarGetString(CVAR_WEB_PLAYERNAME, "LINK");
-        for (int i = 0; i < 8; i++) {
-            if (playerName[i] == '\0') {
-                // Pad rest with spaces
-                for (int j = i; j < 8; j++) {
-                    gSaveContext.playerName[j] = AsciiToOot(' ');
-                }
-                break;
-            }
-            gSaveContext.playerName[i] = AsciiToOot(playerName[i]);
-        }
-
-        // Set up save state for starting a new game
-        gSaveContext.magicFillTarget = gSaveContext.magic;
-        gSaveContext.magic = 0;
-        gSaveContext.magicCapacity = 0;
-        gSaveContext.magicLevel = gSaveContext.magic;
-        gSaveContext.sceneSetupIndex = 0;
-        gSaveContext.cutsceneIndex = 0xFFF3; // Skip intro cutscene
-        gSaveContext.linkAge = 0; // Child Link
-        gSaveContext.nightFlag = 0;
-        gSaveContext.skyboxTime = gSaveContext.dayTime = 0x8000;
-        gSaveContext.entranceIndex = ENTR_LINKS_HOUSE_CHILD_SPAWN;
-
-        for (int i = 0; i < ARRAY_COUNT(gSaveContext.buttonStatus); i++) {
-            gSaveContext.buttonStatus[i] = BTN_ENABLED;
-        }
-        gSaveContext.forceRisingButtonAlphas = gSaveContext.unk_13E8 =
-            gSaveContext.unk_13EA = gSaveContext.unk_13EC = 0;
-        Audio_QueueSeqCmd(SEQ_PLAYER_BGM_MAIN << 24 | NA_BGM_STOP);
-
-        gSaveContext.seqId = (u8)NA_BGM_DISABLED;
-        gSaveContext.natureAmbienceId = 0xFF;
-        gSaveContext.showTitleCard = true;
-        gWeatherMode = 0;
-        titleContext->state.running = false;
-        SET_NEXT_GAMESTATE(&titleContext->state, Play_Init, PlayState);
-        GameInteractor_ExecuteOnLoadGame(gSaveContext.fileNum);
-
-        printf("[Web] Auto-started new game as '%s'\n", playerName);
-    });
-}
-
-static RegisterShipInitFunc webAutoStartInit(RegisterWebAutoStart, { CVAR_WEB_AUTOSTART });
 
 static int s_otr_loaded = 0;
 
@@ -254,49 +230,9 @@ const char* web_get_rom_version(const char* romPath) {
 
 EMSCRIPTEN_KEEPALIVE
 void web_configure_anchor(const char* room, const char* name, const char* color, const char* team) {
-    printf("[Web] Configuring Anchor: room=%s name=%s color=%s team=%s\n",
-           room ? room : "(null)", name ? name : "(null)",
-           color ? color : "(null)", team ? team : "(null)");
-
-    // Build WebSocket URL with room name
-    std::string roomId = (room && room[0]) ? room : "default";
-    std::string wsUrl = "wss://soh-anchor.zalo.partykit.dev/party/" + roomId;
-    CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), wsUrl.c_str());
-    CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), roomId.c_str());
-
-    // Player name
-    if (name && name[0]) {
-        CVarSetString(CVAR_REMOTE_ANCHOR("Name"), name);
-    }
-
-    // Player color (hex RGB like "FF0000")
-    if (color && color[0]) {
-        unsigned int r = 100, g = 255, b = 100;
-        if (strlen(color) == 6) {
-            sscanf(color, "%02x%02x%02x", &r, &g, &b);
-        }
-        // Color CVar is stored as a packed 24-bit RGB value
-        uint32_t colorVal = (r << 16) | (g << 8) | b;
-        CVarSetColor24(CVAR_REMOTE_ANCHOR("Color.Value"), { (uint8_t)r, (uint8_t)g, (uint8_t)b });
-    }
-
-    // Team ID
-    if (team && team[0]) {
-        CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), team);
-    }
-
-    // Enable Anchor networking
-    CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
-
-    // Set player name for auto-start save file
-    std::string pName = (name && name[0]) ? name : "LINK";
-    CVarSetString(CVAR_WEB_PLAYERNAME, pName.c_str());
-
-    // Enable auto-start: skip title and file select, boot directly into the game
-    CVarSetInteger(CVAR_WEB_AUTOSTART, 1);
-
-    printf("[Web] Anchor configured. WebSocket URL: %s, auto-start as '%s'\n",
-           wsUrl.c_str(), pName.c_str());
+    // Deprecated: use web_apply_anchor_config() from C++ instead
+    // Kept as stub to avoid link errors from EXPORTED_FUNCTIONS
+    printf("[Web] web_configure_anchor called (stub) - config is applied from OTRGlobals\n");
 }
 
 } // extern "C"

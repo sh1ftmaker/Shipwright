@@ -1649,6 +1649,13 @@ extern "C" void InitOTR(int argc, char* argv[]) {
         Sail::Instance->Enable();
     }
 #endif
+#ifdef __EMSCRIPTEN__
+    // Apply Anchor config from URL hash params (sets CVars before Enable check)
+    {
+        extern void web_apply_anchor_config();
+        web_apply_anchor_config();
+    }
+#endif
     if (CVarGetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 0)) {
         Anchor::Instance->Enable();
     }
