@@ -48,9 +48,10 @@ if ! kill -0 $SERVER_PID 2>/dev/null; then
 fi
 
 # Start cloudflare tunnel (--config /dev/null avoids named tunnel config)
+# Use script -c to force PTY so cloudflared doesn't buffer output
 TUNNEL_LOG=/tmp/cloudflared-o2r.log
 : > "$TUNNEL_LOG"
-stdbuf -oL cloudflared tunnel --config /dev/null --url http://127.0.0.1:$PORT > "$TUNNEL_LOG" 2>&1 &
+script -qfc "cloudflared tunnel --config /dev/null --url http://127.0.0.1:$PORT 2>&1" "$TUNNEL_LOG" >/dev/null &
 TUNNEL_PID=$!
 
 # Wait for tunnel URL
@@ -58,7 +59,7 @@ echo "Starting Cloudflare tunnel..." >&2
 TUNNEL_URL=""
 for i in $(seq 1 60); do
   sleep 1
-  TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1)
+  TUNNEL_URL=$(sed 's/\x1b\[[0-9;]*m//g' "$TUNNEL_LOG" 2>/dev/null | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | head -1 || true)
   if [ -n "$TUNNEL_URL" ]; then
     break
   fi

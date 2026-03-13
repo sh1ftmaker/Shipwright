@@ -59,13 +59,11 @@ jobs:
           path: ~/.emscripten_cache
           key: emsdk-syslibs-3.1.64-${{ runner.os }}
 
-      - name: Cache CMake build objects
-        uses: actions/cache@v4
+      - name: Configure ccache
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
-          path: build-web
-          key: build-web-v2-${{ runner.os }}
-          restore-keys: |
-            build-web-v2-${{ runner.os }}
+          key: emscripten-ccache
+          max-size: 1G
 
       - name: Verify Emscripten
         run: emcc --version
@@ -73,11 +71,15 @@ jobs:
       - name: Configure CMake
         run: |
           emcmake cmake -B build-web -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_FLAGS_RELEASE="-O1 -DNDEBUG" \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O1 -DNDEBUG" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build for web
         run: |
-          emmake cmake --build build-web --parallel $(nproc)
+          emmake cmake --build build-web --parallel 2
 
       - name: Prepare Pages artifact
         run: |
