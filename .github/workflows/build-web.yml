@@ -70,10 +70,6 @@ jobs:
       - name: Verify Emscripten
         run: emcc --version
 
-      - name: Clean stale CMake metadata (keep object files)
-        run: |
-          rm -rf build-web/CMakeCache.txt build-web/CMakeFiles build-web/cmake_install.cmake build-web/build.ninja build-web/.ninja_*
-
       - name: Configure CMake
         run: |
           emcmake cmake -B build-web -G Ninja \
@@ -81,7 +77,7 @@ jobs:
 
       - name: Build for web
         run: |
-          emmake cmake --build build-web --parallel $(nproc)
+          emmake cmake --build build-web --parallel 2
 
       - name: Prepare Pages artifact
         run: |
