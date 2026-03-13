@@ -102,7 +102,17 @@ set(PROJECT_NAME soh)
 ################################################################################
 # Sources
 ################################################################################
+# Check if build.c will change (forces recompile of build.c.o)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/boot/build.c)
+    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/src/boot/build.c _old_build_c)
+endif()
 configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/src/boot/build.c.in ${CMAKE_CURRENT_SOURCE_DIR}/src/boot/build.c @ONLY)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/src/boot/build.c _new_build_c)
+if(NOT "${_old_build_c}" STREQUAL "${_new_build_c}")
+    message(STATUS "[BUILD-DEBUG] build.c CHANGED — build.c.o will recompile (git hash or branch changed)")
+else()
+    message(STATUS "[BUILD-DEBUG] build.c unchanged — no recompile needed")
+endif()
 configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/properties.h.in ${CMAKE_CURRENT_SOURCE_DIR}/properties.h @ONLY)
 
 set(Header_Files "resource.h")

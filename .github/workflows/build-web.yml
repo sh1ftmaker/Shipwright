@@ -59,9 +59,7 @@ jobs:
       - name: Configure CMake
         run: |
           emcmake cmake -B build-web -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_FLAGS_RELEASE="-O1 -DNDEBUG" \
-            -DCMAKE_CXX_FLAGS_RELEASE="-O1 -DNDEBUG"
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build for web
         run: |

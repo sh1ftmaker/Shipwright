@@ -130,19 +130,28 @@ endif()
 ################################################################################
 # Global configuration types
 ################################################################################
+
+# Log cached vs new flags for incremental build debugging
+message(STATUS "[BUILD-DEBUG] CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+message(STATUS "[BUILD-DEBUG] CMAKE_C_FLAGS_RELEASE (cached) = $CACHE{CMAKE_C_FLAGS_RELEASE}")
+message(STATUS "[BUILD-DEBUG] CMAKE_CXX_FLAGS_RELEASE (cached) = $CACHE{CMAKE_CXX_FLAGS_RELEASE}")
+
 if (CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
 set(CMAKE_C_FLAGS_DEBUG "-g -ffast-math -DDEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -ffast-math -DDEBUG")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG" CACHE STRING "C flags for Release" FORCE)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -DNDEBUG" CACHE STRING "CXX flags for Release" FORCE)
 elseif(BUILD_FOR_WEB)
-set(CMAKE_C_FLAGS_RELEASE "-O1 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "-O1 -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "-O1 -DNDEBUG" CACHE STRING "C flags for Release" FORCE)
+set(CMAKE_CXX_FLAGS_RELEASE "-O1 -DNDEBUG" CACHE STRING "CXX flags for Release" FORCE)
 else()
-set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG" CACHE STRING "C flags for Release" FORCE)
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG" CACHE STRING "CXX flags for Release" FORCE)
 set(CMAKE_OBJCXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 endif()
+
+message(STATUS "[BUILD-DEBUG] CMAKE_C_FLAGS_RELEASE (after set) = ${CMAKE_C_FLAGS_RELEASE}")
+message(STATUS "[BUILD-DEBUG] CMAKE_CXX_FLAGS_RELEASE (after set) = ${CMAKE_CXX_FLAGS_RELEASE}")
 
 if(NOT CMAKE_BUILD_TYPE )
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
