@@ -65,7 +65,7 @@ jobs:
 
       - name: Build for web
         run: |
-          emmake cmake --build build-web --parallel 2
+          emmake cmake --build build-web --parallel $(nproc)
 
       - name: Prepare Pages artifact
         run: |
