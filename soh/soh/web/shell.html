@@ -300,6 +300,9 @@
       setStatus('Game files loaded. Starting...');
       setProgress(100);
 
+      // Configure Anchor networking from URL hash before starting the game
+      configureAnchorFromHash();
+
       // Tell the C side that OTR files are ready
       if (typeof Module._web_otr_loaded === 'function') {
         Module._web_otr_loaded();
@@ -673,6 +676,39 @@
           }
         );
       });
+
+      return true;
+    }
+
+    // ---- URL hash parameter: Anchor/PartyKit networking config ----
+    // Params: room, name, color (hex RGB), team
+    // Example: #room=myroom&name=Player1&color=FF0000&team=red
+
+    function configureAnchorFromHash() {
+      var params = getHashParams();
+      if (!params.room && !params.name && !params.color && !params.team) return false;
+
+      var room  = params.room  || 'default';
+      var name  = params.name  || '';
+      var color = params.color || '';
+      var team  = params.team  || 'default';
+
+      console.log('[Web] Anchor config from URL: room=' + room + ' name=' + name + ' color=' + color + ' team=' + team);
+
+      // Call C++ to set CVars — must be called after runtime init
+      if (typeof Module._web_configure_anchor === 'function') {
+        var roomPtr  = Module.allocateUTF8(room);
+        var namePtr  = Module.allocateUTF8(name);
+        var colorPtr = Module.allocateUTF8(color);
+        var teamPtr  = Module.allocateUTF8(team);
+        Module._web_configure_anchor(roomPtr, namePtr, colorPtr, teamPtr);
+        Module._free(roomPtr);
+        Module._free(namePtr);
+        Module._free(colorPtr);
+        Module._free(teamPtr);
+      } else {
+        console.warn('[Web] _web_configure_anchor not available');
+      }
 
       return true;
     }

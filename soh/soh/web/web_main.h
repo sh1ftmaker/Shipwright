@@ -42,6 +42,13 @@ int web_extract_rom(const char* romPath, const char* outputPath);
  */
 const char* web_get_rom_version(const char* romPath);
 
+/**
+ * Configures Anchor/PartyKit networking from URL hash parameters.
+ * Sets CVars for room, name, color, team and enables Anchor.
+ * Also sets boot sequence to file select for quick game start.
+ */
+void web_configure_anchor(const char* room, const char* name, const char* color, const char* team);
+
 #ifdef __cplusplus
 }
 #endif

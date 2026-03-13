@@ -10,6 +10,9 @@
 #include "web_main.h"
 #include "soh/Extractor/Extract.h"
 #include <ship/utils/binarytools/BitConverter.h>
+#include <libultraship/libultraship.h>
+#include "soh/cvar_prefixes.h"
+#include "soh/Enhancements/enhancementTypes.h"
 
 static int s_otr_loaded = 0;
 
@@ -107,6 +110,48 @@ const char* web_get_rom_version(const char* romPath) {
              extractor.IsMasterQuest() ? "MQ " : "",
              extractor.IsMasterQuest() ? "Master Quest" : "Vanilla");
     return versionBuf;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_configure_anchor(const char* room, const char* name, const char* color, const char* team) {
+    printf("[Web] Configuring Anchor: room=%s name=%s color=%s team=%s\n",
+           room ? room : "(null)", name ? name : "(null)",
+           color ? color : "(null)", team ? team : "(null)");
+
+    // Build WebSocket URL with room name
+    std::string roomId = (room && room[0]) ? room : "default";
+    std::string wsUrl = "wss://soh-anchor.zalo.partykit.dev/party/" + roomId;
+    CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), wsUrl.c_str());
+    CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), roomId.c_str());
+
+    // Player name
+    if (name && name[0]) {
+        CVarSetString(CVAR_REMOTE_ANCHOR("Name"), name);
+    }
+
+    // Player color (hex RGB like "FF0000")
+    if (color && color[0]) {
+        unsigned int r = 100, g = 255, b = 100;
+        if (strlen(color) == 6) {
+            sscanf(color, "%02x%02x%02x", &r, &g, &b);
+        }
+        // Color CVar is stored as a packed 24-bit RGB value
+        uint32_t colorVal = (r << 16) | (g << 8) | b;
+        CVarSetColor24(CVAR_REMOTE_ANCHOR("Color.Value"), { (uint8_t)r, (uint8_t)g, (uint8_t)b });
+    }
+
+    // Team ID
+    if (team && team[0]) {
+        CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), team);
+    }
+
+    // Enable Anchor networking
+    CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
+
+    // Skip to file select on boot so players get into the game quickly
+    CVarSetInteger(CVAR_SETTING("BootSequence"), BOOTSEQUENCE_FILESELECT);
+
+    printf("[Web] Anchor configured. WebSocket URL: %s\n", wsUrl.c_str());
 }
 
 } // extern "C"
