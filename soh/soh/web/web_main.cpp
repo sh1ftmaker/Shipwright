@@ -25,6 +25,66 @@ void Sram_InitNewSave(void);
 void GameInteractor_ExecuteOnLoadGame(int32_t fileNum);
 }
 
+// ---- Touch Gamepad Bridge ----
+// Read touch gamepad state from JavaScript and merge into OSContPad
+
+// N64 button masks (from libultra/os.h)
+#define N64_A      0x8000
+#define N64_B      0x4000
+#define N64_Z      0x2000
+#define N64_START  0x1000
+#define N64_L      0x0020
+#define N64_R      0x0010
+#define N64_CU     0x0008
+#define N64_CD     0x0004
+#define N64_CL     0x0002
+#define N64_CR     0x0001
+
+EM_JS(int, web_touch_active, (), {
+    return (typeof TouchGamepad !== 'undefined' && TouchGamepad.isActive()) ? 1 : 0;
+});
+
+EM_JS(int, web_touch_stick_x, (), {
+    return (typeof TouchGamepad !== 'undefined') ? TouchGamepad.getStickX() : 0;
+});
+
+EM_JS(int, web_touch_stick_y, (), {
+    return (typeof TouchGamepad !== 'undefined') ? TouchGamepad.getStickY() : 0;
+});
+
+EM_JS(int, web_touch_buttons, (), {
+    if (typeof TouchGamepad === 'undefined' || !TouchGamepad.isActive()) return 0;
+    var b = 0;
+    if (TouchGamepad.isButtonPressed('tb-a'))     b |= 0x8000;
+    if (TouchGamepad.isButtonPressed('tb-b'))     b |= 0x4000;
+    if (TouchGamepad.isButtonPressed('tb-z'))     b |= 0x2000;
+    if (TouchGamepad.isButtonPressed('tb-start')) b |= 0x1000;
+    if (TouchGamepad.isButtonPressed('tb-l'))     b |= 0x0020;
+    if (TouchGamepad.isButtonPressed('tb-r'))     b |= 0x0010;
+    if (TouchGamepad.isButtonPressed('tb-cu'))    b |= 0x0008;
+    if (TouchGamepad.isButtonPressed('tb-cd'))    b |= 0x0004;
+    if (TouchGamepad.isButtonPressed('tb-cl'))    b |= 0x0002;
+    if (TouchGamepad.isButtonPressed('tb-cr'))    b |= 0x0001;
+    return b;
+});
+
+#include <libultraship/libultra/controller.h>
+
+extern "C" void WebTouchGamepad_MergeInput(OSContPad* pad) {
+    if (!web_touch_active()) return;
+
+    // Merge buttons (OR with existing)
+    pad->button |= (uint16_t)web_touch_buttons();
+
+    // Merge stick (touch overrides if non-zero)
+    int sx = web_touch_stick_x();
+    int sy = web_touch_stick_y();
+    if (sx != 0 || sy != 0) {
+        pad->stick_x = (int8_t)sx;
+        pad->stick_y = (int8_t)sy;
+    }
+}
+
 // Convert ASCII character to OoT NES font encoding
 static uint8_t AsciiToOot(char c) {
     if (c >= 'A' && c <= 'Z') return 0xAB + (c - 'A');
