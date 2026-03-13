@@ -1623,6 +1623,21 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     }
 
     srand(now);
+
+#ifdef __EMSCRIPTEN__
+    // Enable cutscene skipping by default on web for faster iteration
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Intro"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Entrances"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Story"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.LearnSong"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.BossIntro"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.QuickBossDeaths"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.OnePoint"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipOwlInteractions"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipMiscInteractions"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.DisableTitleCard"), 1);
+#endif
+
 #if defined(ENABLE_REMOTE_CONTROL) && !defined(__EMSCRIPTEN__)
     SDLNet_Init();
 #endif
