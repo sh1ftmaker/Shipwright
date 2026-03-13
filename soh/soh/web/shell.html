@@ -556,19 +556,29 @@
     // ---- Audio context resume on first interaction ----
 
     function resumeAudio() {
-      if (audioResumed) return;
       try {
         var ctx = (Module.SDL2 && Module.SDL2.audioContext) ||
                   (typeof AudioContext !== 'undefined' && new AudioContext());
         if (ctx && ctx.state === 'suspended') {
-          ctx.resume();
+          ctx.resume().then(function() {
+            audioResumed = true;
+            console.log('[Web] AudioContext resumed');
+          });
+        } else if (ctx && ctx.state === 'running') {
+          audioResumed = true;
         }
       } catch(e) {}
-      audioResumed = true;
     }
 
+    // Resume on user interaction
     document.addEventListener('click', resumeAudio);
     document.addEventListener('keydown', resumeAudio);
+    document.addEventListener('touchstart', resumeAudio);
+
+    // iOS requires repeated attempts — poll until audio is running
+    setInterval(function() {
+      if (!audioResumed) resumeAudio();
+    }, 2000);
 
     // ---- Watch for game rendering ----
 

@@ -17,8 +17,8 @@ This fork adds:
 - **Browser ROM loading** — upload `.o2r` files or load them from URLs via hash parameters
 - **URL-based configuration** — pass game archives, multiplayer room, player name, and color all via URL
 - **PartyKit multiplayer** — WebSocket-based Anchor networking for browser-to-browser multiplayer
-- **Touch gamepad** — on-screen controls for mobile devices (analog stick, A/B/Z/Start/L/R/C-buttons)
-- **IndexedDB caching** — game archives are cached locally after first load
+- **Mobile support** — touch gamepad with analog stick and all N64 buttons, scaled UI for small screens, iOS audio compatibility, and persistent save files via IndexedDB
+- **IndexedDB persistence** — game archives cached on first load, save files persisted automatically
 - **Cutscene skipping** — all TimeSaver skip enhancements enabled by default
 
 ## Quick Start

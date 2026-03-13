@@ -39,6 +39,8 @@ const std::string appShortName = "soh";
 
 #ifdef __WIIU__
 const uint32_t defaultImGuiScale = 3;
+#elif defined(__EMSCRIPTEN__)
+const uint32_t defaultImGuiScale = 0; // 0.75x — fits better on mobile screens
 #else
 const uint32_t defaultImGuiScale = 1;
 #endif
