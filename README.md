@@ -1,112 +1,106 @@
 ![Ship of Harkinian](docs/shiptitle.darkmode.png#gh-dark-mode-only)
 ![Ship of Harkinian](docs/shiptitle.lightmode.png#gh-light-mode-only)
 
-## Website
+# Ship of Harkinian — Web Edition
 
-Official Website: https://www.shipofharkinian.com/
+Play Ocarina of Time in your browser. This is an Emscripten/WebAssembly fork of [Ship of Harkinian](https://github.com/HarbourMasters/Shipwright) that runs entirely client-side.
 
-## Discord
+**Play now: [zalo.github.io/Shipwright/](https://zalo.github.io/Shipwright/)**
 
-Official Discord: https://discord.com/invite/shipofharkinian
+> This is an independent fork. The upstream project has no plans to merge web support.
 
-If you're having any trouble after reading through this `README`, feel free to ask for help in the Support text channels. Please keep in mind that we do not condone piracy.
+## What's Different
 
-# Quick Start
+This fork adds:
 
-The Ship does not include any copyrighted assets.  You are required to provide a supported copy of the game.
+- **Emscripten/WASM build** — the full game compiled to WebAssembly with WebGL rendering
+- **Browser ROM loading** — upload `.o2r` files or load them from URLs via hash parameters
+- **URL-based configuration** — pass game archives, multiplayer room, player name, and color all via URL
+- **PartyKit multiplayer** — WebSocket-based Anchor networking for browser-to-browser multiplayer
+- **Touch gamepad** — on-screen controls for mobile devices (analog stick, A/B/Z/Start/L/R/C-buttons)
+- **IndexedDB caching** — game archives are cached locally after first load
+- **Cutscene skipping** — all TimeSaver skip enhancements enabled by default
 
-### 1. Verify your ROM dump
-You can verify you have dumped a supported copy of the game by using the compatibility checker at https://ship.equipment/. If you'd prefer to manually validate your ROM dump, you can cross-reference its `sha1` hash with the hashes [here](docs/supportedHashes.json).
+## Quick Start
 
-### 2. Download The Ship of Harkinian from [Releases](https://github.com/HarbourMasters/Shipwright/releases)
+You need two archive files: `soh.o2r` (game engine assets) and `oot.o2r` (extracted ROM data). These are not included — you must provide a legally acquired ROM.
 
-### 3. Launch the Game!
-#### Windows
-* Extract the zip
-* Launch `soh.exe`
+### Option 1: Upload files manually
+Visit [zalo.github.io/Shipwright/](https://zalo.github.io/Shipwright/) and drag/drop your `soh.o2r` and `oot.o2r` files.
 
-#### Linux
-* Place your supported copy of the game in the same folder as the appimage.
-* Execute `soh.appimage`.  You may have to `chmod +x` the appimage via terminal.
-
-#### macOS
-* Run `soh.app`. When prompted, select your supported copy of the game.
-* You should see a notification saying `Processing OTR`, then, once the process is complete, you should get a notification saying `OTR Successfully Generated`, then the game should start.
-
-#### Nintendo Switch
-* Run one of the PC releases to generate an `oot.o2r` and/or `oot-mq.o2r` file. After launching the game on PC, you will be able to find these files in the same directory as `soh.exe` or `soh.appimage`. On macOS, these files can be found in `/Users/<username>/Library/Application Support/com.shipofharkinian.soh/`
-* Copy the files to your sd card
+### Option 2: Load via URL parameters
 ```
-sdcard
-└── switch
-    └── soh
-        ├── oot-mq.o2r
-        ├── oot.o2r
-        ├── soh.nro
-        └── soh.o2r
+https://zalo.github.io/Shipwright/#soh=<SOH_URL>&oot=<OOT_URL>
 ```
-* Launch via Atmosphere's `Game+R` launcher method.
 
-### 4. Play!
+### Option 3: Local file server
+```bash
+./serve_o2r.sh PlayerName
+```
+This starts a CORS-enabled file server with a Cloudflare tunnel and prints a ready-to-use URL.
 
-Congratulations, you are now sailing with the Ship of Harkinian! Have fun!
+## URL Parameters
 
-# Configuration
+All parameters are passed via the URL hash (`#key=value&key2=value2`):
 
-### Default keyboard configuration
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `soh` | URL to `soh.o2r` archive | — |
+| `oot` | URL to `oot.o2r` archive | — |
+| `room` | Multiplayer room name | `default` |
+| `name` | Player display name | — |
+| `color` | Player color (hex RGB) | `64FF64` |
+| `team` | Team ID for item/flag sync | `default` |
+
+When `room` or `name` are provided, Anchor networking is automatically enabled and the game boots to file select.
+
+## Multiplayer
+
+This fork uses [PartyKit](https://partykit.io/) for WebSocket-based multiplayer via the Anchor networking system. Players in the same room can see each other, trade items, and sync game flags.
+
+The PartyKit server is at `soh/soh/web/partykit/`. Deploy with:
+```bash
+cd soh/soh/web/partykit && npx partykit deploy
+```
+
+## Building
+
+### Prerequisites
+- [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) (3.1.64+)
+- CMake 3.20+
+- Ninja
+
+### Build
+```bash
+emcmake cmake -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+emmake cmake --build build-web --parallel $(nproc)
+```
+
+### Serve locally
+```bash
+python3 serve_web.py
+# Open http://localhost:8080/soh.html
+```
+
+## Keyboard Controls
+
 | N64 | A | B | Z | Start | Analog stick | C buttons | D-Pad |
 | - | - | - | - | - | - | - | - |
 | Keyboard | X | C | Z | Space | WASD | Arrow keys | TFGH |
 
-### Other shortcuts
 | Keys | Action |
 | - | - |
 | ESC | Toggle menu |
-| F2 | Toggle capture mouse input |
-| F5 | Save state |
-| F6 | Change state |
-| F7 | Load state |
-| F9 | Toggle Text-to-Speech (Windows and Mac only) |
 | F11 | Fullscreen |
-| Tab | Toggle Alternate assets |
 | Ctrl+R | Reset |
 
-# Project Overview
-Ship of Harkinian (SOH) is built atop a custom library dubbed libultraship (LUS). Back in the N64 days, there was an SDK distributed to developers named libultra; LUS is designed to mimic the functionality of libultra on modern hardware. In addition, we are dependant on the source code provided by the OOT decompilation project.
+## Credits
 
-In order for the game to function, you will require a **legally acquired** ROM for Ocarina of Time. Click [here](https://ship.equipment/) to check the compatibility of your specific rom. Any copyrighted assets are extracted from the ROM and reformatted as a .o2r archive file which the code uses.
+Based on [Ship of Harkinian](https://github.com/HarbourMasters/Shipwright) by HarbourMasters.
 
-### Graphics Backends
-Currently, there are three rendering APIs supported: DirectX11 (Windows), OpenGL (all platforms), and Metal (MacOS). You can change which API to use in the `Settings` menu of the menubar, which requires a restart.  If you're having an issue with crashing, you can change the API in the `shipofharkinian.json` file by finding the line `gfxbackend:""` and changing the value to `sdl` for OpenGL. DirectX 11 is the default on Windows.
-
-# Custom Assets
-
-Custom assets are packed in `.otr` archive files. To use custom assets, place them in the `mods` folder.
-
-If you're interested in creating and/or packing your own custom asset `.otr` files, check out the following tools:
-* [**retro - OTR generator**](https://github.com/HarbourMasters64/retro)
-* [**fast64 - Blender plugin**](https://github.com/HarbourMasters/fast64)
-
-# Development
-### Building
-
-If you want to manually compile SoH, please consult the [building instructions](docs/BUILDING.md).
-
-### Playtesting
-If you want to playtest a continuous integration build, you can find them at the links below. Keep in mind that these are for playtesting only, and you will likely encounter bugs and possibly crashes. 
-
-* [Windows](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-windows.zip)
-* [macOS](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-mac.zip)
-* [Linux](https://nightly.link/HarbourMasters/Shipwright/workflows/generate-builds/develop/soh-linux.zip)
-
-### Further Reading
-More detailed documentation can be found in the 'docs' directory, including the aforementioned [building instructions](docs/BUILDING.md).
-
-* [Credits](docs/CREDITS.md)
-* [Custom Music](docs/CUSTOM_MUSIC.md)
-* [Controller Mapping](docs/GAME_CONTROLLER_DB.md)
-* [Modding](docs/MODDING.md)
-* [Versioning](docs/VERSIONING.md)
+- [Official SoH Website](https://www.shipofharkinian.com/)
+- [Official SoH Discord](https://discord.com/invite/shipofharkinian)
+- [Credits](docs/CREDITS.md)
 
 <a href="https://github.com/Kenix3/libultraship/">
   <picture>
