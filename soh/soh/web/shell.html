@@ -585,6 +585,98 @@
       return false;
     }
 
+    // ---- URL hash parameter: #soh=URL&oot=URL for .o2r files ----
+
+    // Convert Google Drive share URLs to direct download URLs
+    function toDirectUrl(url) {
+      var match = url.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+      if (match) {
+        return 'https://drive.google.com/uc?export=download&id=' + match[1];
+      }
+      return url;
+    }
+
+    function fetchO2rFromUrl(url, name, onProgress, onDone) {
+      var directUrl = toDirectUrl(url);
+      console.log('[Web] Fetching ' + name + ' from: ' + directUrl);
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', directUrl, true);
+      xhr.responseType = 'arraybuffer';
+
+      xhr.onprogress = function(e) {
+        if (e.lengthComputable) {
+          onProgress(e.loaded, e.total);
+        }
+      };
+
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          var buf = xhr.response;
+          console.log('[Web] Downloaded ' + name + ': ' + buf.byteLength + ' bytes');
+          cacheFile(name, buf).then(function() {
+            writeOtrToFS(name, buf);
+            onDone(null);
+          }).catch(function() {
+            writeOtrToFS(name, buf);
+            onDone(null);
+          });
+        } else {
+          onDone('HTTP ' + xhr.status);
+        }
+      };
+
+      xhr.onerror = function() {
+        onDone('Network error (check CORS)');
+      };
+
+      xhr.send();
+    }
+
+    function checkHashO2r() {
+      var params = getHashParams();
+      if (!params.soh && !params.oot) return false;
+
+      showProgress();
+      var downloads = [];
+      if (params.soh) downloads.push({ url: params.soh, name: 'soh.o2r' });
+      if (params.oot) downloads.push({ url: params.oot, name: 'oot.o2r' });
+
+      var completed = 0;
+      var total = downloads.length;
+      var errors = [];
+
+      setStatus('Downloading game archives (' + total + ' files)...');
+      setProgress(5);
+
+      downloads.forEach(function(dl, idx) {
+        fetchO2rFromUrl(dl.url, dl.name,
+          function(loaded, fileTotal) {
+            var filePct = Math.round((loaded / fileTotal) * 100);
+            setStatus('Downloading ' + dl.name + '... ' + filePct + '%');
+            var overallPct = 5 + ((completed + (loaded / fileTotal)) / total) * 85;
+            setProgress(Math.round(overallPct));
+          },
+          function(err) {
+            completed++;
+            if (err) errors.push(dl.name + ': ' + err);
+            if (completed === total) {
+              if (errors.length > 0) {
+                showError('Download failed: ' + errors.join(', '));
+                hideProgress();
+              } else {
+                setProgress(95);
+                setStatus('All archives downloaded.');
+                finalizeOtrLoad();
+              }
+            }
+          }
+        );
+      });
+
+      return true;
+    }
+
     // ---- Check for cached OTR files on load ----
 
     function checkCachedOtr() {
@@ -657,8 +749,10 @@
 
       onRuntimeInitialized: function() {
         setStatus('Runtime initialized. Checking for game files...');
-        // Check URL hash for ROM parameter first, then fall back to cached files
-        if (!checkHashRom()) {
+        // Check URL hash for o2r/ROM parameters first, then fall back to cached files
+        if (checkHashO2r()) {
+          // Downloading o2r files from URL hash
+        } else if (!checkHashRom()) {
           checkCachedOtr();
         }
       },
