@@ -93,9 +93,30 @@ void Anchor::RegisterHooks() {
         }
 
         SendPacket_PlayerUpdate();
+        SendPacket_ActorSync();
     });
 
-    COND_HOOK(OnGameFrameUpdate, isConnected, [&]() { ProcessIncomingPacketQueue(); });
+    COND_HOOK(OnGameFrameUpdate, isConnected, [&]() {
+        ProcessIncomingPacketQueue();
+        if (gPlayState != NULL) {
+            actorSync.OnGameFrameUpdate(gPlayState);
+        }
+    });
+
+    // Clear actor sync state on scene transitions
+    COND_HOOK(OnSceneInit, isConnected, [&](s16 sceneNum) {
+        if (gPlayState != NULL) {
+            actorSync.OnSceneLoad(gPlayState);
+        }
+    });
+
+    // Suppress local AI update for remotely-owned actors
+    COND_HOOK(ShouldActorUpdate, isConnected, [&](void* actorRef, bool* should) {
+        Actor* actor = (Actor*)actorRef;
+        if (ShouldSyncActor(actor) && actorSync.IsRemotelyOwned(actor)) {
+            *should = false;
+        }
+    });
 
     COND_HOOK(OnPlayerSfx, isConnected, [&](u16 sfxId) { SendPacket_PlayerSfx(sfxId); });
     COND_HOOK(OnOcarinaNote, isConnected,
