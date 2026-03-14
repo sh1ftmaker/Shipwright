@@ -81,11 +81,11 @@ jobs:
       # Backdate any freshly-touched deps to match existing .o files.
       - name: Fix dep timestamps for incremental build
         run: |
-          REF=$(find build-web -name '*.cpp.o' -print -quit 2>/dev/null)
+          REF=$(find build-web -name '*.o' -printf '%T@ %p\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2)
           if [ -n "$REF" ]; then
             COUNT=$(find build-web/_deps -type f -newer "$REF" | wc -l)
             find build-web/_deps -type f -newer "$REF" -exec touch -r "$REF" {} +
-            echo "Backdated $COUNT files in _deps/ to match cached .o files"
+            echo "Backdated $COUNT files in _deps/ to match oldest cached .o ($REF)"
           else
             echo "No cached .o files found — fresh build"
           fi
