@@ -1,5 +1,9 @@
 #pragma once
 
+// WARNING: This header is included by 65+ source files. ANY change to it
+// triggers a large rebuild on Emscripten. Prefer runtime changes in the
+// corresponding .cpp file instead.
+
 #include "include/z64math.h"
 
 #ifdef __cplusplus

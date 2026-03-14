@@ -1,6 +1,10 @@
 #ifndef SHIP_INIT_HPP
 #define SHIP_INIT_HPP
 
+// WARNING: This header is included by 116+ source files. ANY change to it
+// triggers a full rebuild (~17 min on Emscripten). Prefer runtime changes
+// in the corresponding .cpp file instead.
+
 #ifdef __cplusplus
 
 #include <string>

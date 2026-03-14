@@ -3,6 +3,11 @@
 
 #pragma once
 
+// WARNING: This header is included by 186+ source files. ANY change to it
+// triggers a full rebuild (~17 min on Emscripten). Do NOT modify constants,
+// add #ifdefs, or change definitions here. Instead, make runtime changes in
+// OTRGlobals.cpp (e.g. CVarRegisterInteger) which only recompiles one file.
+
 #define BTN_CUSTOM_MODIFIER1 0x0040
 #define BTN_CUSTOM_MODIFIER2 0x0080
 

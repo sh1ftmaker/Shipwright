@@ -1,5 +1,9 @@
 #pragma once
 
+// WARNING: This header is included by 194+ source files. ANY change to it
+// triggers a full rebuild (~17 min on Emscripten). Prefer runtime changes
+// in the corresponding .cpp file instead.
+
 #include "libultraship/libultra/types.h"
 
 #define GAME_REGION_NTSC 0
