@@ -70,10 +70,15 @@ jobs:
       - name: Verify Emscripten
         run: emcc --version
 
-      - name: Configure CMake
+      - name: Configure CMake (only if not cached)
         run: |
-          emcmake cmake -B build-web -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+          if [ ! -f build-web/build.ninja ]; then
+            echo "No cached build.ninja — running configure"
+            emcmake cmake -B build-web -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release
+          else
+            echo "build.ninja exists — skipping configure (Ninja re-runs CMake automatically if needed)"
+          fi
 
       - name: Build for web
         run: |
