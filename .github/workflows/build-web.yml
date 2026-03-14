@@ -80,6 +80,17 @@ jobs:
             echo "build.ninja exists — skipping configure (Ninja re-runs CMake automatically if needed)"
           fi
 
+      # actions/checkout gives source files fresh timestamps, making them
+      # appear newer than cached .o files. restat tells Ninja to re-hash
+      # outputs and update its build log so it knows they're still valid.
+      - name: Fix Ninja timestamps after cache restore
+        run: |
+          if [ -f build-web/build.ninja ]; then
+            cd build-web
+            ninja -t restat
+            echo "Ninja restat complete"
+          fi
+
       - name: Build for web
         run: |
           emmake cmake --build build-web --parallel 2
