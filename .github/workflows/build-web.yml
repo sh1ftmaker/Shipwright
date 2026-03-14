@@ -81,7 +81,7 @@ jobs:
       # Backdate any freshly-touched deps to match existing .o files.
       - name: Fix dep timestamps for incremental build
         run: |
-          REF=$(find build-web -name '*.o' -printf '%T@ %p\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2)
+          REF=$(find build-web -name '*.o' -printf '%T@ %p\n' 2>/dev/null | sort -n 2>/dev/null | head -1 | cut -d' ' -f2)
           if [ -n "$REF" ]; then
             COUNT=$(find build-web/_deps -type f -newer "$REF" | wc -l)
             find build-web/_deps -type f -newer "$REF" -exec touch -r "$REF" {} +
