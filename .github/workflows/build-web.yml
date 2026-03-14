@@ -70,25 +70,24 @@ jobs:
       - name: Verify Emscripten
         run: emcc --version
 
-      - name: Configure CMake (only if not cached)
+      - name: Configure CMake
         run: |
-          if [ ! -f build-web/build.ninja ]; then
-            echo "No cached build.ninja — running configure"
-            emcmake cmake -B build-web -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release
-          else
-            echo "build.ninja exists — skipping configure (Ninja re-runs CMake automatically if needed)"
-          fi
+          emcmake cmake -B build-web -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
 
-      # actions/checkout gives source files fresh timestamps, making them
-      # appear newer than cached .o files. restat tells Ninja to re-hash
-      # outputs and update its build log so it knows they're still valid.
-      - name: Fix Ninja timestamps after cache restore
+      # file(DOWNLOAD) in libultraship re-downloads stb_image.h every
+      # configure, giving it a fresh timestamp. Since it's transitively
+      # included by nearly every source file, this forces a full rebuild.
+      # Backdate any freshly-touched deps to match existing .o files.
+      - name: Fix dep timestamps for incremental build
         run: |
-          if [ -f build-web/build.ninja ]; then
-            cd build-web
-            ninja -t restat
-            echo "Ninja restat complete"
+          REF=$(find build-web -name '*.cpp.o' -print -quit 2>/dev/null)
+          if [ -n "$REF" ]; then
+            COUNT=$(find build-web/_deps -type f -newer "$REF" | wc -l)
+            find build-web/_deps -type f -newer "$REF" -exec touch -r "$REF" {} +
+            echo "Backdated $COUNT files in _deps/ to match cached .o files"
+          else
+            echo "No cached .o files found — fresh build"
           fi
 
       - name: Build for web
