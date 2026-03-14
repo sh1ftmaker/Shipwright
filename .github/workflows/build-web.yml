@@ -70,19 +70,6 @@ jobs:
       - name: Verify Emscripten
         run: emcc --version
 
-      - name: Clean stale CMake metadata only if toolchain changed
-        run: |
-          if [ -f build-web/CMakeCache.txt ]; then
-            CACHED_GENERATOR=$(grep "CMAKE_MAKE_PROGRAM:FILEPATH=" build-web/CMakeCache.txt 2>/dev/null || true)
-            CACHED_SYSTEM=$(grep "CMAKE_SYSTEM_NAME:STRING=" build-web/CMakeCache.txt 2>/dev/null | cut -d= -f2)
-            if [ "$CACHED_SYSTEM" != "Emscripten" ] || ! echo "$CACHED_GENERATOR" | grep -q ninja; then
-              echo "Toolchain or generator changed — cleaning CMake metadata"
-              rm -rf build-web/CMakeCache.txt build-web/CMakeFiles build-web/cmake_install.cmake build-web/build.ninja build-web/.ninja_* build-web/rules.ninja
-            else
-              echo "CMake metadata looks valid — keeping for incremental build"
-            fi
-          fi
-
       - name: Configure CMake
         run: |
           emcmake cmake -B build-web -G Ninja \
