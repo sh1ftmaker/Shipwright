@@ -122,9 +122,20 @@ void web_apply_anchor_config() {
         CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), team);
     }
 
-    // Enable Anchor and skip to file select
+    // Enable Anchor, skip to file select, and auto-skip cutscenes for multiplayer
     CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
     CVarSetInteger(CVAR_SETTING("BootSequence"), BOOTSEQUENCE_FILESELECT);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Intro"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Entrances"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Story"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.LearnSong"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.BossIntro"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.QuickBossDeaths"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.OnePoint"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipOwlInteractions"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipMiscInteractions"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.DisableTitleCard"), 1);
+    CVarSetInteger(CVAR_ENHANCEMENT("SkipText"), 1);
 
     free(room); free(name); free(color); free(team);
     printf("[Web] Anchor configured. WebSocket URL: %s\n", wsUrl.c_str());

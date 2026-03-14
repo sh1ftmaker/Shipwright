@@ -1625,28 +1625,13 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     srand(now);
 
 #ifdef __EMSCRIPTEN__
-    // Web QoL defaults: skip cutscenes, faster gameplay, quality of life
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Intro"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Entrances"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Story"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.LearnSong"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.BossIntro"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.QuickBossDeaths"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.OnePoint"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipOwlInteractions"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipMiscInteractions"), 1);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.DisableTitleCard"), 1);
-    // Faster text and chests
+    // Web QoL defaults: faster gameplay (cutscenes are still skippable manually)
     CVarRegisterInteger(CVAR_ENHANCEMENT("TextSpeed"), 5);
-    CVarRegisterInteger(CVAR_ENHANCEMENT("SkipText"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("FastChests"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("FastDrops"), 1);
-    // Gameplay QoL
     CVarRegisterInteger(CVAR_ENHANCEMENT("ClimbSpeed"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("MweepSpeed"), 1);
-    // Note: BootSequence skip is set by web_apply_anchor_config() only when
-    // joining a multiplayer session. Otherwise, show the title screen.
 #endif
 
 #if defined(ENABLE_REMOTE_CONTROL) && !defined(__EMSCRIPTEN__)
