@@ -18,6 +18,10 @@ class Network {
 #ifdef __EMSCRIPTEN__
     WebSocketClient wsClient;
     void PollWebSocket();
+    std::string wsUrl;
+    int reconnectAttempts = 0;
+    bool reconnectScheduled = false;
+    void ScheduleReconnect();
 #elif defined(ENABLE_REMOTE_CONTROL)
     IPaddress networkAddress;
     TCPsocket networkSocket;

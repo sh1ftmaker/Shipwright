@@ -43,6 +43,27 @@ void Anchor::OnConnected() {
 
     if (IsSaveLoaded()) {
         SendPacket_RequestTeamState();
+        AutoEquipSwordAndShield();
+    }
+}
+
+void Anchor::AutoEquipSwordAndShield() {
+    // Equip the best sword the player owns
+    for (int sword = EQUIP_VALUE_SWORD_BIGGORON; sword >= EQUIP_VALUE_SWORD_KOKIRI; sword--) {
+        if (CHECK_OWNED_EQUIP(EQUIP_TYPE_SWORD, sword)) {
+            gSaveContext.equips.equipment &= ~gEquipMasks[EQUIP_TYPE_SWORD];
+            gSaveContext.equips.equipment |= (sword << gEquipShifts[EQUIP_TYPE_SWORD]);
+            break;
+        }
+    }
+
+    // Equip the best shield the player owns
+    for (int shield = EQUIP_VALUE_SHIELD_MIRROR; shield >= EQUIP_VALUE_SHIELD_DEKU; shield--) {
+        if (CHECK_OWNED_EQUIP(EQUIP_TYPE_SHIELD, shield)) {
+            gSaveContext.equips.equipment &= ~gEquipMasks[EQUIP_TYPE_SHIELD];
+            gSaveContext.equips.equipment |= (shield << gEquipShifts[EQUIP_TYPE_SHIELD]);
+            break;
+        }
     }
 }
 

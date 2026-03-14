@@ -94,11 +94,17 @@ void Network::SendJsonToRemote(nlohmann::json payload) {
 }
 
 #ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
 void Network::EnableWebSocket(const std::string& url) {
     isEnabled = true;
+    wsUrl = url;
+    reconnectAttempts = 0;
 
     wsClient.SetOnConnect([this]() {
         isConnected = true;
+        reconnectAttempts = 0;
+        reconnectScheduled = false;
         OnConnected();
     });
 
@@ -106,10 +112,33 @@ void Network::EnableWebSocket(const std::string& url) {
         isConnected = false;
         if (isEnabled) {
             OnDisconnected();
+            ScheduleReconnect();
         }
     });
 
     wsClient.Connect(url);
+}
+
+void Network::ScheduleReconnect() {
+    if (reconnectScheduled || !isEnabled || wsUrl.empty()) {
+        return;
+    }
+
+    reconnectScheduled = true;
+    reconnectAttempts++;
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, capped at 15s
+    int delayMs = std::min(1000 * (1 << std::min(reconnectAttempts - 1, 3)), 15000);
+    SPDLOG_INFO("[Network] WebSocket disconnected. Reconnecting in {}ms (attempt {})", delayMs, reconnectAttempts);
+
+    emscripten_async_call([](void* userData) {
+        Network* self = static_cast<Network*>(userData);
+        self->reconnectScheduled = false;
+        if (self->isEnabled && !self->isConnected) {
+            SPDLOG_INFO("[Network] Attempting WebSocket reconnect to {}", self->wsUrl);
+            self->wsClient.Connect(self->wsUrl);
+        }
+    }, this, delayMs);
 }
 
 void Network::PollIncoming() {

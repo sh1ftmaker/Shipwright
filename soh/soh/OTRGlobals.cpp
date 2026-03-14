@@ -1625,7 +1625,7 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     srand(now);
 
 #ifdef __EMSCRIPTEN__
-    // Enable cutscene skipping by default on web for faster iteration
+    // Web QoL defaults: skip cutscenes, faster gameplay, quality of life
     CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Intro"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Entrances"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Story"), 1);
@@ -1636,6 +1636,17 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipOwlInteractions"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.SkipMiscInteractions"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("TimeSavers.DisableTitleCard"), 1);
+    // Faster text and chests
+    CVarRegisterInteger(CVAR_ENHANCEMENT("TextSpeed"), 5);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("SkipText"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("FastChests"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("FastDrops"), 1);
+    // Gameplay QoL
+    CVarRegisterInteger(CVAR_ENHANCEMENT("ClimbSpeed"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 1);
+    CVarRegisterInteger(CVAR_ENHANCEMENT("MweepSpeed"), 1);
+    // Skip to file select on boot
+    CVarRegisterInteger(CVAR_SETTING("BootSequence"), 2);
 #endif
 
 #if defined(ENABLE_REMOTE_CONTROL) && !defined(__EMSCRIPTEN__)

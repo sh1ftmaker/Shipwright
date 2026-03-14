@@ -145,6 +145,7 @@ class Anchor : public Network {
     void OnIncomingJson(nlohmann::json payload);
     void OnConnected();
     void OnDisconnected();
+    void AutoEquipSwordAndShield();
     void ProcessOutgoingPackets();
     void DrawMenu();
     void ProcessIncomingPacketQueue();
