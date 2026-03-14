@@ -117,6 +117,16 @@
       transition: width 0.3s ease;
     }
 
+    #progress-bar-inner.extracting {
+      transition: none;
+      animation: fake-progress 30s cubic-bezier(0.1, 0.4, 0.2, 0.85) forwards;
+    }
+
+    @keyframes fake-progress {
+      0%   { width: 25%; }
+      100% { width: 90%; }
+    }
+
     #status {
       font-size: 0.9rem;
       color: #aaa;
@@ -384,6 +394,51 @@
       waitForGameRender();
     }
 
+    // ---- Eager prefetch of soh.o2r ----
+    // Starts immediately at page load, in parallel with WASM compilation.
+    // The result is written to the Emscripten FS once the runtime is ready.
+
+    var _sohO2rPromise = (function() {
+      // First check IndexedDB cache
+      return getCachedFile('soh.o2r').then(function(buf) {
+        if (buf) {
+          console.log('[Web] soh.o2r found in IndexedDB cache (' + buf.byteLength + ' bytes)');
+          return buf;
+        }
+        // Not cached — fetch from server
+        return new Promise(function(resolve, reject) {
+          console.log('[Web] Prefetching soh.o2r from server...');
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', 'soh.o2r', true);
+          xhr.responseType = 'arraybuffer';
+          xhr.onload = function() {
+            if (xhr.status === 200) {
+              console.log('[Web] soh.o2r downloaded: ' + xhr.response.byteLength + ' bytes');
+              cacheFile('soh.o2r', xhr.response).catch(function() {});
+              resolve(xhr.response);
+            } else {
+              reject('HTTP ' + xhr.status);
+            }
+          };
+          xhr.onerror = function() { reject('network error'); };
+          xhr.send();
+        });
+      }).catch(function(err) {
+        console.warn('[Web] Failed to prefetch soh.o2r:', err);
+        return null;
+      });
+    })();
+
+    function installSohO2r() {
+      return _sohO2rPromise.then(function(buf) {
+        if (buf) {
+          writeOtrToFS('soh.o2r', buf);
+          return true;
+        }
+        return false;
+      });
+    }
+
     // ---- ROM detection helpers ----
 
     function isRomFile(name) {
@@ -404,11 +459,16 @@
         return;
       }
 
-      setStatus('Extracting ROM assets... This may take several minutes.');
-      setProgress(30);
+      setStatus('Extracting ROM assets (~25 seconds)...');
+      setProgress(25);
+
+      // Start CSS animation for fake progress (runs on compositor thread,
+      // keeps animating even while the main thread is blocked by WASM)
+      var bar = document.getElementById('progress-bar-inner');
+      bar.classList.add('extracting');
 
       // Run extraction (synchronous — ZAPD runs single-threaded)
-      // Use setTimeout to allow the UI to update before blocking
+      // Use setTimeout to allow the UI/animation to start before blocking
       setTimeout(function() {
         var romPathPtr = Module.allocateUTF8('/rom.z64');
         var outPathPtr = Module.allocateUTF8('/oot.o2r');
@@ -417,6 +477,7 @@
         Module._free(outPathPtr);
 
         if (result < 0) {
+          bar.classList.remove('extracting');
           showError('ROM extraction failed (error ' + result + '). Check the browser console for details.');
           hideProgress();
           try { FS.unlink('/rom.z64'); } catch(e) {}
@@ -427,6 +488,8 @@
         var actualOutputName = result === 1 ? 'oot-mq.o2r' : 'oot.o2r';
         var actualOutputPath = '/' + actualOutputName;
 
+        // Stop fake progress animation and jump to real progress
+        bar.classList.remove('extracting');
         setStatus('Caching extracted archive...');
         setProgress(80);
 
@@ -864,13 +927,19 @@
       },
 
       onRuntimeInitialized: function() {
-        setStatus('Runtime initialized. Checking for game files...');
-        // Check URL hash for o2r/ROM parameters first, then fall back to cached files
-        if (checkHashO2r()) {
-          // Downloading o2r files from URL hash
-        } else if (!checkHashRom()) {
-          checkCachedOtr();
-        }
+        setStatus('Runtime initialized. Loading game files...');
+        // Install soh.o2r (prefetched during page load) before any other file logic
+        installSohO2r().then(function(installed) {
+          if (installed) {
+            console.log('[Web] soh.o2r installed to virtual filesystem');
+          }
+          // Check URL hash for o2r/ROM parameters first, then fall back to cached files
+          if (checkHashO2r()) {
+            // Downloading o2r files from URL hash
+          } else if (!checkHashRom()) {
+            checkCachedOtr();
+          }
+        });
       },
 
       locateFile: function(path) {
