@@ -56,7 +56,7 @@ jobs:
       - name: Cache Emscripten system libs
         uses: actions/cache@v4
         with:
-          path: ~/.emscripten_cache
+          path: ${{ github.workspace }}/emsdk-cache/emsdk-main/upstream/emscripten/cache
           key: emsdk-syslibs-3.1.64-${{ runner.os }}
 
       - name: Cache build directory
