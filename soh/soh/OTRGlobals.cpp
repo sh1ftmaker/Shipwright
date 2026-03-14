@@ -1645,8 +1645,8 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     CVarRegisterInteger(CVAR_ENHANCEMENT("ClimbSpeed"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("MweepSpeed"), 1);
-    // Skip to file select on boot
-    CVarRegisterInteger(CVAR_SETTING("BootSequence"), 2);
+    // Note: BootSequence skip is set by web_apply_anchor_config() only when
+    // joining a multiplayer session. Otherwise, show the title screen.
 #endif
 
 #if defined(ENABLE_REMOTE_CONTROL) && !defined(__EMSCRIPTEN__)
