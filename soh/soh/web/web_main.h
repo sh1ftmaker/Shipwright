@@ -23,9 +23,14 @@ int web_get_otr_status(void);
 void web_save_to_idb(void);
 
 /**
- * Initializes IDBFS mounts at /soh/save and /soh/config and loads persisted data.
+ * Initializes IDBFS mounts at /Save and loads persisted data from IndexedDB.
  */
 void web_fs_init(void);
+
+/**
+ * Returns 1 when IDBFS has finished loading from IndexedDB, 0 otherwise.
+ */
+int web_is_idbfs_ready(void);
 
 /**
  * Extracts a .z64 ROM file into a .o2r archive using ZAPD.

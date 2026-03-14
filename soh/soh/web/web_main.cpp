@@ -157,25 +157,45 @@ void web_save_to_idb(void) {
     );
 }
 
+// Track whether IDBFS has finished loading from IndexedDB
+static volatile int s_idbfs_ready = 0;
+
 EM_JS(void, web_mount_idbfs, (), {
-    var dirs = ["/soh/save", "/soh/config"];
+    // Mount IDBFS at the actual directories the game uses:
+    // GetAppDirectoryPath() returns "." on Emscripten, so saves go to ./Save/
+    // and config goes to ./  (cvars.cfg, imgui.ini)
+    var dirs = ["/Save"];
     for (var i = 0; i < dirs.length; i++) {
         try { FS.mkdir(dirs[i]); } catch (e) { /* may exist */ }
         FS.mount(IDBFS, {}, dirs[i]);
     }
     FS.syncfs(true, function(err) {
-        if (err) console.error("[Web] IDBFS load failed:", err);
-        else console.log("[Web] IDBFS loaded.");
+        if (err) {
+            console.error("[Web] IDBFS load failed:", err);
+        } else {
+            console.log("[Web] IDBFS loaded. Files in /Save/:");
+            try {
+                var files = FS.readdir("/Save");
+                console.log("[Web]   " + files.join(", "));
+            } catch(e) {}
+        }
+        // Signal C side that IDBFS is ready
+        setValue(_web_idbfs_ready_ptr(), 1, 'i32');
     });
 });
 
+EMSCRIPTEN_KEEPALIVE
+int* web_idbfs_ready_ptr(void) {
+    return (int*)&s_idbfs_ready;
+}
+
 void web_fs_init(void) {
-    // Ensure the /soh directory exists
-    EM_ASM(
-        try { FS.mkdir('/soh'); } catch(e) { /* exists */ }
-    );
     web_mount_idbfs();
-    printf("[Web] IDBFS mounts initialized for /soh/save, /soh/config.\n");
+    printf("[Web] IDBFS mount initiated for /Save.\n");
+}
+
+int web_is_idbfs_ready(void) {
+    return s_idbfs_ready;
 }
 
 EMSCRIPTEN_KEEPALIVE

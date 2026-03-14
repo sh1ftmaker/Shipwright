@@ -60,6 +60,10 @@ static void web_startup_poll(void) {
         // OTR files not yet uploaded - keep polling
         return;
     }
+    if (!web_is_idbfs_ready()) {
+        // IDBFS not yet loaded from IndexedDB - keep polling
+        return;
+    }
 
     // OTR files are ready - cancel this polling loop and start the game
     emscripten_cancel_main_loop();
