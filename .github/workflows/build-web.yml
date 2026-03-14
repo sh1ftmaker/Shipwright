@@ -2,18 +2,17 @@ name: Build Web (Emscripten) & Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ develop, feature/emscripten-web-port ]
+    branches: [ develop, feature/emscripten-web-port, feature/* ]
   pull_request:
     branches: [ develop ]
   workflow_dispatch:
 
-# Allow only one concurrent deployment
 concurrency:
-  group: "pages-${{ github.ref }}"
-  cancel-in-progress: true
+  group: "web-build-${{ github.ref }}"
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -63,9 +62,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build-web
-          key: build-web-${{ runner.os }}-${{ hashFiles('soh/CMakeLists.txt', 'CMakeLists.txt', 'soh/src/**', 'soh/soh/**', 'libultraship', 'ZAPDTR', 'OTRExporter') }}
+          key: build-web-${{ github.ref_name }}-${{ runner.os }}-${{ hashFiles('soh/CMakeLists.txt', 'CMakeLists.txt', 'soh/src/**', 'soh/soh/**', 'libultraship', 'ZAPDTR', 'OTRExporter') }}
           restore-keys: |
-            build-web-${{ runner.os }}-
+            build-web-${{ github.ref_name }}-${{ runner.os }}-
+            build-web-feature/emscripten-web-port-${{ runner.os }}-
 
       - name: Verify Emscripten
         run: emcc --version
@@ -94,7 +94,22 @@ jobs:
         run: |
           emmake cmake --build build-web --parallel 2
 
-      - name: Prepare Pages artifact
+      # Determine deploy path: main branch deploys to root, others to /branch-name/
+      - name: Set deploy path
+        id: deploy-path
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          if [ "$BRANCH" = "feature/emscripten-web-port" ] || [ "$BRANCH" = "develop" ]; then
+            echo "subdir=" >> $GITHUB_OUTPUT
+            echo "Deploying to site root"
+          else
+            # Sanitize branch name for use as URL path
+            SAFE_BRANCH=$(echo "$BRANCH" | sed 's|/|-|g' | sed 's|[^a-zA-Z0-9._-]|-|g')
+            echo "subdir=$SAFE_BRANCH" >> $GITHUB_OUTPUT
+            echo "Deploying to /$SAFE_BRANCH/"
+          fi
+
+      - name: Prepare build output
         run: |
           mkdir -p _site
           cp build-web/soh/soh.html _site/index.html
@@ -102,20 +117,12 @@ jobs:
           cp build-web/soh/soh.wasm _site/
           cp build-web/soh/soh.data _site/ 2>/dev/null || true
 
-      - name: Upload Pages artifact
-        if: github.event_name == 'push'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/emscripten-web-port')
-    needs: build-web
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
+      # Deploy to gh-pages branch (supports per-branch subdirectories)
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          destination_dir: ${{ steps.deploy-path.outputs.subdir }}
+          keep_files: true
