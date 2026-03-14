@@ -70,18 +70,6 @@ jobs:
       - name: Verify Emscripten
         run: emcc --version
 
-      - name: Generate soh.o2r (native ZAPD build)
-        run: |
-          if [ ! -f build-web/soh/soh.o2r ]; then
-            echo "Generating soh.o2r with native ZAPD..."
-            cmake -B build-native -G Ninja -DCMAKE_BUILD_TYPE=Release
-            cmake --build build-native --target GenerateSohOtr -j$(nproc)
-            mkdir -p build-web/soh
-            cp soh/soh.o2r build-web/soh/soh.o2r
-          else
-            echo "soh.o2r already cached"
-          fi
-
       - name: Configure CMake
         run: |
           emcmake cmake -B build-web -G Ninja \
@@ -128,7 +116,7 @@ jobs:
           cp build-web/soh/soh.js _site/
           cp build-web/soh/soh.wasm _site/
           cp build-web/soh/soh.data _site/ 2>/dev/null || true
-          cp build-web/soh/soh.o2r _site/ 2>/dev/null || true
+          cp soh/soh/web/soh.o2r _site/
 
       # Deploy to gh-pages branch (supports per-branch subdirectories)
       - name: Deploy to GitHub Pages
