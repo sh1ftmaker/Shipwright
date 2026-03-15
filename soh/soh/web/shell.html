@@ -619,31 +619,38 @@
     });
 
     // ---- Audio context resume on first interaction ----
+    // iOS Safari is strict: AudioContext.resume() must be called directly
+    // inside a user gesture handler, AND it must be SDL's own context
+    // (not a throwaway). We retry on every interaction until SDL's context
+    // is created and successfully resumed.
 
     function resumeAudio() {
       try {
-        var ctx = (Module.SDL2 && Module.SDL2.audioContext) ||
-                  (typeof AudioContext !== 'undefined' && new AudioContext());
-        if (ctx && ctx.state === 'suspended') {
+        // Only resume SDL's actual audio context — never create a new one
+        var ctx = Module.SDL2 && Module.SDL2.audioContext;
+        if (!ctx) return; // SDL hasn't initialized audio yet
+
+        if (ctx.state === 'suspended') {
           ctx.resume().then(function() {
             audioResumed = true;
-            console.log('[Web] AudioContext resumed');
-          });
-        } else if (ctx && ctx.state === 'running') {
+            console.log('[Web] AudioContext resumed (state: ' + ctx.state + ')');
+          }).catch(function() {});
+        } else if (ctx.state === 'running') {
           audioResumed = true;
         }
       } catch(e) {}
     }
 
-    // Resume on user interaction
+    // Resume on every user interaction (iOS needs the gesture to be fresh)
     document.addEventListener('click', resumeAudio);
     document.addEventListener('keydown', resumeAudio);
     document.addEventListener('touchstart', resumeAudio);
+    document.addEventListener('touchend', resumeAudio);
 
-    // iOS requires repeated attempts — poll until audio is running
+    // Keep polling — SDL audio context may be created after first interactions
     setInterval(function() {
       if (!audioResumed) resumeAudio();
-    }, 2000);
+    }, 500);
 
     // ---- Watch for game rendering ----
 
