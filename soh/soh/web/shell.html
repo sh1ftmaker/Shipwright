@@ -618,60 +618,51 @@
       }
     });
 
-    // ---- Audio context resume on first interaction ----
-    // iOS Safari requires AudioContext to be created OR resumed inside a
-    // user gesture handler. SDL2 creates its own AudioContext lazily, but
-    // by that time the user gesture has been consumed. Fix: pre-create an
-    // AudioContext on the first gesture and hand it to SDL before it inits.
-
-    var _preCreatedAudioCtx = null;
+    // ---- Audio context resume ----
+    // iOS problem: Emscripten's SDL2 registers one-shot (listenOnce) gesture
+    // listeners via autoResumeAudioContext. These fire and are removed before
+    // SDL has created its AudioContext on first page load. After that, no
+    // listeners remain and audio is permanently broken.
+    //
+    // Fix: Register PERSISTENT listeners that keep trying on every interaction.
 
     function resumeAudio() {
+      if (audioResumed) return;
       try {
-        // If SDL has initialized audio, resume its context
-        if (Module.SDL2 && Module.SDL2.audioContext) {
-          var ctx = Module.SDL2.audioContext;
-          if (ctx.state === 'suspended') {
-            ctx.resume().then(function() {
-              audioResumed = true;
-              console.log('[Web] SDL AudioContext resumed');
-            }).catch(function() {});
-          } else if (ctx.state === 'running') {
-            audioResumed = true;
-          }
+        var ctx = Module.SDL2 && Module.SDL2.audioContext;
+        if (!ctx) return;
+        if (ctx.state === 'running') {
+          audioResumed = true;
           return;
         }
-
-        // SDL hasn't created audio yet — pre-create an AudioContext now
-        // (inside this user gesture) and stash it for SDL to pick up.
-        if (!_preCreatedAudioCtx) {
-          var AC = window.AudioContext || window.webkitAudioContext;
-          if (AC) {
-            _preCreatedAudioCtx = new AC();
-            // Assign it where SDL2's Emscripten port looks for it
-            if (!Module.SDL2) Module.SDL2 = {};
-            Module.SDL2.audioContext = _preCreatedAudioCtx;
-            console.log('[Web] Pre-created AudioContext for SDL (state: ' + _preCreatedAudioCtx.state + ')');
-          }
-        }
-
-        // Also try to resume the pre-created context (iOS may suspend it)
-        if (_preCreatedAudioCtx && _preCreatedAudioCtx.state === 'suspended') {
-          _preCreatedAudioCtx.resume().catch(function() {});
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(function() {
+            if (ctx.state === 'running') {
+              audioResumed = true;
+              console.log('[Web] AudioContext resumed');
+            }
+          }).catch(function() {});
         }
       } catch(e) {}
     }
 
-    // Listen on all interaction types (iOS is picky about which count)
-    document.addEventListener('click', resumeAudio);
-    document.addEventListener('keydown', resumeAudio);
-    document.addEventListener('touchstart', resumeAudio);
-    document.addEventListener('touchend', resumeAudio);
+    // Persistent listeners on document (unlike Emscripten's one-shot listeners)
+    ['click', 'mousedown', 'keydown', 'touchstart', 'touchend'].forEach(function(evt) {
+      document.addEventListener(evt, resumeAudio, true);
+    });
 
-    // Fallback polling for cases where SDL replaces the context
-    setInterval(function() {
-      if (!audioResumed) resumeAudio();
-    }, 1000);
+    // Also bind directly on the canvas once it exists
+    function bindCanvasAudio() {
+      var c = document.getElementById('canvas');
+      if (c && !c._audioBound) {
+        c._audioBound = true;
+        ['touchstart', 'touchend', 'mousedown', 'click'].forEach(function(evt) {
+          c.addEventListener(evt, resumeAudio, true);
+        });
+      }
+    }
+    bindCanvasAudio();
+    setTimeout(bindCanvasAudio, 2000);
 
     // ---- Watch for game rendering ----
 
