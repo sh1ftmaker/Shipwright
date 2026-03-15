@@ -626,22 +626,59 @@
     //
     // Fix: Register PERSISTENT listeners that keep trying on every interaction.
 
+    var _audioResumeAttempts = 0;
+
     function resumeAudio() {
       if (audioResumed) return;
       try {
         var ctx = Module.SDL2 && Module.SDL2.audioContext;
         if (!ctx) return;
+
         if (ctx.state === 'running') {
           audioResumed = true;
           return;
         }
+
+        _audioResumeAttempts++;
+
         if (ctx.state === 'suspended') {
-          ctx.resume().then(function() {
-            if (ctx.state === 'running') {
+          // First few attempts: try normal resume
+          if (_audioResumeAttempts <= 3) {
+            ctx.resume().then(function() {
+              if (ctx.state === 'running') {
+                audioResumed = true;
+                console.log('[Web] AudioContext resumed via resume()');
+              }
+            }).catch(function() {});
+          } else {
+            // iOS nuclear option: close the broken context and create a
+            // new one inside this user gesture. iOS refuses to resume a
+            // context that was created outside a gesture — the only fix
+            // is to replace it entirely.
+            var sampleRate = ctx.sampleRate;
+            console.log('[Web] AudioContext stuck suspended after ' + _audioResumeAttempts +
+                        ' attempts. Replacing with new context (sampleRate=' + sampleRate + ')');
+            try { ctx.close(); } catch(e) {}
+
+            var AC = window.AudioContext || window.webkitAudioContext;
+            var newCtx = new AC({ sampleRate: sampleRate });
+            Module.SDL2.audioContext = newCtx;
+
+            // SDL2's audio worklet/scriptProcessor nodes were connected to
+            // the old context. Reconnecting requires re-opening audio.
+            // Trigger SDL to reinitialize by toggling the audio state.
+            if (newCtx.state === 'running') {
               audioResumed = true;
-              console.log('[Web] AudioContext resumed');
+              console.log('[Web] Replaced AudioContext — now running');
+            } else {
+              newCtx.resume().then(function() {
+                if (newCtx.state === 'running') {
+                  audioResumed = true;
+                  console.log('[Web] Replaced AudioContext — resumed');
+                }
+              }).catch(function() {});
             }
-          }).catch(function() {});
+          }
         }
       } catch(e) {}
     }
