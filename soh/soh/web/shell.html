@@ -647,7 +647,7 @@
     }
 
     // Persistent listeners on document (unlike Emscripten's one-shot listeners)
-    ['click', 'mousedown', 'keydown', 'touchstart', 'touchend'].forEach(function(evt) {
+    ['click', 'mousedown', 'keydown', 'touchstart', 'touchend', 'pointerdown', 'pointerup'].forEach(function(evt) {
       document.addEventListener(evt, resumeAudio, true);
     });
 
@@ -656,7 +656,7 @@
       var c = document.getElementById('canvas');
       if (c && !c._audioBound) {
         c._audioBound = true;
-        ['touchstart', 'touchend', 'mousedown', 'click'].forEach(function(evt) {
+        ['touchstart', 'touchend', 'mousedown', 'click', 'pointerdown', 'pointerup'].forEach(function(evt) {
           c.addEventListener(evt, resumeAudio, true);
         });
       }
@@ -1011,6 +1011,7 @@
             e.preventDefault();
             el.classList.add('pressed');
             self._buttons[id] = true;
+            resumeAudio(); // iOS: resume audio on gamepad touch
           }, { passive: false });
           el.addEventListener('touchend', function(e) {
             e.preventDefault();
@@ -1032,6 +1033,7 @@
 
         zone.addEventListener('touchstart', function(e) {
           e.preventDefault();
+          resumeAudio(); // iOS: resume audio on stick touch
           var touch = e.changedTouches[0];
           self._stickTouchId = touch.identifier;
           var rect = base.getBoundingClientRect();
