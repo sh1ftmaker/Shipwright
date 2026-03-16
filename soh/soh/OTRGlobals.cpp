@@ -1632,6 +1632,15 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     CVarRegisterInteger(CVAR_ENHANCEMENT("ClimbSpeed"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 1);
     CVarRegisterInteger(CVAR_ENHANCEMENT("MweepSpeed"), 1);
+
+    // Scale ImGui for high-DPI displays (iOS retina = 2x or 3x)
+    {
+        int dpr = EM_ASM_INT({ return Math.round(window.devicePixelRatio || 1); });
+        if (dpr >= 2) {
+            // Index 3 = 2.0x scale — matches retina pixel density
+            CVarRegisterInteger(CVAR_SETTING("ImGuiScale"), 3);
+        }
+    }
 #endif
 
 #if defined(ENABLE_REMOTE_CONTROL) && !defined(__EMSCRIPTEN__)
