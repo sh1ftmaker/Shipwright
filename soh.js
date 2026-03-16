@@ -39,7 +39,7 @@ if (ENVIRONMENT_IS_NODE) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /tmp/tmp0cj2q15k.js
+// include: /tmp/tmpwmey0957.js
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
@@ -421,21 +421,21 @@ Module['FS_createPath']("/assets/xml/N64_PAL_11", "textures", true, true);
 
   })();
 
-// end include: /tmp/tmp0cj2q15k.js
-// include: /tmp/tmp_gorgh96.js
+// end include: /tmp/tmpwmey0957.js
+// include: /tmp/tmp2zdtxqjw.js
 
     // All the pre-js content up to here must remain later on, we need to run
     // it.
     if (Module['$ww'] || (typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD)) Module['preRun'] = [];
     var necessaryPreJSTasks = Module['preRun'].slice();
-  // end include: /tmp/tmp_gorgh96.js
-// include: /tmp/tmpm_lgx4a6.js
+  // end include: /tmp/tmp2zdtxqjw.js
+// include: /tmp/tmpb17eo5gd.js
 
     if (!Module['preRun']) throw 'Module.preRun should exist because file support used it; did a pre-js delete it?';
     necessaryPreJSTasks.forEach((task) => {
       if (Module['preRun'].indexOf(task) < 0) throw 'All preRun tasks that exist before user pre-js code should remain after; did you replace Module or modify Module.preRun?';
     });
-  // end include: /tmp/tmpm_lgx4a6.js
+  // end include: /tmp/tmpb17eo5gd.js
 
 
 // Sometimes an existing Module object exists with properties
@@ -12578,6 +12578,7 @@ var ___wasm_call_ctors = createExportWrapper('__wasm_call_ctors', 0);
 var _malloc = Module['_malloc'] = createExportWrapper('malloc', 1);
 var _free = Module['_free'] = createExportWrapper('free', 1);
 var _web_save_to_idb = Module['_web_save_to_idb'] = createExportWrapper('web_save_to_idb', 0);
+var _web_wants_text_input = Module['_web_wants_text_input'] = createExportWrapper('web_wants_text_input', 0);
 var _web_otr_loaded = Module['_web_otr_loaded'] = createExportWrapper('web_otr_loaded', 0);
 var _web_get_otr_status = Module['_web_get_otr_status'] = createExportWrapper('web_get_otr_status', 0);
 var _web_idbfs_ready_ptr = Module['_web_idbfs_ready_ptr'] = createExportWrapper('web_idbfs_ready_ptr', 0);
