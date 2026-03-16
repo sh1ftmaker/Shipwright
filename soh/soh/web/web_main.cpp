@@ -132,7 +132,14 @@ void web_apply_anchor_config() {
 
 static int s_otr_loaded = 0;
 
+#include <imgui.h>
+
 extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+int web_wants_text_input(void) {
+    return ImGui::GetIO().WantTextInput ? 1 : 0;
+}
 
 EMSCRIPTEN_KEEPALIVE
 void web_otr_loaded(void) {

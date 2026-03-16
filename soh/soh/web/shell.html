@@ -1110,6 +1110,110 @@
     }
   </script>
 
+  <script>
+    // ---- Mobile keyboard for ImGui text inputs ----
+    // iOS requires focus() in the same call stack as a user gesture.
+    // The C++ side sets Module._wantsTextInput when ImGui has an active text field.
+    // We check this flag on every touch and focus the hidden input if needed.
+    (function() {
+      var mobileInput = document.getElementById('mobile-keyboard-input');
+      if (!mobileInput) return;
+      var isShowingKeyboard = false;
+
+      // Pipe typed characters from the hidden input into SDL/Emscripten as key events
+      mobileInput.addEventListener('input', function(e) {
+        var canvas = document.getElementById('canvas');
+        var val = mobileInput.value;
+        if (val.length > 0) {
+          // Send each character as a keypress to the canvas
+          for (var i = 0; i < val.length; i++) {
+            var ch = val.charCodeAt(i);
+            canvas.dispatchEvent(new KeyboardEvent('keydown', { key: val[i], charCode: ch, keyCode: ch, which: ch, bubbles: true }));
+            canvas.dispatchEvent(new KeyboardEvent('keypress', { key: val[i], charCode: ch, keyCode: ch, which: ch, bubbles: true }));
+            canvas.dispatchEvent(new KeyboardEvent('keyup', { key: val[i], charCode: ch, keyCode: ch, which: ch, bubbles: true }));
+          }
+          mobileInput.value = '';
+        }
+      });
+
+      // Check on every touch if ImGui wants text input
+      function checkKeyboard() {
+        try {
+          if (Module && Module._web_wants_text_input) {
+            var wants = Module._web_wants_text_input();
+            if (wants && !isShowingKeyboard) {
+              isShowingKeyboard = true;
+              mobileInput.focus();
+            } else if (!wants && isShowingKeyboard) {
+              isShowingKeyboard = false;
+              mobileInput.blur();
+            }
+          }
+        } catch(e) {}
+      }
+
+      document.addEventListener('touchend', checkKeyboard, true);
+      document.addEventListener('click', checkKeyboard, true);
+    })();
+
+    // ---- Touch-drag scrolling for ImGui ----
+    // ImGui only scrolls via mouse wheel. Convert touch drag on the canvas
+    // into synthetic wheel events so scrollable ImGui panels work on mobile.
+    (function() {
+      var canvas = document.getElementById('canvas');
+      if (!canvas) return;
+      var lastTouchY = null;
+      var lastTouchX = null;
+      var scrollTouchId = null;
+
+      canvas.addEventListener('touchstart', function(e) {
+        // Only track one finger for scrolling; gamepad handles its own touches
+        if (scrollTouchId !== null) return;
+        var t = e.changedTouches[0];
+        // Ignore touches in the gamepad zones (bottom-left stick, right-side buttons)
+        if (t.clientY > window.innerHeight * 0.5) return;
+        scrollTouchId = t.identifier;
+        lastTouchY = t.clientY;
+        lastTouchX = t.clientX;
+      }, { passive: true });
+
+      canvas.addEventListener('touchmove', function(e) {
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          var t = e.changedTouches[i];
+          if (t.identifier !== scrollTouchId) continue;
+
+          var dy = lastTouchY - t.clientY;
+          var dx = lastTouchX - t.clientX;
+          lastTouchY = t.clientY;
+          lastTouchX = t.clientX;
+
+          // Only scroll if vertical drag is dominant
+          if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 1) {
+            canvas.dispatchEvent(new WheelEvent('wheel', {
+              deltaY: dy * 3,
+              deltaX: 0,
+              bubbles: true,
+              clientX: t.clientX,
+              clientY: t.clientY
+            }));
+          }
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchend', function(e) {
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === scrollTouchId) {
+            scrollTouchId = null;
+          }
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchcancel', function() {
+        scrollTouchId = null;
+      }, { passive: true });
+    })();
+  </script>
+
   {{{ SCRIPT }}}
 
 </body>
