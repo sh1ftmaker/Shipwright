@@ -1160,8 +1160,9 @@
     // ImGui only scrolls via mouse wheel. Convert touch drag on the canvas
     // into synthetic wheel events so scrollable ImGui panels work on mobile.
     (function() {
-      var canvas = document.getElementById('canvas');
-      if (!canvas) return;
+      function initTouchScroll(canvas) {
+        if (canvas._touchScrollBound) return;
+        canvas._touchScrollBound = true;
       var lastTouchY = null;
       var lastTouchX = null;
       var scrollTouchId = null;
@@ -1211,6 +1212,17 @@
       canvas.addEventListener('touchcancel', function() {
         scrollTouchId = null;
       }, { passive: true });
+      }
+
+      // Try immediately and retry until canvas exists
+      var c = document.getElementById('canvas');
+      if (c) {
+        initTouchScroll(c);
+      }
+      // Retry in case canvas isn't ready yet (Emscripten may recreate it)
+      setTimeout(function() { var c = document.getElementById('canvas'); if (c) initTouchScroll(c); }, 1000);
+      setTimeout(function() { var c = document.getElementById('canvas'); if (c) initTouchScroll(c); }, 3000);
+      setTimeout(function() { var c = document.getElementById('canvas'); if (c) initTouchScroll(c); }, 5000);
     })();
   </script>
 
