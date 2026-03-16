@@ -217,6 +217,9 @@
   </div>
 
   <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  <!-- Hidden input for mobile keyboard on Emscripten (iOS/Android) -->
+  <input id="mobile-keyboard-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+    style="position:fixed;left:-9999px;top:50%;width:1px;height:1px;opacity:0;z-index:-1;font-size:16px;" />
 
   <div id="touch-gamepad">
     <div id="touch-stick-zone">

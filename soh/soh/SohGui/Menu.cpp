@@ -820,7 +820,7 @@ void Menu::DrawElement() {
     ImGui::SetNextWindowPos(pos + style.ItemSpacing * 2);
 
     // Scale sidebar width with ImGui font scale and screen size.
-    float sidebarWidth = (200 - style.ItemSpacing.x) * ImGui::GetIO().FontGlobalScale;
+    float sidebarWidth = (200 - style.ItemSpacing.x) * ImGui::GetIO().FontGlobalScale * 0.75f;
     if (menuSize.x > 1600) {
         sidebarWidth = menuSize.x * 0.15f;
     }
