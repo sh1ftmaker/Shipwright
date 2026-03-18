@@ -1905,6 +1905,10 @@ ImFont* OTRGlobals::CreateFontWithSize(float size, std::string fontPath, bool is
         initData->Path = fontPath;
         std::shared_ptr<Ship::Font> fontData = std::static_pointer_cast<Ship::Font>(
             Ship::Context::GetInstance()->GetResourceManager()->LoadResource(fontPath, false, initData));
+        if (fontData == nullptr || fontData->Data == nullptr) {
+            SPDLOG_WARN("CreateFontWithSize: font not found in archive: {}", fontPath);
+            return mImGuiIo->Fonts->AddFontDefault();
+        }
         ImFontConfig fontConf;
         fontConf.FontDataOwnedByAtlas = false;
         const ImWchar* glyph_ranges = isJapaneseFont ? mImGuiIo->Fonts->GetGlyphRangesJapanese() : nullptr;
