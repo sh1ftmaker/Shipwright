@@ -122,9 +122,7 @@ void web_apply_anchor_config() {
         CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), team);
     }
 
-    // Enable Anchor and skip to file select
-    CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
-    CVarSetInteger(CVAR_SETTING("BootSequence"), BOOTSEQUENCE_FILESELECT);
+    // URL params are now just defaults; do NOT force enable or skip to file select
 
     free(room); free(name); free(color); free(team);
     printf("[Web] Anchor configured. WebSocket URL: %s\n", wsUrl.c_str());

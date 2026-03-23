@@ -18,9 +18,26 @@ void Anchor::Enable() {
     // For web builds, connect via WebSocket to PartyKit server
     // Production: wss://soh-anchor.zalo.partykit.dev/party/<room>
     // Local dev: ws://localhost:1999/party/<room>
-    const char* wsUrl = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"),
-                                       "wss://soh-anchor.zalo.partykit.dev/party/default");
-    Network::EnableWebSocket(std::string(wsUrl));
+
+    // Get configured URL or default
+    const char* wsUrlCStr = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"),
+                                          "wss://soh-anchor.zalo.partykit.dev/party/default");
+    std::string wsUrl(wsUrlCStr);
+    const std::string defaultUrl = "wss://soh-anchor.zalo.partykit.dev/party/default";
+
+    // If still on default, try to build URL from RoomId
+    if (wsUrl == defaultUrl) {
+        const char* roomIdCStr = CVarGetString(CVAR_REMOTE_ANCHOR("RoomId"), "default");
+        std::string roomId(roomIdCStr);
+        if (!roomId.empty() && roomId != "default") {
+            wsUrl = "wss://soh-anchor.zalo.partykit.dev/party/" + roomId;
+        }
+    }
+
+    // Keep CVar in sync with the actual URL we're using
+    CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), wsUrl.c_str());
+
+    Network::EnableWebSocket(wsUrl);
     isEnabled = true;
 #else
     Network::Enable(CVarGetString(CVAR_REMOTE_ANCHOR("Host"), "anchor.hm64.org"),
