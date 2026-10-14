@@ -1,4 +1,6 @@
-#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include <libultraship/bridge/consolevariablebridge.h>
+
+#include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/ShipInit.hpp"
 
 extern "C" {
@@ -55,8 +57,7 @@ static void OnSpawnNighttimeGoldSkulltula() {
             dayTimeGS.room == gPlayState->roomCtx.curRoom.num) {
             for (const auto& actorEntry : dayTimeGS.actorEntries) {
                 Actor_Spawn(&gPlayState->actorCtx, gPlayState, actorEntry.id, actorEntry.pos.x, actorEntry.pos.y,
-                            actorEntry.pos.z, actorEntry.rot.x, actorEntry.rot.y, actorEntry.rot.z, actorEntry.params,
-                            false);
+                            actorEntry.pos.z, actorEntry.rot.x, actorEntry.rot.y, actorEntry.rot.z, actorEntry.params);
             }
         }
     }

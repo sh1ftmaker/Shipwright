@@ -33,7 +33,7 @@ void web_fs_init(void);
 int web_is_idbfs_ready(void);
 
 /**
- * Extracts a .z64 ROM file into a .o2r archive using ZAPD.
+ * Extracts a .z64 ROM file into a .o2r archive using Torch.
  * @param romPath   Path to the ROM in MEMFS (e.g., "/rom.z64")
  * @param outputPath Path for the output .o2r file (e.g., "/oot.o2r")
  * @return 0 on success, negative error code on failure

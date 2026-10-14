@@ -1,6 +1,5 @@
 #include "Network.h"
 #include <spdlog/spdlog.h>
-#include <libultraship/libultraship.h>
 
 // MARK: - Public
 
@@ -21,7 +20,7 @@ void Network::Enable(const char* host, uint16_t port) {
         url = std::string("wss://") + host + ":" + std::to_string(port);
     }
     EnableWebSocket(url);
-#elif defined(ENABLE_REMOTE_CONTROL)
+#else
     if (isEnabled) {
         return;
     }
@@ -77,9 +76,9 @@ void Network::SendDataToRemote(const char* payload) {
     if (isConnected) {
         wsClient.Send(std::string(payload));
     }
-#elif defined(ENABLE_REMOTE_CONTROL)
+#else
     SPDLOG_DEBUG("[Network] Sending data: {}", payload);
-    SDLNet_TCP_Send(networkSocket, payload, strlen(payload) + 1);
+    SDLNet_TCP_Send(networkSocket, payload, static_cast<int>(strlen(payload) + 1));
 #endif
 }
 
@@ -160,7 +159,7 @@ void Network::PollIncoming() {
 // MARK: - Private
 
 void Network::ReceiveFromServer() {
-#if !defined(__EMSCRIPTEN__) && defined(ENABLE_REMOTE_CONTROL)
+#ifndef __EMSCRIPTEN__
     while (isEnabled) {
         while (!isConnected && isEnabled) {
             SPDLOG_TRACE("[Network] Attempting to make connection to server...");
@@ -251,5 +250,9 @@ void Network::HandleRemoteJson(std::string payload) {
         return;
     }
 
-    OnIncomingJson(jsonPayload);
+    try {
+        OnIncomingJson(jsonPayload);
+    } catch (const std::exception& e) {
+        SPDLOG_ERROR("[Network] Exception handling incoming JSON: {}", e.what());
+    } catch (...) { SPDLOG_ERROR("[Network] Unknown exception handling incoming JSON"); }
 }

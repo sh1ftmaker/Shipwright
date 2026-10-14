@@ -8,6 +8,7 @@
 #include "scenes/overworld/spot00/spot00_scene.h"
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include <libultraship/bridge/consolevariablebridge.h>
 
 #define FLAGS ACTOR_FLAG_UPDATE_CULLING_DISABLED
 
@@ -65,7 +66,7 @@ void ItemOcarina_Init(Actor* thisx, PlayState* play) {
                 Actor_Kill(thisx);
                 return;
             }
-            Actor_Spawn(&play->actorCtx, play, ACTOR_ELF_MSG2, 299.0f, -140.0f, 884.0f, 0, 4, 1, 0x3800, true);
+            Actor_Spawn(&play->actorCtx, play, ACTOR_ELF_MSG2, 299.0f, -140.0f, 884.0f, 0, 4, 1, 0x3800);
             Actor_SetScale(thisx, 0.2f);
             break;
         default:

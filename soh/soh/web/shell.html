@@ -470,7 +470,7 @@
       var bar = document.getElementById('progress-bar-inner');
       bar.classList.add('extracting');
 
-      // Run extraction (synchronous — ZAPD runs single-threaded)
+      // Run extraction (synchronous — Torch runs single-threaded)
       // Use setTimeout to allow the UI/animation to start before blocking
       setTimeout(function() {
         var romPathPtr = Module.allocateUTF8('/rom.z64');

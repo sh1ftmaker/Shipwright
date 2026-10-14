@@ -1,12 +1,8 @@
 [submodule "libultraship"]
 	path = libultraship
-	url = https://github.com/zalo/libultraship.git
-	branch = feature/emscripten-web-port
-[submodule "ZAPDTR"]
-	path = ZAPDTR
-	url = https://github.com/zalo/ZAPDTR.git
-	branch = feature/emscripten-web-port
-[submodule "OTRExporter"]
-	path = OTRExporter
-	url = https://github.com/zalo/OTRExporter.git
-	branch = feature/emscripten-web-port
+	url = https://github.com/sh1ftmaker/libultraship.git
+	branch = feature/emscripten-web-port-torch
+[submodule "torch"]
+	path = torch
+	url = https://github.com/HarbourMasters/Torch.git
+	branch = main

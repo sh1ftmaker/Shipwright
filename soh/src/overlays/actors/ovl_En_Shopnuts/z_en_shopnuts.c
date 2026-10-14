@@ -1,7 +1,6 @@
 #include "z_en_shopnuts.h"
 #include "objects/object_shopnuts/object_shopnuts.h"
 #include "overlays/actors/ovl_En_Dns/z_en_dns.h"
-#include "soh/ResourceManagerHelpers.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE)
@@ -65,7 +64,7 @@ void EnShopnuts_Init(Actor* thisx, PlayState* play) {
 
     Actor_ProcessInitChain(&this->actor, sInitChain);
     ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawCircle, 35.0f);
-    SkelAnime_InitFlex(play, &this->skelAnime, &gBusinessScrubSkel, &gBusinessScrubAnim_4574, this->jointTable,
+    SkelAnime_InitFlex(play, &this->skelAnime, &gBusinessScrubSkel, &gBusinessScrubPeekAnim, this->jointTable,
                        this->morphTable, 18);
     Collider_InitCylinder(play, &this->collider);
     Collider_SetCylinder(play, &this->collider, &this->actor, &sCylinderInit);
@@ -90,12 +89,10 @@ void EnShopnuts_Destroy(Actor* thisx, PlayState* play) {
     EnShopnuts* this = (EnShopnuts*)thisx;
 
     Collider_DestroyCylinder(play, &this->collider);
-
-    ResourceMgr_UnregisterSkeleton(&this->skelAnime);
 }
 
 void EnShopnuts_SetupWait(EnShopnuts* this) {
-    Animation_PlayOnceSetSpeed(&this->skelAnime, &gBusinessScrubAnim_139C, 0.0f);
+    Animation_PlayOnceSetSpeed(&this->skelAnime, &gBusinessScrubInitialAnim, 0.0f);
     this->animFlagAndTimer = Rand_S16Offset(100, 50);
     this->collider.dim.height = 5;
     this->collider.base.acFlags &= ~AC_ON;
@@ -109,12 +106,12 @@ void EnShopnuts_SetupLookAround(EnShopnuts* this) {
 }
 
 void EnShopnuts_SetupThrowNut(EnShopnuts* this) {
-    Animation_PlayOnce(&this->skelAnime, &gBusinessScrubAnim_1EC);
+    Animation_PlayOnce(&this->skelAnime, &gBusinessScrubThrowNutAnim);
     this->actionFunc = EnShopnuts_ThrowNut;
 }
 
 void EnShopnuts_SetupStand(EnShopnuts* this) {
-    Animation_MorphToLoop(&this->skelAnime, &gBusinessScrubAnim_4574, -3.0f);
+    Animation_MorphToLoop(&this->skelAnime, &gBusinessScrubPeekAnim, -3.0f);
     if (this->actionFunc == EnShopnuts_ThrowNut) {
         this->animFlagAndTimer = 2 | 0x1000; // sets timer and flag
     } else {
@@ -124,7 +121,7 @@ void EnShopnuts_SetupStand(EnShopnuts* this) {
 }
 
 void EnShopnuts_SetupBurrow(EnShopnuts* this) {
-    Animation_MorphToPlayOnce(&this->skelAnime, &gBusinessScrubAnim_39C, -5.0f);
+    Animation_MorphToPlayOnce(&this->skelAnime, &gBusinessScrubPeekBurrowAnim, -5.0f);
     Audio_PlayActorSound2(&this->actor, NA_SE_EN_NUTS_DOWN);
     this->actionFunc = EnShopnuts_Burrow;
 }
@@ -208,7 +205,7 @@ void EnShopnuts_ThrowNut(EnShopnuts* this, PlayState* play) {
         spawnPos.y = this->actor.world.pos.y + 12.0f;
         spawnPos.z = this->actor.world.pos.z + (Math_CosS(this->actor.shape.rot.y) * 23.0f);
         if (Actor_Spawn(&play->actorCtx, play, ACTOR_EN_NUTSBALL, spawnPos.x, spawnPos.y, spawnPos.z,
-                        this->actor.shape.rot.x, this->actor.shape.rot.y, this->actor.shape.rot.z, 2, true) != NULL) {
+                        this->actor.shape.rot.x, this->actor.shape.rot.y, this->actor.shape.rot.z, 2) != NULL) {
             Audio_PlayActorSound2(&this->actor, NA_SE_EN_NUTS_THROW);
         }
     }
@@ -229,7 +226,7 @@ void EnShopnuts_SpawnSalesman(EnShopnuts* this, PlayState* play) {
     if (SkelAnime_Update(&this->skelAnime)) {
         Actor_Spawn(&play->actorCtx, play, ACTOR_EN_DNS, this->actor.world.pos.x, this->actor.world.pos.y,
                     this->actor.world.pos.z, this->actor.shape.rot.x, this->actor.shape.rot.y, this->actor.shape.rot.z,
-                    this->actor.params, true);
+                    this->actor.params);
         Actor_Kill(&this->actor);
     } else {
         Math_ApproachS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 2, 0xE38);
@@ -259,8 +256,8 @@ void EnShopnuts_Update(Actor* thisx, PlayState* play) {
     if (this->actionFunc == EnShopnuts_Wait) {
         Actor_SetFocus(&this->actor, this->skelAnime.curFrame);
     } else if (this->actionFunc == EnShopnuts_Burrow) {
-        Actor_SetFocus(&this->actor,
-                       20.0f - ((this->skelAnime.curFrame * 20.0f) / Animation_GetLastFrame(&gBusinessScrubAnim_39C)));
+        Actor_SetFocus(&this->actor, 20.0f - ((this->skelAnime.curFrame * 20.0f) /
+                                              Animation_GetLastFrame(&gBusinessScrubPeekBurrowAnim)));
     } else {
         Actor_SetFocus(&this->actor, 20.0f);
     }

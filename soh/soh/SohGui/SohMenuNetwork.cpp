@@ -1,10 +1,13 @@
+#include <ship/Context.h>
+
 #include "SohMenu.h"
 #include <soh/Notification/Notification.h>
-#include <soh/Network/Network.h>
 #include "SohGui.hpp"
 #include "soh/OTRGlobals.h"
+#include "soh/util.h"
 #include <soh/Network/Sail/Sail.h>
 #include <soh/Network/CrowdControl/CrowdControl.h>
+#include "soh/SohGui/UIWidgets.hpp"
 
 namespace SohGui {
 
@@ -16,19 +19,7 @@ void SohMenu::AddMenuNetwork() {
     AddMenuEntry("Network", CVAR_SETTING("Menu.NetworkSidebarSection"));
     WidgetPath path;
 
-#if !defined(ENABLE_REMOTE_CONTROL) && !defined(__EMSCRIPTEN__)
-    path = { "Network", "Info", SECTION_COLUMN_1 };
-    AddSidebarEntry("Network", path.sidebarName, 2);
-
-    AddWidget(path,
-              ICON_FA_EXCLAMATION_TRIANGLE " The Network features are unavailable because SoH was compiled without "
-                                           "network support (\"ENABLE_REMOTE_CONTROL\" build flag).",
-              WIDGET_TEXT)
-        .Options(TextOptions().Color(Colors::Orange));
-    return;
-#endif
-
-#ifdef ENABLE_REMOTE_CONTROL
+#ifndef __EMSCRIPTEN__ // Sail and CrowdControl are not built for web
     // Sail
     path = { "Network", "Sail", SECTION_COLUMN_1 };
     AddSidebarEntry("Network", path.sidebarName, 3);
@@ -88,11 +79,11 @@ void SohMenu::AddMenuNetwork() {
         .Callback([](WidgetInfo& info) {
             if (Sail::Instance->isEnabled) {
                 CVarClear(CVAR_REMOTE_SAIL("Enabled"));
-                Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
+                Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
                 Sail::Instance->Disable();
             } else {
                 CVarSetInteger(CVAR_REMOTE_SAIL("Enabled"), 1);
-                Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
+                Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
                 Sail::Instance->Enable();
             }
         });
@@ -154,11 +145,11 @@ void SohMenu::AddMenuNetwork() {
         .Callback([](WidgetInfo& info) {
             if (CrowdControl::Instance->isEnabled) {
                 CVarClear(CVAR_REMOTE_CROWD_CONTROL("Enabled"));
-                Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
+                Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
                 CrowdControl::Instance->Disable();
             } else {
                 CVarSetInteger(CVAR_REMOTE_CROWD_CONTROL("Enabled"), 1);
-                Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
+                Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
                 CrowdControl::Instance->Enable();
             }
         });
@@ -181,7 +172,7 @@ void SohMenu::AddMenuNetwork() {
         .RaceDisable(true)
         .Options(CheckboxOptions().Tooltip("Enemies spawned by CrowdControl won't be considered for \"clear enemy "
                                            "rooms\", so they don't need to be killed to complete these rooms."));
-#endif // ENABLE_REMOTE_CONTROL
+#endif // !__EMSCRIPTEN__
 
     path.sidebarName = "Anchor";
     AddSidebarEntry("Network", path.sidebarName, 2);

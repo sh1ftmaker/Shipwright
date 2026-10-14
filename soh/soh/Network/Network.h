@@ -1,5 +1,5 @@
-#ifndef NETWORK_H
-#define NETWORK_H
+#pragma once
+
 #ifdef __cplusplus
 
 #include <thread>
@@ -7,10 +7,9 @@
 
 #ifdef __EMSCRIPTEN__
 #include "WebSocket.h"
-#elif defined(ENABLE_REMOTE_CONTROL)
+#else
 #include <SDL2/SDL_net.h>
 #endif
-
 #include <nlohmann/json.hpp>
 
 class Network {
@@ -22,11 +21,9 @@ class Network {
     int reconnectAttempts = 0;
     bool reconnectScheduled = false;
     void ScheduleReconnect();
-#elif defined(ENABLE_REMOTE_CONTROL)
+#else
     IPaddress networkAddress;
     TCPsocket networkSocket;
-#endif
-#ifndef __EMSCRIPTEN__
     std::thread receiveThread;
 #endif
     std::string receivedData;
@@ -58,4 +55,3 @@ class Network {
 };
 
 #endif // __cplusplus
-#endif // NETWORK_H

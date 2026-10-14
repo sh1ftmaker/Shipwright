@@ -216,16 +216,19 @@ int web_extract_rom(const char* romPath, const char* outputPath) {
     }
 
     bool isMQ = extractor.IsMasterQuest();
-    const char* expectedFile = isMQ ? "oot-mq.o2r" : "oot.o2r";
     printf("[Web] ROM validated. Version: %s\n", isMQ ? "Master Quest" : "Vanilla");
 
-    // Run ZAPD extraction — output goes to "/" + expectedFile
+    // Run Torch extraction. Assets yml is preloaded at /assets, output goes to "/".
+    // Torch names the archive (oot.o2r / oot-mq.o2r) from the ROM hash.
     std::atomic<size_t> extractCount(0);
     std::atomic<size_t> totalExtract(0);
-    extractor.CallZapd("/", "/", &extractCount, &totalExtract);
+    if (!extractor.CallTorch("/", "/", &extractCount, &totalExtract)) {
+        fprintf(stderr, "[Web] Torch extraction failed\n");
+        return -4;
+    }
 
     // Verify output was created
-    std::string actualOutput = std::string("/") + expectedFile;
+    std::string actualOutput = std::string("/") + (isMQ ? "oot-mq.o2r" : "oot.o2r");
     std::ifstream checkFile(actualOutput, std::ios::binary | std::ios::ate);
     if (!checkFile.is_open() || checkFile.tellg() == 0) {
         fprintf(stderr, "[Web] Extraction failed - output file not created: %s\n", actualOutput.c_str());

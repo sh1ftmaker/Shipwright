@@ -1,5 +1,4 @@
-#ifndef SHIP_INIT_HPP
-#define SHIP_INIT_HPP
+#pragma once
 
 // WARNING: This header is included by 116+ source files. ANY change to it
 // triggers a full rebuild (~17 min on Emscripten). Prefer runtime changes
@@ -75,5 +74,3 @@ struct RegisterShipInitFunc {
 };
 
 #endif // __cplusplus
-
-#endif // SHIP_INIT_HPP

@@ -28,8 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git python3 cmake ninja-build \
-            libglew-dev libsdl2-dev libz-dev zip pkg-config
+          sudo apt-get install -y $(cat linux-build-deps/apt.txt) zip
 
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
@@ -62,13 +61,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build-web
-          key: build-web-${{ github.ref_name }}-${{ runner.os }}-${{ hashFiles('soh/CMakeLists.txt', 'CMakeLists.txt', 'soh/src/**', 'soh/soh/**', 'libultraship', 'ZAPDTR', 'OTRExporter') }}
+          key: build-web-${{ github.ref_name }}-${{ runner.os }}-${{ hashFiles('soh/CMakeLists.txt', 'CMakeLists.txt', 'soh/src/**', 'soh/soh/**', 'libultraship', 'torch') }}
           restore-keys: |
             build-web-${{ github.ref_name }}-${{ runner.os }}-
             build-web-feature/emscripten-web-port-${{ runner.os }}-
 
       - name: Verify Emscripten
         run: emcc --version
+
+      # soh.o2r (port assets) is packed by a native tools-only build of the
+      # Torch-based soh-o2r-packer, so it always matches this build's version.
+      - name: Build soh.o2r
+        run: |
+          cmake -B build-tools -G Ninja -DCMAKE_BUILD_TYPE=Release -DSOH_TOOLS_ONLY=ON
+          cmake --build build-tools --target GenerateSohOtr --parallel 2
 
       - name: Configure CMake
         run: |
@@ -116,7 +122,7 @@ jobs:
           cp build-web/soh/soh.js _site/
           cp build-web/soh/soh.wasm _site/
           cp build-web/soh/soh.data _site/ 2>/dev/null || true
-          cp soh/soh/web/soh.o2r _site/
+          cp build-tools/soh/soh.o2r _site/
 
       # Deploy to gh-pages branch (supports per-branch subdirectories)
       - name: Deploy to GitHub Pages

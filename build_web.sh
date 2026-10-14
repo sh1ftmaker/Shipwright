@@ -53,24 +53,26 @@ fi
 # Create build directory
 mkdir -p "${BUILD_DIR}"
 
+# Pack soh.o2r with a native tools-only build (the packer has to run on the host)
+echo "Building soh.o2r with native tools..."
+cmake -B build-tools -S . -G Ninja -DCMAKE_BUILD_TYPE=Release -DSOH_TOOLS_ONLY=ON
+cmake --build build-tools --target GenerateSohOtr -j$(nproc)
+
 # Configure with emcmake
 echo "Configuring with Emscripten..."
 emcmake cmake -B "${BUILD_DIR}" -S . -G Ninja \
     -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
-    -DBUILD_REMOTE_CONTROL=OFF \
-    -DUSE_OPENGLES=ON \
-    -DINCLUDE_MPQ_SUPPORT=ON \
-    -DGFX_DEBUG_DISASSEMBLER=OFF \
     -DSUPPRESS_WARNINGS=ON
 
 # Build
 echo "Building..."
 emmake cmake --build "${BUILD_DIR}" --target soh -j$(nproc) 2>&1
+cp build-tools/soh/soh.o2r "${BUILD_DIR}/soh/soh.o2r"
 
 echo "========================================"
 echo "  Build Complete!"
 echo "  Output: ${BUILD_DIR}/soh/"
-echo "  Files:  soh.html, soh.js, soh.wasm, soh.data"
+echo "  Files:  soh.html, soh.js, soh.wasm, soh.data, soh.o2r"
 echo ""
 echo "  To serve locally:"
 echo "    cd ${BUILD_DIR}/soh && python3 -m http.server 8080"

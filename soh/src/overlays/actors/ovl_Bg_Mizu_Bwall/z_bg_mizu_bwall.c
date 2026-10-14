@@ -458,7 +458,7 @@ void BgMizuBwall_SpawnDebris(BgMizuBwall* this, PlayState* play) {
         rand1 = (s16)(Rand_ZeroOne() * 120.0f) + 20;
         rand2 = (s16)(Rand_ZeroOne() * 240.0f) + 20;
         func_80033480(play, &debrisPos, 50.0f, 2, rand1, rand2, 0);
-        Actor_Spawn(&play->actorCtx, play, ACTOR_EN_A_OBJ, debrisPos.x, debrisPos.y, debrisPos.z, 0, 0, 0, 0xB, true);
+        Actor_Spawn(&play->actorCtx, play, ACTOR_EN_A_OBJ, debrisPos.x, debrisPos.y, debrisPos.z, 0, 0, 0, 0xB);
     }
 }
 
@@ -472,8 +472,8 @@ void BgMizuBwall_Idle(BgMizuBwall* this, PlayState* play) {
         this->dList = NULL;
         BgMizuBwall_SpawnDebris(this, play);
         Audio_PlayActorSound2(&this->dyna.actor, NA_SE_EV_WALL_BROKEN);
-        Audio_PlaySoundGeneral(NA_SE_SY_CORRECT_CHIME, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
-                               &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
+        Audio_PlaySfxGeneral(NA_SE_SY_CORRECT_CHIME, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
+                             &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
         this->actionFunc = BgMizuBwall_Break;
     } else if (this->dyna.actor.xzDistToPlayer < 600.0f) {
         CollisionCheck_SetAC(play, &play->colChkCtx, &this->collider.base);
