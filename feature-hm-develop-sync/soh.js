@@ -39,7 +39,7 @@ if (ENVIRONMENT_IS_NODE) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /tmp/tmpr8h3zuls.js
+// include: /tmp/tmp_1yyx709.js
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
@@ -360,21 +360,21 @@ Module['FS_createPath']("/assets/pal_mq_dbg", "textures", true, true);
 
   })();
 
-// end include: /tmp/tmpr8h3zuls.js
-// include: /tmp/tmpi21gp_ri.js
+// end include: /tmp/tmp_1yyx709.js
+// include: /tmp/tmpa32d7yy4.js
 
     // All the pre-js content up to here must remain later on, we need to run
     // it.
     if (Module['$ww'] || (typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD)) Module['preRun'] = [];
     var necessaryPreJSTasks = Module['preRun'].slice();
-  // end include: /tmp/tmpi21gp_ri.js
-// include: /tmp/tmpdn7cit0i.js
+  // end include: /tmp/tmpa32d7yy4.js
+// include: /tmp/tmptjs36vsk.js
 
     if (!Module['preRun']) throw 'Module.preRun should exist because file support used it; did a pre-js delete it?';
     necessaryPreJSTasks.forEach((task) => {
       if (Module['preRun'].indexOf(task) < 0) throw 'All preRun tasks that exist before user pre-js code should remain after; did you replace Module or modify Module.preRun?';
     });
-  // end include: /tmp/tmpdn7cit0i.js
+  // end include: /tmp/tmptjs36vsk.js
 
 
 // Sometimes an existing Module object exists with properties
@@ -14704,7 +14704,9 @@ var _web_fs_init = Module['_web_fs_init'] = createExportWrapper('web_fs_init', 0
 var _web_is_idbfs_ready = Module['_web_is_idbfs_ready'] = createExportWrapper('web_is_idbfs_ready', 0);
 var _web_extract_rom = Module['_web_extract_rom'] = createExportWrapper('web_extract_rom', 2);
 var _web_get_rom_version = Module['_web_get_rom_version'] = createExportWrapper('web_get_rom_version', 1);
+var _web_cvar_set_int = Module['_web_cvar_set_int'] = createExportWrapper('web_cvar_set_int', 2);
 var _web_configure_anchor = Module['_web_configure_anchor'] = createExportWrapper('web_configure_anchor', 4);
+var _web_debug_get = Module['_web_debug_get'] = createExportWrapper('web_debug_get', 1);
 var _main = Module['_main'] = createExportWrapper('__main_argc_argv', 2);
 var _strerror = createExportWrapper('strerror', 1);
 var _setThrew = createExportWrapper('setThrew', 2);
