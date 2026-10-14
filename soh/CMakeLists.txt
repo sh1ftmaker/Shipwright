@@ -625,7 +625,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
             -sFULL_ES2=1
             -sFORCE_FILESYSTEM=1
             -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,allocateUTF8
-            -sEXPORTED_FUNCTIONS=_main,_web_otr_loaded,_web_get_otr_status,_web_save_to_idb,_web_fs_init,_web_is_idbfs_ready,_web_idbfs_ready_ptr,_web_extract_rom,_web_get_rom_version,_web_configure_anchor,_web_wants_text_input,_malloc,_free
+            -sEXPORTED_FUNCTIONS=_main,_web_otr_loaded,_web_get_otr_status,_web_save_to_idb,_web_fs_init,_web_is_idbfs_ready,_web_idbfs_ready_ptr,_web_extract_rom,_web_get_rom_version,_web_configure_anchor,_web_wants_text_input,_web_debug_get,_web_cvar_set_int,_malloc,_free
             -lidbfs.js
             -lwebsocket.js
             -lembind # torch's src/lib/web.cpp registers embind bindings

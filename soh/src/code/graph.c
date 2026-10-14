@@ -535,8 +535,14 @@ uint32_t gWebMeasuredFPS = 60; // exported to OTRGlobals.cpp
 // Set by RunFrameWeb before each Graph_ProcessGfxCommands call.
 float gWebInterpolationFraction = 1.0f;
 
+// Counters for web_debug_get (automated tests / FPS tuning)
+static uint32_t sWebTickCount = 0;   // RunFrame calls (game logic ticks)
+static uint32_t sWebRenderCount = 0; // interpolation re-renders
+static uint32_t sWebRafCount = 0;    // RunFrameWeb calls (browser frames)
+
 static void RunFrameWeb(void) {
     double now = emscripten_get_now() / 1000.0;
+    sWebRafCount++;
 
     // Measure actual rAF rate from recent frame times
     sRafTimes[sRafTimeIndex] = now;
@@ -578,6 +584,7 @@ static void RunFrameWeb(void) {
         for (int i = 0; i < ticks; i++) {
             gWebInterpolationFraction = 1.0f;
             RunFrame();
+            sWebTickCount++;
         }
 
         sLastDisplayList = runFrameContext.gfxCtx.workBuffer;
@@ -601,6 +608,40 @@ static void RunFrameWeb(void) {
 
         gWebInterpolationFraction = delta_frac;
         Graph_ProcessGfxCommands(sLastDisplayList);
+        sWebRenderCount++;
+    }
+}
+
+// Read-only game/loop state for automated browser tests (tools/web-test).
+// Game state index into gGameStateOverlayTable: 0 TitleSetup, 1 Select (map select), 2 Title (N64 logo),
+// 3 Play, 4 Opening, 5 FileChoose. -1 before the first state is loaded.
+static int WebDebug_GameState(void) {
+    if (runFrameContext.ovl == NULL) {
+        return -1;
+    }
+    return (int)(runFrameContext.ovl - gGameStateOverlayTable);
+}
+
+EMSCRIPTEN_KEEPALIVE double web_debug_get(int field) {
+    // gPlayState can dangle outside Play, so only read it there
+    bool inPlay = WebDebug_GameState() == 3 && gPlayState != NULL;
+    Player* player = inPlay ? GET_PLAYER(gPlayState) : NULL;
+    switch (field) {
+        case 0: return inPlay ? gPlayState->sceneNum : -1;
+        case 1: return player != NULL ? player->actor.world.pos.x : 0;
+        case 2: return player != NULL ? player->actor.world.pos.y : 0;
+        case 3: return player != NULL ? player->actor.world.pos.z : 0;
+        case 4: return sWebTickCount;
+        case 5: return sWebRenderCount;
+        case 6: return sWebRafCount;
+        case 7: return gWebMeasuredFPS;
+        case 8: return R_UPDATE_RATE;
+        case 9: return gSaveContext.entranceIndex;
+        case 10: return gSaveContext.fileNum;
+        case 11: return inPlay ? gPlayState->roomCtx.curRoom.num : -1;
+        case 12: return gSaveContext.health;
+        case 13: return WebDebug_GameState();
+        default: return 0;
     }
 }
 #endif

@@ -13,6 +13,7 @@
 #include <libultraship/libultraship.h>
 #include "soh/cvar_prefixes.h"
 #include "soh/Enhancements/enhancementTypes.h"
+#include "soh/ShipInit.hpp"
 
 // ---- Touch Gamepad Bridge ----
 // Read touch gamepad state from JavaScript and merge into OSContPad
@@ -254,6 +255,14 @@ const char* web_get_rom_version(const char* romPath) {
              extractor.IsMasterQuest() ? "MQ " : "",
              extractor.IsMasterQuest() ? "Master Quest" : "Vanilla");
     return versionBuf;
+}
+
+// Set an integer CVar and re-run any ShipInit hooks that depend on it, the same way the
+// menu does. Used by automated browser tests (tools/web-test).
+EMSCRIPTEN_KEEPALIVE
+void web_cvar_set_int(const char* name, int value) {
+    CVarSetInteger(name, value);
+    ShipInit::Init(name);
 }
 
 EMSCRIPTEN_KEEPALIVE

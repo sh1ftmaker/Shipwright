@@ -1,0 +1,12 @@
+{
+  "name": "soh-web-test",
+  "private": true,
+  "type": "module",
+  "description": "Automated browser tests for the Emscripten build",
+  "scripts": {
+    "gameplay": "node gameplay-test.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.48.2"
+  }
+}
