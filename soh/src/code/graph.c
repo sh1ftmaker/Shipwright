@@ -534,11 +534,17 @@ uint32_t gWebMeasuredFPS = 60; // exported to OTRGlobals.cpp
 // Interpolation fraction [0..1] within current game tick.
 // Set by RunFrameWeb before each Graph_ProcessGfxCommands call.
 float gWebInterpolationFraction = 1.0f;
+// Set while interpolating so ticks skip their own draw and RunFrameWeb's paced renders are the only ones.
+bool gWebSkipTickRender = false;
 
 // Counters for web_debug_get (automated tests / FPS tuning)
 static uint32_t sWebTickCount = 0;   // RunFrame calls (game logic ticks)
 static uint32_t sWebRenderCount = 0; // interpolation re-renders
 static uint32_t sWebRafCount = 0;    // RunFrameWeb calls (browser frames)
+static uint32_t sWebPresentCount = 0; // browser frames that drew anything (ticks or interpolation)
+static double sNextRenderTime = 0;
+
+uint32_t Graph_GetInterpolationFPS(void); // OTRGlobals.cpp: Settings > Graphics FPS, capped to the display
 
 static void RunFrameWeb(void) {
     double now = emscripten_get_now() / 1000.0;
@@ -572,6 +578,12 @@ static void RunFrameWeb(void) {
     double gameTickTime = (double)updateRate / (double)OOT_DISPLAY_HZ;
 
     double elapsed = now - sLastTickTime;
+    bool presented = false;
+
+    // At the original rate (20, or not above the tick rate) every tick draws once inside RunFrame,
+    // like the native build. Above it, ticks don't draw and Step 2 renders at the FPS setting.
+    uint32_t targetFps = Graph_GetInterpolationFPS();
+    bool interpolate = targetFps != 20 && targetFps > OOT_DISPLAY_HZ / updateRate;
 
     // Step 1: Run game logic when enough time has accumulated.
     // Tick rate follows R_UPDATE_RATE so menus run at proper speed.
@@ -581,11 +593,13 @@ static void RunFrameWeb(void) {
             ticks = 4;  // Cap catch-up to prevent spiral (higher cap for 60Hz menus)
         }
 
+        gWebSkipTickRender = interpolate;
         for (int i = 0; i < ticks; i++) {
             gWebInterpolationFraction = 1.0f;
             RunFrame();
             sWebTickCount++;
         }
+        gWebSkipTickRender = false;
 
         sLastDisplayList = runFrameContext.gfxCtx.workBuffer;
 
@@ -595,13 +609,26 @@ static void RunFrameWeb(void) {
         }
 
         sGameTickReady = true;
+        presented = !interpolate;
         // Recalculate elapsed after advancing tick time
         elapsed = now - sLastTickTime;
     }
 
-    // Step 2: Render an interpolation frame every rAF call.
+    // Step 2: Render interpolation frames between ticks, paced to the FPS setting.
     // delta_frac goes from 0 (just after tick) to ~1 (just before next tick).
-    if (sGameTickReady && sLastDisplayList != NULL) {
+    bool renderDue = false;
+    if (interpolate) {
+        double period = 1.0 / targetFps;
+        // 2 ms slack so rAF jitter doesn't skip a frame the target rate allows
+        if (now + 0.002 >= sNextRenderTime) {
+            renderDue = true;
+            sNextRenderTime += period;
+            if (sNextRenderTime < now) {
+                sNextRenderTime = now;
+            }
+        }
+    }
+    if (renderDue && sGameTickReady && sLastDisplayList != NULL) {
         float delta_frac = (float)(elapsed / gameTickTime);
         if (delta_frac < 0.0f) delta_frac = 0.0f;
         if (delta_frac > 1.0f) delta_frac = 1.0f;
@@ -609,6 +636,10 @@ static void RunFrameWeb(void) {
         gWebInterpolationFraction = delta_frac;
         Graph_ProcessGfxCommands(sLastDisplayList);
         sWebRenderCount++;
+        presented = true;
+    }
+    if (presented) {
+        sWebPresentCount++;
     }
 }
 
@@ -641,6 +672,8 @@ EMSCRIPTEN_KEEPALIVE double web_debug_get(int field) {
         case 11: return inPlay ? gPlayState->roomCtx.curRoom.num : -1;
         case 12: return gSaveContext.health;
         case 13: return WebDebug_GameState();
+        case 14: return sWebPresentCount;
+        case 15: return Graph_GetInterpolationFPS();
         default: return 0;
     }
 }

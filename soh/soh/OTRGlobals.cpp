@@ -1054,13 +1054,17 @@ bool OTRGlobals::HasOriginal() {
 #ifdef __EMSCRIPTEN__
 extern "C" uint32_t gWebMeasuredFPS;
 extern "C" float gWebInterpolationFraction;
+extern "C" bool gWebSkipTickRender;
 #endif
 
 uint32_t OTRGlobals::GetInterpolationFPS() {
 #ifdef __EMSCRIPTEN__
-    // On web, return the measured requestAnimationFrame rate.
-    // The outer loop in graph.c measures this and handles frame pacing.
-    return gWebMeasuredFPS;
+    // On web the display rate is the measured requestAnimationFrame rate; RunFrameWeb in graph.c
+    // paces renders to whatever this returns. 20 means original (no interpolation).
+    if (CVarGetInteger(CVAR_SETTING("MatchRefreshRate"), 0)) {
+        return gWebMeasuredFPS;
+    }
+    return std::min<uint32_t>(gWebMeasuredFPS, CVarGetInteger(CVAR_SETTING("InterpolationFPS"), 20));
 #else
     if (CVarGetInteger(CVAR_SETTING("MatchRefreshRate"), 0)) {
         return Ship::Context::GetRawInstance()->GetWindow()->GetCurrentRefreshRate();
@@ -1709,6 +1713,10 @@ extern "C" void InitOTR(int argc, char* argv[]) {
         extern void web_apply_anchor_config();
         web_apply_anchor_config();
     }
+    // The web port has always interpolated to the display rate, so keep that as its default
+    if (CVarGet(CVAR_SETTING("MatchRefreshRate")) == nullptr) {
+        CVarSetInteger(CVAR_SETTING("MatchRefreshRate"), 1);
+    }
 #endif
     if (CVarGetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 0)) {
         Anchor::Instance->Enable();
@@ -1934,6 +1942,12 @@ void RunCommands(Gfx* Commands, int time, int step, int denom, int count) {
 }
 
 // C->C++ Bridge
+#ifdef __EMSCRIPTEN__
+extern "C" uint32_t Graph_GetInterpolationFPS(void) {
+    return OTRGlobals::Instance->GetInterpolationFPS();
+}
+#endif
+
 extern "C" void Graph_ProcessGfxCommands(Gfx* commands) {
 #ifdef __EMSCRIPTEN__
     // Process audio inline for Emscripten (no audio thread).
@@ -1958,10 +1972,9 @@ extern "C" void Graph_ProcessGfxCommands(Gfx* commands) {
     auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetRawInstance()->GetWindow());
 
 #ifdef __EMSCRIPTEN__
-    // On web, the outer loop (RunFrameWeb) calls us once per rAF.
+    // On web, the outer loop (RunFrameWeb) decides when to render.
     // Produce exactly 1 render with the interpolation fraction set by the outer loop.
     // fraction=1.0 on game-tick frames (identity matrices), 0..1 on intermediate frames.
-    fps = gWebMeasuredFPS;
 
     if (wnd != nullptr) {
         wnd->SetTargetFps(fps);
@@ -1970,7 +1983,8 @@ extern "C" void Graph_ProcessGfxCommands(Gfx* commands) {
     const int denom = 1 << 16;
     int start_time = gWebInterpolationFraction >= 1.0f ? denom : (int)(gWebInterpolationFraction * denom);
     int step = 0;
-    int count = 1;
+    // Still runs RunCommands for window events, but draws nothing
+    int count = gWebSkipTickRender ? 0 : 1;
     int next_original_frame = denom;
 #else
     if (target_fps == 20 || original_fps > target_fps) {

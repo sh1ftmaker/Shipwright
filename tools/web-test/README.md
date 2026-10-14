@@ -8,7 +8,7 @@ and measures frame pacing.
 cd tools/web-test && npm install && cd ../..
 ./build_web.sh                      # or an existing build-web/soh + build-tools/soh/soh.o2r
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64
-node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --fps 20,30,60   # sample InterpolationFPS values
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --fps 20,30,60   # check the FPS setting
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --url https://sh1ftmaker.github.io/Shipwright/
 ```
 
@@ -31,5 +31,11 @@ Screenshots and `report.json` (step results, FPS samples, console log) go to
 ## FPS numbers
 
 Each sample reports browser frames (`rafPerSec`), game logic ticks
-(`ticksPerSec`, 20 in gameplay), interpolated renders (`rendersPerSec`), and
-page-side frame-time percentiles. The weston display runs at 60 Hz.
+(`ticksPerSec`, 20 in gameplay), interpolated renders (`rendersPerSec`), frames
+that drew anything (`presentsPerSec`), and page-side frame-time percentiles.
+The weston display runs at 60 Hz.
+
+`--fps` turns off Match Refresh Rate and checks that each Settings > Graphics
+FPS value gives that many frames per second (capped at the display rate) while
+the game still ticks at 20 Hz. 20 is the original rate: one frame per tick, no
+interpolation.

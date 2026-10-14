@@ -19,7 +19,8 @@
 //   --display <mode>    auto | weston | headless (default: auto). Headless Chromium has no
 //                       WebGL2 on many machines; "weston" runs a GPU-backed offscreen compositor.
 //   --fps-seconds <n>   Length of each frame-pacing sample (default: 10)
-//   --fps <list>        Extra InterpolationFPS values to sample, e.g. "20,30,60"
+//   --fps <list>        InterpolationFPS values to check with Match Refresh Rate off, e.g. "20,30,60"
+//                       (20 = original: one frame per game tick, no interpolation)
 //
 // Exit code is 0 only if every step passed.
 
@@ -49,7 +50,7 @@ fs.mkdirSync(OUT, { recursive: true });
 // ---- debug fields (keep in sync with web_debug_get in soh/src/code/graph.c) ----
 const F = {
     scene: 0, posX: 1, posY: 2, posZ: 3, ticks: 4, renders: 5, rafs: 6, measuredFps: 7,
-    updateRate: 8, entrance: 9, fileNum: 10, room: 11, health: 12, gameState: 13,
+    updateRate: 8, entrance: 9, fileNum: 10, room: 11, health: 12, gameState: 13, presents: 14, targetFps: 15,
 };
 const GAME_STATE = { TitleSetup: 0, Select: 1, Title: 2, Play: 3, Opening: 4, FileChoose: 5 };
 
@@ -156,8 +157,8 @@ async function shot(name) {
     return path.basename(file);
 }
 
-// Frame pacing over a wall-clock window: browser frames (rAF), game ticks and interpolated
-// renders per second, plus frame-time percentiles measured on the page side.
+// Frame pacing over a wall-clock window: browser frames (rAF), game ticks, interpolated renders and
+// frames that drew anything (presents) per second, plus rAF frame-time percentiles on the page side.
 async function measureFps(label) {
     await page.evaluate(() => {
         window.__frameTimes = [];
@@ -186,12 +187,15 @@ async function measureFps(label) {
         rafPerSec: +((b.rafs - a.rafs) / secs).toFixed(1),
         ticksPerSec: +((b.ticks - a.ticks) / secs).toFixed(1),
         rendersPerSec: +((b.renders - a.renders) / secs).toFixed(1),
+        presentsPerSec: +((b.presents - a.presents) / secs).toFixed(1),
+        targetFps: b.targetFps,
         measuredFps: b.measuredFps,
         updateRate: b.updateRate,
         frameMs: { p50: pct(0.5), p95: pct(0.95), p99: pct(0.99), max: pct(1) },
         longFrames: times.filter((t) => t > 50).length,
     };
     report.fps.push(r);
+    log('fps', JSON.stringify(r));
     return r;
 }
 
@@ -328,8 +332,7 @@ try {
         return { scene: s.scene, updateRate: s.updateRate };
     });
 
-    report.fps.push(await measureFps('title screen'));
-    log('fps', JSON.stringify(report.fps.at(-1)));
+    await measureFps('title screen');
 
     await step('press Start -> file select', async () => {
         // Skip the opening cutscene on the new file so we land in Link's house in control.
@@ -381,13 +384,31 @@ try {
         return { moved: Math.round(moved), path: [before.pos, mid.pos, after.pos] };
     });
 
-    report.fps.push(await measureFps('gameplay (default settings)'));
-    log('fps', JSON.stringify(report.fps.at(-1)));
-    for (const fps of EXTRA_FPS) {
-        await setCVar('gSettings.InterpolationFPS', fps);
-        await waitTicks(20);
-        report.fps.push(await measureFps(`gameplay InterpolationFPS=${fps}`));
-        log('fps', JSON.stringify(report.fps.at(-1)));
+    await measureFps('gameplay (default settings)');
+    if (EXTRA_FPS.length) {
+        await step('FPS setting changes frame rate', async () => {
+            const results = {};
+            const errors = [];
+            await setCVar('gSettings.MatchRefreshRate', 0);
+            for (const fps of EXTRA_FPS) {
+                await setCVar('gSettings.InterpolationFPS', fps);
+                await waitTicks(20);
+                await pad.set([], 0, 70); // keep Link moving so interpolation has work to do
+                const r = await measureFps(`gameplay InterpolationFPS=${fps}`);
+                await shot(`fps-${fps}`);
+                await pad.release();
+                // 20 = original: one frame per 20 Hz tick. Otherwise the setting, capped at the display rate.
+                const expected = fps === 20 ? r.ticksPerSec : Math.min(fps, r.rafPerSec);
+                results[fps] = { presentsPerSec: r.presentsPerSec, expected, ticksPerSec: r.ticksPerSec };
+                if (Math.abs(r.presentsPerSec - expected) > expected * 0.1 + 1) {
+                    errors.push(`InterpolationFPS=${fps}: ${r.presentsPerSec} frames/s, expected ~${expected}`);
+                }
+                if (Math.abs(r.ticksPerSec - 20) > 2) errors.push(`InterpolationFPS=${fps}: game ran at ${r.ticksPerSec} ticks/s`);
+            }
+            await setCVar('gSettings.MatchRefreshRate', 1);
+            if (errors.length) throw new Error(errors.join('; '));
+            return results;
+        });
     }
 } catch (e) {
     if (!report.steps.some((s) => !s.ok)) {
