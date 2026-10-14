@@ -8,6 +8,8 @@
 #include "UIWidgets.hpp"
 #include <ship/controller/controldeck/ControlDeck.h>
 #include <ship/Context.h>
+#include <fast/Fast3dWindow.h>
+#include <fast/interpreter.h>
 
 extern "C" {
 #include "include/z64audio.h"
@@ -346,6 +348,13 @@ void SohMenu::AddMenuSettings() {
                 CVarGetFloat(CVAR_INTERNAL_RESOLUTION, 1));
         })
         .PreFunc([](WidgetInfo& info) {
+            // Let the slider go down to N64 height (240 lines) at the current window size
+            auto options = std::static_pointer_cast<FloatSliderOptions>(info.options);
+            auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetRawInstance()->GetWindow());
+            auto interpreter = wnd != nullptr ? wnd->GetInterpreterWeak().lock() : nullptr;
+            if (interpreter != nullptr && interpreter->mGameWindowViewport.height > 0) {
+                options->min = std::min(0.5f, (float)SCREEN_HEIGHT / interpreter->mGameWindowViewport.height);
+            }
             if (mSohMenu->disabledMap.at(DISABLE_FOR_ADVANCED_RESOLUTION_ON).active &&
                 mSohMenu->disabledMap.at(DISABLE_FOR_VERTICAL_RES_TOGGLE_ON).active) {
                 info.activeDisables.push_back(DISABLE_FOR_ADVANCED_RESOLUTION_ON);
@@ -357,7 +366,7 @@ void SohMenu::AddMenuSettings() {
         .Options(
             FloatSliderOptions()
                 .Tooltip("Multiplies your output resolution by the value inputted, as a more intensive but effective "
-                         "form of anti-aliasing.")
+                         "form of anti-aliasing.\n\nThe lowest setting is the N64's 240 lines.")
                 .ShowButtons(false)
                 .IsPercentage()
                 .Min(0.5f)
