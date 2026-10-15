@@ -365,15 +365,12 @@
       border-radius: 8px; background: rgba(255,255,255,0.08); font-size: 10px;
       letter-spacing: -0.5px; }
 
-    /* Portrait phones: a full-height canvas only shows a narrow slice of the 4:3 view and cuts off
-       the HUD, so put the game at the top at 4:3 and the controls in the space below it. */
+    /* Portrait phones: the game keeps the whole screen (the renderer widens the view, see
+       PortraitZoomOut) and the controls sit over its lower part, with L/START/ESC/R above them.
+       The page tells the renderer where the controls start (PortraitBottomInset) so the HUD's lower
+       half and the 3D view's center stay above them. */
     @media (orientation: portrait) {
-      html.touch-device {
-        --game-top: env(safe-area-inset-top, 0px);
-        --game-h: calc(100vw * 3 / 4);
-        --pad-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
-      }
-      html.touch-device #canvas { top: var(--game-top); height: var(--game-h); }
+      html.touch-device { --pad-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }
       html.touch-device #touch-stick-zone { left: 8px; bottom: var(--pad-bottom); width: 180px; height: 180px; }
       html.touch-device #touch-stick-base { left: 15px; bottom: 15px; width: 150px; height: 150px; }
       html.touch-device #touch-stick-knob { width: 60px; height: 60px; left: 45px; top: 45px; }
@@ -387,19 +384,17 @@
       html.touch-device #tb-cd { right: 82px; bottom: calc(var(--pad-bottom) + 166px); }
       html.touch-device #tb-cl { right: 126px; bottom: calc(var(--pad-bottom) + 210px); }
       html.touch-device #tb-cr { right: 38px; bottom: calc(var(--pad-bottom) + 210px); }
-      /* L / START / ESC / R in a row just under the game */
       html.touch-device #tb-l,
       html.touch-device #tb-r,
       html.touch-device #tb-start,
-      html.touch-device #tb-esc { top: calc(var(--game-top) + var(--game-h) + 14px); height: 40px; border-radius: 20px; }
+      html.touch-device #tb-esc { top: auto; bottom: calc(var(--pad-bottom) + 316px); height: 40px; border-radius: 20px; }
       html.touch-device #tb-l { left: 16px; width: 64px; }
       html.touch-device #tb-r { right: 16px; width: 64px; }
       html.touch-device #tb-start { width: 84px; font-size: 13px; }
       html.touch-device #tb-esc { right: 96px; width: 48px; border-radius: 12px; }
-      /* The settings menu gets the whole screen; only ESC stays, to close it */
-      html.touch-device.menu-open #canvas { height: calc(100vh - var(--game-top)); height: calc(100dvh - var(--game-top)); }
+      /* While the settings menu is open only ESC stays, to close it */
       html.touch-device.menu-open #touch-gamepad > :not(#tb-esc) { display: none; }
-      html.touch-device.menu-open #tb-esc { top: auto; bottom: var(--pad-bottom); right: 16px; width: 64px; height: 48px;
+      html.touch-device.menu-open #tb-esc { bottom: var(--pad-bottom); right: 16px; width: 64px; height: 48px;
         background: rgba(10,10,26,0.85); }
     }
   </style>
@@ -544,6 +539,7 @@
       var el = document.getElementById('overlay');
       if (el.classList.contains('hidden')) return;
       el.classList.add('hidden');
+      gameStarted = true;
       console.log('[Web] Game started (' + DebugLog.mem() + ')');
       DebugLog.gameStarted();
       // Fully remove from layout after fade-out transition
@@ -1235,13 +1231,26 @@
         if (!('ontouchstart' in window) && navigator.maxTouchPoints <= 0) return;
         this._knob = document.getElementById('touch-stick-knob');
         document.documentElement.classList.add('touch-device');
-        // Track whether the settings menu is open so portrait layout can give it the whole screen
+        var self = this;
+        // Track whether the settings menu is open, to hide the controls over it in portrait
         setInterval(function() {
           if (typeof Module === 'undefined' || typeof Module._web_menu_open !== 'function' || !Module.calledRun) return;
           var open = !!Module._web_menu_open();
           if (open !== document.documentElement.classList.contains('menu-open')) {
             document.documentElement.classList.toggle('menu-open', open);
-            window.dispatchEvent(new Event('resize'));
+          }
+          // Tell the renderer how much of the screen the controls cover in portrait (per mille from the bottom)
+          var inset = 0;
+          if (innerHeight > innerWidth) {
+            var top = document.getElementById('tb-start').getBoundingClientRect().top;
+            inset = Math.max(0, Math.min(600, Math.round((innerHeight - top) / innerHeight * 1000)));
+          }
+          // Only once the game runs: before that the settings system doesn't exist yet
+          if (gameStarted && inset !== self._insetSent && typeof Module._web_cvar_set_int === 'function') {
+            self._insetSent = inset;
+            var name = Module.allocateUTF8('gSettings.AdvancedResolution.PortraitBottomInset');
+            Module._web_cvar_set_int(name, inset);
+            Module._free(name);
           }
         }, 150);
         document.getElementById('touch-gamepad').classList.add('visible');

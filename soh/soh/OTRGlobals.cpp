@@ -2376,12 +2376,18 @@ extern "C" float OTRGetAspectRatio() {
     return Ship::Context::GetRawInstance()->GetWindow()->GetAspectRatio();
 }
 
+// The HUD's horizontal extent. In a window narrower than 4:3 the renderer fits the 4:3 HUD to the full width
+// (see Interpreter::UpdatePortraitParameters), so the edges are those of 4:3.
+static float HudAspectRatio() {
+    return std::max(OTRGetAspectRatio(), 4.0f / 3.0f);
+}
+
 extern "C" float OTRGetDimensionFromLeftEdge(float v) {
-    return (SCREEN_WIDTH / 2 - SCREEN_HEIGHT / 2 * OTRGetAspectRatio() + (v));
+    return (SCREEN_WIDTH / 2 - SCREEN_HEIGHT / 2 * HudAspectRatio() + (v));
 }
 
 extern "C" float OTRGetDimensionFromRightEdge(float v) {
-    return (SCREEN_WIDTH / 2 + SCREEN_HEIGHT / 2 * OTRGetAspectRatio() - (SCREEN_WIDTH - v));
+    return (SCREEN_WIDTH / 2 + SCREEN_HEIGHT / 2 * HudAspectRatio() - (SCREEN_WIDTH - v));
 }
 
 // Gets the width of the current render target area

@@ -440,6 +440,7 @@ try {
         if (!ok) throw new Error('warp refused (not in gameplay)');
         await waitFor('Kokiri Forest', (s) => s.scene === KOKIRI_FOREST && s.gameState === GAME_STATE.Play, 30000);
         await waitTicks(100); // arrival shot and area title
+        await shot('kokiri-forest-greeting');
         for (let i = 0; i < 8; i++) await pad.press('B', 2, 6); // a Kokiri greets Link here
         await shot('kokiri-forest');
         const before = await state();

@@ -372,6 +372,17 @@ void SohMenu::AddMenuSettings() {
                 .Min(0.5f)
                 .Max(2.0f));
 #ifndef __WIIU__
+    AddWidget(path, "Portrait Zoom Out", WIDGET_CVAR_SLIDER_INT)
+        .CVar(CVAR_PREFIX_ADVANCED_RESOLUTION ".PortraitZoomOut")
+        .RaceDisable(false)
+        .Options(IntSliderOptions()
+                     .Tooltip("When the screen is taller than it is wide (a phone held upright), how much more of the "
+                              "world to show.\n\n0% crops the sides of the normal view; 100% shows its full width, "
+                              "plus more above and below.")
+                     .Min(0)
+                     .Max(100)
+                     .DefaultValue(60)
+                     .Format("%d%%"));
     AddWidget(path, "Anti-aliasing (MSAA)", WIDGET_CVAR_SLIDER_INT)
         .CVar(CVAR_MSAA_VALUE)
         .RaceDisable(false)
