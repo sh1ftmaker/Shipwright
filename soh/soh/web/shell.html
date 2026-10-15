@@ -4,6 +4,177 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Ship of Harkinian - Web</title>
+  <script>
+    // ---- Debug log ----
+    // Records console output and errors from the very start, keeps the last lines in localStorage so
+    // they survive a frozen or crashed tab, and shows them in a panel (the "Log" button) with Copy.
+    // The button shows while loading, or always with ?debug in the URL.
+    var DebugLog = (function() {
+      var KEY = 'soh-debug-log', PREV_KEY = 'soh-debug-log-prev', MAX_LINES = 3000;
+      var t0 = performance.now();
+      var lines = [];
+      var lastSave = 0;
+      var previous = null;
+      try {
+        previous = localStorage.getItem(KEY);
+        if (previous) localStorage.setItem(PREV_KEY, previous);
+        else previous = localStorage.getItem(PREV_KEY);
+      } catch (e) {}
+
+      function save(force) {
+        var now = performance.now();
+        if (!force && now - lastSave < 300) return;
+        lastSave = now;
+        try { localStorage.setItem(KEY, lines.join('\n')); } catch (e) {}
+      }
+      function fmt(a) {
+        if (a instanceof Error) return a.stack || (a.name + ': ' + a.message);
+        if (typeof a === 'object' && a !== null) { try { return JSON.stringify(a); } catch (e) { return String(a); } }
+        return String(a);
+      }
+      function add(level, args) {
+        var text = Array.prototype.map.call(args, fmt).join(' ');
+        var line = ((performance.now() - t0) / 1000).toFixed(2).padStart(7) + 's ' + level + ' ' + text;
+        lines.push(line);
+        if (lines.length > MAX_LINES) lines.splice(1, lines.length - MAX_LINES); // keep the header line
+        save(level === 'ERR');
+        if (panelText && panelOpen) render();
+      }
+
+      ['log', 'info', 'warn', 'error', 'debug'].forEach(function(m) {
+        var orig = console[m].bind(console);
+        var level = m === 'error' ? 'ERR' : m === 'warn' ? 'WRN' : 'LOG';
+        console[m] = function() { add(level, arguments); orig.apply(null, arguments); };
+      });
+      window.addEventListener('error', function(e) {
+        add('ERR', ['Uncaught: ' + (e.error ? fmt(e.error) : e.message) + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')]);
+        open();
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        add('ERR', ['Unhandled rejection: ' + fmt(e.reason)]);
+      });
+      window.addEventListener('pagehide', function() { add('LOG', ['page hidden/unloaded']); save(true); });
+      document.addEventListener('visibilitychange', function() { add('LOG', ['visibility: ' + document.visibilityState]); save(true); });
+
+      function deviceInfo() {
+        var gl2 = 'no';
+        try {
+          var c = document.createElement('canvas').getContext('webgl2');
+          if (c) gl2 = 'yes, max texture ' + c.getParameter(c.MAX_TEXTURE_SIZE);
+        } catch (e) { gl2 = 'error ' + e.message; }
+        return [
+          'UA: ' + navigator.userAgent,
+          'screen ' + screen.width + 'x' + screen.height + ' @' + devicePixelRatio + 'x, viewport ' + innerWidth + 'x' + innerHeight,
+          'cores ' + (navigator.hardwareConcurrency || '?') + ', device memory ' + (navigator.deviceMemory || '?') + ' GB, touch points ' + navigator.maxTouchPoints,
+          'WebGL2 ' + gl2 + ', WebAssembly ' + (typeof WebAssembly === 'object' ? 'yes' : 'no') + ', secure ' + window.isSecureContext,
+          'page ' + location.href.split('#')[0],
+        ].join(' | ');
+      }
+      lines.push('    0.00s LOG ' + new Date().toISOString() + ' | ' + deviceInfo());
+      save(true);
+
+      // Memory snapshot, for logging around heavy steps
+      function mem() {
+        var parts = [];
+        try { if (typeof HEAP8 !== 'undefined') parts.push('wasm heap ' + (HEAP8.length / 1048576).toFixed(0) + ' MB'); } catch (e) {}
+        if (performance.memory) parts.push('JS heap ' + (performance.memory.usedJSHeapSize / 1048576).toFixed(0) + '/' + (performance.memory.jsHeapSizeLimit / 1048576).toFixed(0) + ' MB');
+        return parts.join(', ') || 'memory n/a';
+      }
+
+      // ---- panel ----
+      var panel, panelText, panelOpen = false, button;
+      function render() {
+        panelText.value = lines.join('\n');
+        panelText.scrollTop = panelText.scrollHeight;
+      }
+      function copy(text, label) {
+        var done = function() { add('LOG', ['copied ' + label + ' (' + text.length + ' chars)']); flash(label + ' copied'); };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done, function() { fallbackCopy(text) && done(); });
+        } else if (fallbackCopy(text)) {
+          done();
+        }
+      }
+      function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) {}
+        ta.remove();
+        if (!ok) flash('Copy failed - select the text and copy it manually');
+        return ok;
+      }
+      function flash(msg) {
+        var el = document.getElementById('debug-flash');
+        if (!el) return;
+        el.textContent = msg;
+        setTimeout(function() { el.textContent = ''; }, 2500);
+      }
+      function open() {
+        if (!panel) return;
+        panelOpen = true;
+        panel.style.display = 'flex';
+        render();
+      }
+      function close() {
+        panelOpen = false;
+        if (panel) panel.style.display = 'none';
+      }
+      function build() {
+        var css = document.createElement('style');
+        css.textContent =
+          '#debug-btn{position:fixed;right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));z-index:10001;' +
+          'padding:8px 14px;border-radius:18px;border:1px solid #445;background:rgba(17,17,40,.9);color:#cde;font:13px monospace}' +
+          '#debug-panel{position:fixed;inset:0;z-index:10002;display:none;flex-direction:column;background:#0a0a1a;color:#cde;' +
+          'padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))}' +
+          '#debug-panel .row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;align-items:center}' +
+          '#debug-panel button{padding:9px 12px;border-radius:8px;border:1px solid #446;background:#1a1a3a;color:#def;font:14px sans-serif}' +
+          '#debug-panel textarea{flex:1;width:100%;background:#05050f;color:#bcd;border:1px solid #334;border-radius:6px;' +
+          'font:11px/1.35 monospace;padding:6px;white-space:pre-wrap;word-break:break-all;overflow:auto}' +
+          '#debug-flash{color:#8f8;font:13px sans-serif}';
+        document.head.appendChild(css);
+
+        button = document.createElement('button');
+        button.id = 'debug-btn';
+        button.textContent = 'Log';
+        button.onclick = open;
+        document.body.appendChild(button);
+
+        panel = document.createElement('div');
+        panel.id = 'debug-panel';
+        panel.innerHTML =
+          '<div class="row"><b style="font:15px sans-serif">Debug log</b><span id="debug-flash"></span></div>' +
+          '<div class="row"><button data-a="copy">Copy log</button><button data-a="prev">Copy previous session</button>' +
+          '<button data-a="mem">Log memory</button><button data-a="clear">Clear</button><button data-a="close">Close</button></div>' +
+          '<textarea readonly spellcheck="false"></textarea>';
+        panelText = panel.querySelector('textarea');
+        panel.addEventListener('click', function(e) {
+          var a = e.target.getAttribute && e.target.getAttribute('data-a');
+          if (a === 'copy') copy(lines.join('\n'), 'log');
+          else if (a === 'prev') previous ? copy(previous, 'previous session') : flash('No previous session saved');
+          else if (a === 'mem') add('LOG', [mem()]);
+          else if (a === 'clear') { lines.length = 1; save(true); render(); }
+          else if (a === 'close') close();
+        });
+        document.body.appendChild(panel);
+        if (previous) add('LOG', ['previous session log saved (' + previous.split('\n').length + ' lines) - "Copy previous session" to get it']);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+
+      return {
+        add: function(level) { add(level, Array.prototype.slice.call(arguments, 1)); },
+        mem: mem,
+        open: open,
+        // In game the button is hidden unless ?debug is in the URL
+        gameStarted: function() {
+          if (button && !/[?&#]debug\b/.test(location.href)) button.style.display = 'none';
+        },
+      };
+    })();
+  </script>
   <style>
     * {
       margin: 0;
@@ -341,10 +512,18 @@
 
     function showError(msg) {
       document.getElementById('error-msg').textContent = msg;
+      if (msg) console.error('[Web] ' + msg);
     }
 
+    var lastLoggedStatus = '';
     function setStatus(msg) {
       document.getElementById('status').textContent = msg;
+      // Log status changes, but not counters ("Loading... (2917 remaining)", "Downloading 34%")
+      var shape = String(msg).replace(/[0-9]+/g, '#');
+      if (shape !== lastLoggedStatus) {
+        lastLoggedStatus = shape;
+        console.log('[Status] ' + msg);
+      }
     }
 
     function setProgress(pct) {
@@ -365,6 +544,8 @@
       var el = document.getElementById('overlay');
       if (el.classList.contains('hidden')) return;
       el.classList.add('hidden');
+      console.log('[Web] Game started (' + DebugLog.mem() + ')');
+      DebugLog.gameStarted();
       // Fully remove from layout after fade-out transition
       setTimeout(function() { el.style.display = 'none'; }, 600);
       document.getElementById('canvas').focus();
@@ -490,6 +671,7 @@
     function extractRomInBrowser(romArrayBuffer, romFileName) {
       setStatus('Writing ROM to virtual filesystem...');
       setProgress(20);
+      console.log('[Web] ROM ' + romFileName + ': ' + romArrayBuffer.byteLength + ' bytes (' + DebugLog.mem() + ')');
 
       var romData = new Uint8Array(romArrayBuffer);
       try {
@@ -513,7 +695,22 @@
       setTimeout(function() {
         var romPathPtr = Module.allocateUTF8('/rom.z64');
         var outPathPtr = Module.allocateUTF8('/oot.o2r');
-        var result = Module._web_extract_rom(romPathPtr, outPathPtr);
+        var extractStart = performance.now();
+        console.log('[Web] Extraction starting (' + DebugLog.mem() + '). The page is unresponsive until it finishes.');
+        var result;
+        try {
+          result = Module._web_extract_rom(romPathPtr, outPathPtr);
+        } catch (e) {
+          // Out of memory, a wasm trap or an abort lands here instead of leaving the page stuck
+          console.error('[Web] Extraction threw after ' + ((performance.now() - extractStart) / 1000).toFixed(1) + 's: ' +
+                        (e && e.stack ? e.stack : e) + ' (' + DebugLog.mem() + ')');
+          bar.classList.remove('extracting');
+          showError('ROM extraction crashed: ' + (e && e.message ? e.message : e) + '. Tap "Log" and copy it.');
+          hideProgress();
+          DebugLog.open();
+          return;
+        }
+        console.log('[Web] Extraction returned ' + result + ' after ' + ((performance.now() - extractStart) / 1000).toFixed(1) + 's (' + DebugLog.mem() + ')');
         Module._free(romPathPtr);
         Module._free(outPathPtr);
 
@@ -570,6 +767,7 @@
       var otrFiles = [];
 
       for (var i = 0; i < files.length; i++) {
+        console.log('[Web] Picked file: ' + files[i].name + ' (' + files[i].size + ' bytes, type "' + files[i].type + '")');
         if (isRomFile(files[i].name)) {
           romFiles.push(files[i]);
         } else {
@@ -591,6 +789,7 @@
             extractRomInBrowser(e.target.result, pendingRom.name);
           };
           reader.onerror = function() {
+            console.error('[Web] FileReader error: ' + (reader.error && reader.error.message));
             showError('Failed to read ROM file: ' + pendingRom.name);
             hideProgress();
           };
@@ -966,6 +1165,11 @@
 
       print: function(text) {
         console.log('[SOH] ' + text);
+      },
+
+      onAbort: function(what) {
+        console.error('[Web] WebAssembly aborted: ' + what + ' (' + DebugLog.mem() + ')');
+        DebugLog.open();
       },
 
       printErr: function(text) {
