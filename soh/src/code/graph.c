@@ -278,6 +278,21 @@ void Graph_TaskSet00(GraphicsContext* gfxCtx) {
     Sched_SendEntryMsg(&gSchedContext);
 }
 
+// In portrait windows the renderer widens 3D views (Settings > Graphics > Portrait Zoom Out). Views that are
+// laid out for exactly 4:3 are reported here so they're drawn at 4:3 instead: menus drawn in 3D (file select,
+// pause screen) and rooms fixed to a prerendered or panoramic background, which has nothing beyond its edges.
+static void Graph_ReportFixedView(void) {
+    bool fixed = true;
+    if (gPlayState != NULL && gGameState == &gPlayState->state && gPlayState->pauseCtx.state == 0) {
+        s16 setting = Play_GetCamera(gPlayState, CAM_ID_MAIN)->setting;
+        fixed = setting == CAM_SET_PREREND_FIXED || setting == CAM_SET_PREREND_PIVOT ||
+                setting == CAM_SET_PREREND_SIDE_SCROLL ||
+                (gPlayState->roomCtx.curRoom.meshHeader != NULL &&
+                 gPlayState->roomCtx.curRoom.meshHeader->base.type == 1);
+    }
+    WindowSetPortraitFixedView(fixed);
+}
+
 void Graph_Update(GraphicsContext* gfxCtx, GameState* gameState) {
     u32 problem;
 
@@ -483,6 +498,7 @@ static void RunFrame() {
 
             PadMgr_ThreadEntry(&gPadMgr);
 
+            Graph_ReportFixedView();
             Graph_Update(&runFrameContext.gfxCtx, gGameState);
             // ticksB = GetPerfCounter();
 
@@ -674,6 +690,8 @@ EMSCRIPTEN_KEEPALIVE double web_debug_get(int field) {
         case 13: return WebDebug_GameState();
         case 14: return sWebPresentCount;
         case 15: return Graph_GetInterpolationFPS();
+        case 16: return inPlay ? Play_GetCamera(gPlayState, CAM_ID_MAIN)->setting : -1;
+        case 17: return inPlay ? gPlayState->roomCtx.curRoom.meshHeader->base.type : -1;
         default: return 0;
     }
 }

@@ -64,7 +64,7 @@ fs.mkdirSync(OUT, { recursive: true });
 // ---- debug fields (keep in sync with web_debug_get in soh/src/code/graph.c) ----
 const F = {
     scene: 0, posX: 1, posY: 2, posZ: 3, ticks: 4, renders: 5, rafs: 6, measuredFps: 7,
-    updateRate: 8, entrance: 9, fileNum: 10, room: 11, health: 12, gameState: 13, presents: 14, targetFps: 15,
+    updateRate: 8, entrance: 9, fileNum: 10, room: 11, health: 12, gameState: 13, presents: 14, targetFps: 15, camSetting: 16, roomType: 17,
 };
 const GAME_STATE = { TitleSetup: 0, Select: 1, Title: 2, Play: 3, Opening: 4, FileChoose: 5 };
 
@@ -449,9 +449,28 @@ try {
         const after = await state();
         await shot('kokiri-forest-after-running');
         if (after.scene !== KOKIRI_FOREST) throw new Error(`ran into another scene (${after.scene})`);
+        // The pause screen is drawn in 3D too; check it in this layout
+        await pad.press('START', 3, 30);
+        await shot('pause-screen');
+        await pad.press('START', 3, 30);
         const moved = Math.hypot(after.posX - before.posX, after.posZ - before.posZ);
         if (moved < 100) throw new Error(`Link barely moved outside (${moved.toFixed(1)} units)`);
         return { moved: Math.round(moved), path: [before.pos, after.pos] };
+    });
+
+    await step('prerendered backgrounds: a Kokiri house and the Market', async () => {
+        // Fixed-camera scenes drawn over a prerendered image; actors must line up with it
+        const scenes = {};
+        for (const [name, entrance] of [['know-it-all-house', 0x0c9], ['market', 0x0b5]]) {
+            const from = (await state()).scene;
+            await page.evaluate((e) => Module._web_debug_warp(e), entrance);
+            const s = await waitFor(name, (s) => s.scene !== from && s.gameState === GAME_STATE.Play, 30000);
+            await waitTicks(60);
+            await shot(name);
+            const now = await state();
+            scenes[name] = { scene: s.scene, camSetting: now.camSetting, roomType: now.roomType };
+        }
+        return scenes;
     });
 
     await measureFps('gameplay (default settings)');
