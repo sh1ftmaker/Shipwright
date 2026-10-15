@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Ship of Harkinian - Web</title>
   <script>
     // ---- Debug log ----
@@ -133,7 +133,7 @@
           '#debug-panel .row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;align-items:center}' +
           '#debug-panel button{padding:9px 12px;border-radius:8px;border:1px solid #446;background:#1a1a3a;color:#def;font:14px sans-serif}' +
           '#debug-panel textarea{flex:1;width:100%;background:#05050f;color:#bcd;border:1px solid #334;border-radius:6px;' +
-          'font:11px/1.35 monospace;padding:6px;white-space:pre-wrap;word-break:break-all;overflow:auto}' +
+          'font:11px/1.35 monospace;padding:6px;white-space:pre-wrap;word-break:break-all;overflow:auto;touch-action:pan-x pan-y}' +
           '#debug-flash{color:#8f8;font:13px sans-serif}';
         document.head.appendChild(css);
 
@@ -186,12 +186,16 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      /* The page must never zoom or scroll: touches are mapped to the canvas assuming it sits at 0,0 at 1x */
+      overscroll-behavior: none;
+      touch-action: none;
       background: #0a0a1a;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       color: #e0e0e0;
     }
 
     #canvas {
+      touch-action: none; /* no double-tap zoom or panning over the game; ImGui scrolling is handled below */
       position: fixed;
       top: 0;
       left: 0;
@@ -1213,6 +1217,36 @@
       }
     };
 
+    // ---- Persist settings ----
+    // The game writes its settings to /Save/shipofharkinian.json (IndexedDB-backed, see web_mount_idbfs) but
+    // only saves go through web_save_to_idb, so copy the settings file to IndexedDB whenever it changes and
+    // when the page is hidden or closed.
+    (function() {
+      var CONFIG = '/Save/shipofharkinian.json';
+      var lastMtime = null, syncing = false, pending = false;
+      function sync(reason) {
+        if (typeof FS === 'undefined' || !FS.syncfs) return;
+        if (syncing) { pending = true; return; }
+        syncing = true;
+        FS.syncfs(false, function(err) {
+          syncing = false;
+          if (err) console.warn('[Web] Saving settings failed (' + reason + '):', err);
+          if (pending) { pending = false; sync('queued'); }
+        });
+      }
+      setInterval(function() {
+        if (!gameStarted || typeof FS === 'undefined') return;
+        var mtime;
+        try { mtime = FS.stat(CONFIG).mtime.getTime(); } catch (e) { return; }
+        if (lastMtime !== null && mtime !== lastMtime) sync('settings changed');
+        lastMtime = mtime;
+      }, 1000);
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden' && gameStarted) sync('page hidden');
+      });
+      window.addEventListener('pagehide', function() { if (gameStarted) sync('page closed'); });
+    })();
+
     // ---- Touch Gamepad (UI only — WASM integration handled separately) ----
     var TouchGamepad = {
       _active: false,
@@ -1415,6 +1449,32 @@
 
       document.addEventListener('touchend', checkKeyboard, true);
       document.addEventListener('click', checkKeyboard, true);
+
+      // Focusing the hidden input can make the browser scroll or zoom the page to show it, which leaves every
+      // later touch offset from where the game draws. Put the page back once the keyboard is gone.
+      function resetPageScroll() {
+        if (isShowingKeyboard) return;
+        if (window.scrollX || window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+          window.dispatchEvent(new Event('resize'));
+        }
+      }
+      mobileInput.addEventListener('blur', function() { setTimeout(resetPageScroll, 50); });
+      window.addEventListener('scroll', resetPageScroll);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resetPageScroll);
+        window.visualViewport.addEventListener('scroll', resetPageScroll);
+      }
+      // iOS Safari ignores user-scalable=no; block its pinch and double-tap zoom gestures directly
+      document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
+      var lastTouchEnd = 0;
+      document.addEventListener('touchend', function(e) {
+        var now = Date.now();
+        if (now - lastTouchEnd < 350 && e.cancelable && e.target && e.target.id === 'canvas') e.preventDefault();
+        lastTouchEnd = now;
+      }, { passive: false });
     })();
 
     // ---- Touch-drag scrolling for ImGui ----

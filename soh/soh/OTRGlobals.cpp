@@ -284,7 +284,13 @@ static bool sohArchiveVersionMatch = false;
 
 OTRGlobals::OTRGlobals() {
     SPDLOG_DEBUG("[Web Debug] OTRGlobals constructor start");
+#ifdef __EMSCRIPTEN__
+    // Only /Save is backed by IndexedDB (see web_mount_idbfs), so keep settings there to survive reloads
+    context =
+        Ship::Context::CreateUninitializedInstance("Ship of Harkinian", appShortName, "Save/shipofharkinian.json");
+#else
     context = Ship::Context::CreateUninitializedInstance("Ship of Harkinian", appShortName, "shipofharkinian.json");
+#endif
 
     SPDLOG_DEBUG("[Web Debug] LocateFileAcrossAppDirs soh.o2r");
     portArchivePath = Ship::Context::LocateFileAcrossAppDirs("soh.o2r");

@@ -348,12 +348,15 @@ void SohMenu::AddMenuSettings() {
                 CVarGetFloat(CVAR_INTERNAL_RESOLUTION, 1));
         })
         .PreFunc([](WidgetInfo& info) {
-            // Let the slider go down to N64 height (240 lines) at the current window size
+            // Let the slider go down to N64 height (240 lines) at the current window size. In portrait the game
+            // is laid out in a full-width 4:3 box, so that box gets the 240 lines.
             auto options = std::static_pointer_cast<FloatSliderOptions>(info.options);
             auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(Ship::Context::GetRawInstance()->GetWindow());
             auto interpreter = wnd != nullptr ? wnd->GetInterpreterWeak().lock() : nullptr;
             if (interpreter != nullptr && interpreter->mGameWindowViewport.height > 0) {
-                options->min = std::min(0.5f, (float)SCREEN_HEIGHT / interpreter->mGameWindowViewport.height);
+                const auto& viewport = interpreter->mGameWindowViewport;
+                const float boxHeight = std::min((float)viewport.height, viewport.width * 3.0f / 4.0f);
+                options->min = std::min(0.5f, (float)SCREEN_HEIGHT / boxHeight);
             }
             if (mSohMenu->disabledMap.at(DISABLE_FOR_ADVANCED_RESOLUTION_ON).active &&
                 mSohMenu->disabledMap.at(DISABLE_FOR_VERTICAL_RES_TOGGLE_ON).active) {
