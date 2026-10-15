@@ -25,6 +25,11 @@ Screenshots and `report.json` (step results, FPS samples, console log) go to
 - **State**: reads `web_debug_get(field)` from `soh/src/code/graph.c` (game state,
   scene, Link's position, tick/render/rAF counters, measured FPS, R_UPDATE_RATE).
   Keep the field table at the top of the script in sync with it.
+- **Warps**: `web_debug_warp(entrance)` in `graph.c` moves Link to another entrance, like the
+  `warp` console command (the test uses it to get from Link's house to Kokiri Forest, where the
+  camera follows Link).
+- **Devices**: `--device phone-portrait` / `phone-landscape` emulate a touch phone and press the
+  on-screen gamepad with real touch events.
 - **Settings**: `web_cvar_set_int(name, value)` in `web_main.cpp` sets a CVar and
   re-runs its ShipInit hooks (the test uses it to skip the intro cutscene).
 

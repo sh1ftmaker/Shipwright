@@ -18,6 +18,8 @@
 //   --chromium <path>   Chromium binary (default: $CHROMIUM or /usr/bin/chromium)
 //   --display <mode>    auto | weston | headless (default: auto). Headless Chromium has no
 //                       WebGL2 on many machines; "weston" runs a GPU-backed offscreen compositor.
+//   --device <name>     desktop | phone-portrait | phone-landscape (default: desktop). Phone modes
+//                       emulate a touch phone and press the on-screen gamepad with real touch events.
 //   --fps-seconds <n>   Length of each frame-pacing sample (default: 10)
 //   --fps <list>        InterpolationFPS values to check with Match Refresh Rate off, e.g. "20,30,60"
 //                       (20 = original: one frame per game tick, no interpolation)
@@ -42,6 +44,18 @@ const BUILD_DIR = path.resolve(args.build ?? path.join(ROOT, 'build-web/soh'));
 const SOH_O2R = path.resolve(args['soh-o2r'] ?? path.join(ROOT, 'build-tools/soh/soh.o2r'));
 const OUT = path.resolve(args.out ?? 'web-test-results');
 const CHROMIUM = args.chromium ?? process.env.CHROMIUM ?? '/usr/bin/chromium';
+const DEVICES = {
+    desktop: { viewport: { width: 1280, height: 720 } },
+    // Roughly an iPhone 14 / Pixel 7 sized screen
+    'phone-portrait': { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+    'phone-landscape': { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+};
+const DEVICE = args.device ?? 'desktop';
+if (!DEVICES[DEVICE]) {
+    console.error(`unknown --device ${DEVICE} (${Object.keys(DEVICES).join(', ')})`);
+    process.exit(2);
+}
+const TOUCH = !!DEVICES[DEVICE].hasTouch;
 const FPS_SECONDS = Number(args['fps-seconds'] ?? 10);
 const EXTRA_FPS = (args.fps ?? '').split(',').filter(Boolean).map(Number);
 
@@ -116,8 +130,40 @@ async function waitTicks(n) {
 }
 
 const BUTTONS = { A: 'tb-a', B: 'tb-b', Z: 'tb-z', START: 'tb-start', L: 'tb-l', R: 'tb-r', CU: 'tb-cu', CD: 'tb-cd', CL: 'tb-cl', CR: 'tb-cr' };
+// On touch devices the pad presses the on-screen buttons and stick with real touch events, so the
+// page's touch handlers are tested too. Otherwise it sets the TouchGamepad state directly.
+let cdp;
+let touchesDown = false;
+async function setTouches(buttons, stickX, stickY) {
+    const points = await page.evaluate(([ids, x, y]) => {
+        const center = (el) => {
+            const r = el.getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        };
+        const pts = ids.map((id) => center(document.getElementById(id)));
+        if (x || y) {
+            const c = center(document.getElementById('touch-stick-base'));
+            pts.push({ x: c.x + (x / 127) * 50, y: c.y - (y / 127) * 50, stick: c });
+        }
+        return pts;
+    }, [buttons.map((b) => BUTTONS[b]), stickX, stickY]);
+    if (touchesDown) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        touchesDown = false;
+    }
+    if (!points.length) return;
+    // Stick touches start at the stick's center and then move, like a thumb would
+    const start = points.map((p, i) => ({ x: p.stick?.x ?? p.x, y: p.stick?.y ?? p.y, id: i }));
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: start });
+    touchesDown = true;
+    if (points.some((p) => p.stick)) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points.map((p, i) => ({ x: p.x, y: p.y, id: i })) });
+    }
+}
+
 const pad = {
     async set(buttons = [], stickX = 0, stickY = 0) {
+        if (TOUCH) return setTouches(buttons, stickX, stickY);
         await page.evaluate(([ids, x, y]) => {
             TouchGamepad._active = true;
             TouchGamepad._buttons = {};
@@ -282,8 +328,10 @@ try {
     ({ browser, cleanup, display: report.display } = await launchBrowser(args.display ?? 'auto'));
     log(`page ${url} (display: ${report.display})`);
 
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const ctx = await browser.newContext(DEVICES[DEVICE]);
     page = await ctx.newPage();
+    if (TOUCH) cdp = await ctx.newCDPSession(page);
+    report.device = DEVICE;
     page.on('console', (m) => {
         const text = m.text();
         if (/OTR written|Registered factory|RandomizerInf Flag Set/.test(text)) return;
@@ -382,6 +430,27 @@ try {
         const moved = dist(before, mid) + dist(mid, after);
         if (moved < 50) throw new Error(`Link barely moved (${moved.toFixed(1)} units): ${JSON.stringify([before.pos, mid.pos, after.pos])}`);
         return { moved: Math.round(moved), path: [before.pos, mid.pos, after.pos] };
+    });
+
+    await step('outdoors: Kokiri Forest with the follow camera', async () => {
+        // Link's house has a fixed overhead camera; outside, the camera follows Link like most of the game.
+        const KOKIRI_FOREST = 85;
+        await setCVar('gEnhancements.TimeSavers.SkipCutscene.Entrances', 1); // Saria's first-visit greeting
+        const ok = await page.evaluate((e) => Module._web_debug_warp(e), 0x266); // ENTR_KOKIRI_FOREST_OUTSIDE_SHOP, on open ground
+        if (!ok) throw new Error('warp refused (not in gameplay)');
+        await waitFor('Kokiri Forest', (s) => s.scene === KOKIRI_FOREST && s.gameState === GAME_STATE.Play, 30000);
+        await waitTicks(100); // arrival shot and area title
+        for (let i = 0; i < 8; i++) await pad.press('B', 2, 6); // a Kokiri greets Link here
+        await shot('kokiri-forest');
+        const before = await state();
+        await pad.stick(0, 90, 30); // run forward
+        await pad.stick(90, 0, 20); // and turn
+        const after = await state();
+        await shot('kokiri-forest-after-running');
+        if (after.scene !== KOKIRI_FOREST) throw new Error(`ran into another scene (${after.scene})`);
+        const moved = Math.hypot(after.posX - before.posX, after.posZ - before.posZ);
+        if (moved < 100) throw new Error(`Link barely moved outside (${moved.toFixed(1)} units)`);
+        return { moved: Math.round(moved), path: [before.pos, after.pos] };
     });
 
     await measureFps('gameplay (default settings)');

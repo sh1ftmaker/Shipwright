@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Ship of Harkinian - Web</title>
   <style>
     * {
@@ -193,6 +193,44 @@
     #tb-esc { top: 10px; right: 80px; width: 34px; height: 34px;
       border-radius: 8px; background: rgba(255,255,255,0.08); font-size: 10px;
       letter-spacing: -0.5px; }
+
+    /* Portrait phones: a full-height canvas only shows a narrow slice of the 4:3 view and cuts off
+       the HUD, so put the game at the top at 4:3 and the controls in the space below it. */
+    @media (orientation: portrait) {
+      html.touch-device {
+        --game-top: env(safe-area-inset-top, 0px);
+        --game-h: calc(100vw * 3 / 4);
+        --pad-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+      }
+      html.touch-device #canvas { top: var(--game-top); height: var(--game-h); }
+      html.touch-device #touch-stick-zone { left: 8px; bottom: var(--pad-bottom); width: 180px; height: 180px; }
+      html.touch-device #touch-stick-base { left: 15px; bottom: 15px; width: 150px; height: 150px; }
+      html.touch-device #touch-stick-knob { width: 60px; height: 60px; left: 45px; top: 45px; }
+      html.touch-device #tb-a { right: 20px; bottom: calc(var(--pad-bottom) + 70px); width: 76px; height: 76px; font-size: 26px; }
+      html.touch-device #tb-b { right: 106px; bottom: var(--pad-bottom); width: 68px; height: 68px; font-size: 22px; }
+      /* Z sits above the stick, like the N64's trigger under the left hand */
+      html.touch-device #tb-z { left: 40px; right: auto; bottom: calc(var(--pad-bottom) + 200px); width: 120px; height: 48px;
+        border-radius: 24px; font-size: 18px; }
+      html.touch-device .touch-cbtn { width: 46px; height: 46px; font-size: 14px; }
+      html.touch-device #tb-cu { right: 82px; bottom: calc(var(--pad-bottom) + 254px); }
+      html.touch-device #tb-cd { right: 82px; bottom: calc(var(--pad-bottom) + 166px); }
+      html.touch-device #tb-cl { right: 126px; bottom: calc(var(--pad-bottom) + 210px); }
+      html.touch-device #tb-cr { right: 38px; bottom: calc(var(--pad-bottom) + 210px); }
+      /* L / START / ESC / R in a row just under the game */
+      html.touch-device #tb-l,
+      html.touch-device #tb-r,
+      html.touch-device #tb-start,
+      html.touch-device #tb-esc { top: calc(var(--game-top) + var(--game-h) + 14px); height: 40px; border-radius: 20px; }
+      html.touch-device #tb-l { left: 16px; width: 64px; }
+      html.touch-device #tb-r { right: 16px; width: 64px; }
+      html.touch-device #tb-start { width: 84px; font-size: 13px; }
+      html.touch-device #tb-esc { right: 96px; width: 48px; border-radius: 12px; }
+      /* The settings menu gets the whole screen; only ESC stays, to close it */
+      html.touch-device.menu-open #canvas { height: calc(100vh - var(--game-top)); height: calc(100dvh - var(--game-top)); }
+      html.touch-device.menu-open #touch-gamepad > :not(#tb-esc) { display: none; }
+      html.touch-device.menu-open #tb-esc { top: auto; bottom: var(--pad-bottom); right: 16px; width: 64px; height: 48px;
+        background: rgba(10,10,26,0.85); }
+    }
   </style>
 </head>
 <body>
@@ -992,6 +1030,16 @@
       init: function() {
         if (!('ontouchstart' in window) && navigator.maxTouchPoints <= 0) return;
         this._knob = document.getElementById('touch-stick-knob');
+        document.documentElement.classList.add('touch-device');
+        // Track whether the settings menu is open so portrait layout can give it the whole screen
+        setInterval(function() {
+          if (typeof Module === 'undefined' || typeof Module._web_menu_open !== 'function' || !Module.calledRun) return;
+          var open = !!Module._web_menu_open();
+          if (open !== document.documentElement.classList.contains('menu-open')) {
+            document.documentElement.classList.toggle('menu-open', open);
+            window.dispatchEvent(new Event('resize'));
+          }
+        }, 150);
         document.getElementById('touch-gamepad').classList.add('visible');
         this._active = true;
         this._setupButtons();
@@ -1171,8 +1219,9 @@
         // Only track one finger for scrolling; gamepad handles its own touches
         if (scrollTouchId !== null) return;
         var t = e.changedTouches[0];
-        // Ignore touches in the gamepad zones (bottom-left stick, right-side buttons)
-        if (t.clientY > window.innerHeight * 0.5) return;
+        // Ignore touches in the gamepad zones (bottom-left stick, right-side buttons), unless the
+        // menu has the whole screen
+        if (!document.documentElement.classList.contains('menu-open') && t.clientY > window.innerHeight * 0.5) return;
         scrollTouchId = t.identifier;
         lastTouchY = t.clientY;
         lastTouchX = t.clientX;

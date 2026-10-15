@@ -677,6 +677,18 @@ EMSCRIPTEN_KEEPALIVE double web_debug_get(int field) {
         default: return 0;
     }
 }
+
+// Warp to an entrance during gameplay, like the "warp" console command (tools/web-test).
+EMSCRIPTEN_KEEPALIVE int web_debug_warp(int entrance) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return 0;
+    }
+    gPlayState->nextEntranceIndex = entrance;
+    gPlayState->transitionTrigger = TRANS_TRIGGER_START;
+    gPlayState->transitionType = TRANS_TYPE_INSTANT;
+    gSaveContext.nextTransitionType = TRANS_TYPE_INSTANT;
+    return 1;
+}
 #endif
 
 void Graph_ThreadEntry(void* arg0) {

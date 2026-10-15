@@ -140,6 +140,13 @@ int web_wants_text_input(void) {
     return ImGui::GetIO().WantTextInput ? 1 : 0;
 }
 
+// Lets the page give the settings menu the whole screen on portrait phones
+EMSCRIPTEN_KEEPALIVE
+int web_menu_open(void) {
+    auto window = Ship::Context::GetRawInstance() ? Ship::Context::GetRawInstance()->GetWindow() : nullptr;
+    return window != nullptr && window->GetGui() != nullptr && window->GetGui()->GetMenuOrMenubarVisible() ? 1 : 0;
+}
+
 EMSCRIPTEN_KEEPALIVE
 void web_otr_loaded(void) {
     s_otr_loaded = 1;
