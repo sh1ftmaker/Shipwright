@@ -1247,6 +1247,334 @@
       window.addEventListener('pagehide', function() { if (gameStarted) sync('page closed'); });
     })();
 
+    // ---- Save files: export / import ----
+    // Opened from Settings > General > Save Files. Saves live in /Save (IndexedDB-backed): file1-3.sav, global.sav
+    // and the settings file. They use the same format as desktop Ship of Harkinian, so files copied from the Save
+    // folder of a desktop install can be imported here and the other way round.
+    var SaveFiles = (function() {
+      var DIR = '/Save';
+      var SLOTS = ['file1.sav', 'file2.sav', 'file3.sav'];
+      var EXTRAS = ['global.sav', 'shipofharkinian.json'];
+      // Save shipped with the site (soh/soh/web, copied next to the page). A browser that has no saves gets it on
+      // its first visit; after that it can be added again from the panel.
+      var INCLUDED = 'soh-save-2026-10-15.zip';
+      var SEEDED = '.included-save-installed';
+      var panel, list, msg, picker, pickTarget = null;
+
+      function ready() {
+        return gameStarted && typeof FS !== 'undefined' && Module._web_is_idbfs_ready && Module._web_is_idbfs_ready();
+      }
+      function readFile(name) {
+        try { return FS.readFile(DIR + '/' + name); } catch (e) { return null; }
+      }
+      function say(text, bad) {
+        msg.textContent = text;
+        msg.style.color = bad ? '#f88' : '#8f8';
+      }
+
+      // Player names are stored in the game's font encoding
+      function playerName(data) {
+        try {
+          var json = JSON.parse(new TextDecoder().decode(data));
+          var base = json.sections.base.data;
+          var chars = base.playerName || [];
+          var s = '';
+          for (var i = 0; i < chars.length; i++) {
+            var c = chars[i];
+            if (c <= 0x09) s += String.fromCharCode(48 + c);
+            else if (c <= 0x23) s += String.fromCharCode(65 + c - 0x0A);
+            else if (c <= 0x3D) s += String.fromCharCode(97 + c - 0x24);
+            else if (c === 0x3E) s += ' ';
+            else if (c === 0x3F) s += '-';
+            else if (c === 0x40) s += '.';
+            else s += '?';
+          }
+          s = s.trim() || '(no name)';
+          if (json.fileType === 1) s += ' - Randomizer';
+          else if (base.isMasterQuest) s += ' - Master Quest';
+          return s;
+        } catch (e) {
+          return '(unreadable)';
+        }
+      }
+
+      function download(name, data, type) {
+        var url = URL.createObjectURL(new Blob([data], { type: type || 'application/octet-stream' }));
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
+      }
+
+      // ---- Minimal zip (stored entries out, stored or deflated entries in) ----
+      var crcTable = null;
+      function crc32(data) {
+        if (!crcTable) {
+          crcTable = new Uint32Array(256);
+          for (var n = 0; n < 256; n++) {
+            var c = n;
+            for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+            crcTable[n] = c >>> 0;
+          }
+        }
+        var crc = 0xFFFFFFFF;
+        for (var i = 0; i < data.length; i++) crc = crcTable[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+      function makeZip(files) {
+        var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+        files.forEach(function(f) {
+          var name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+          var local = new DataView(new ArrayBuffer(30));
+          local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true);
+          local.setUint32(14, crc, true); local.setUint32(18, size, true); local.setUint32(22, size, true);
+          local.setUint16(26, name.length, true);
+          var cen = new DataView(new ArrayBuffer(46));
+          cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true);
+          cen.setUint32(16, crc, true); cen.setUint32(20, size, true); cen.setUint32(24, size, true);
+          cen.setUint16(28, name.length, true); cen.setUint32(42, offset, true);
+          parts.push(new Uint8Array(local.buffer), name, f.data);
+          central.push(new Uint8Array(cen.buffer), name);
+          offset += 30 + name.length + size;
+        });
+        var cenSize = central.reduce(function(n, p) { return n + p.length; }, 0);
+        var end = new DataView(new ArrayBuffer(22));
+        end.setUint32(0, 0x06054b50, true);
+        end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+        end.setUint32(12, cenSize, true); end.setUint32(16, offset, true);
+        return new Blob(parts.concat(central, [new Uint8Array(end.buffer)]), { type: 'application/zip' });
+      }
+      function readZip(buf) {
+        var view = new DataView(buf), bytes = new Uint8Array(buf), eocd = -1;
+        for (var i = buf.byteLength - 22; i >= 0 && i >= buf.byteLength - 65557; i--) {
+          if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+        }
+        if (eocd < 0) return Promise.reject(new Error('not a zip file'));
+        var count = view.getUint16(eocd + 10, true), p = view.getUint32(eocd + 16, true), jobs = [];
+        for (var n = 0; n < count; n++) {
+          var method = view.getUint16(p + 10, true), csize = view.getUint32(p + 20, true);
+          var nameLen = view.getUint16(p + 28, true), extraLen = view.getUint16(p + 30, true);
+          var commentLen = view.getUint16(p + 32, true), lho = view.getUint32(p + 42, true);
+          var name = new TextDecoder().decode(bytes.subarray(p + 46, p + 46 + nameLen));
+          p += 46 + nameLen + extraLen + commentLen;
+          if (/\/$/.test(name) || /(^|\/)(__MACOSX|\._)/.test(name)) continue;
+          var start = lho + 30 + view.getUint16(lho + 26, true) + view.getUint16(lho + 28, true);
+          var data = bytes.slice(start, start + csize);
+          jobs.push(inflate(method, data).then(function(name, out) {
+            return { name: name.split('/').pop(), data: out };
+          }.bind(null, name)));
+        }
+        return Promise.all(jobs);
+      }
+      function inflate(method, data) {
+        if (method === 0) return Promise.resolve(data);
+        if (method !== 8 || typeof DecompressionStream === 'undefined')
+          return Promise.reject(new Error('this zip is compressed in a way the browser can\'t open - import the .sav files instead'));
+        var stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return new Response(stream).arrayBuffer().then(function(b) { return new Uint8Array(b); });
+      }
+
+      // Which file in /Save an imported file replaces, from its name ("file2.sav", "file2 (1).sav", ...)
+      function targetFor(name) {
+        var lower = name.toLowerCase();
+        var m = lower.match(/^file\s*([123])\b[^/]*\.sav$/);
+        if (m) return 'file' + m[1] + '.sav';
+        if (/^global\b[^/]*\.sav$/.test(lower)) return 'global.sav';
+        if (/^shipofharkinian\b[^/]*\.json$/.test(lower)) return 'shipofharkinian.json';
+        return null;
+      }
+      function validSave(data) {
+        try { return !!JSON.parse(new TextDecoder().decode(data)).sections; } catch (e) { return false; }
+      }
+
+      // Write the files, keep a backup of anything replaced, save to IndexedDB and reload so the game reads them
+      function install(files) {
+        var written = [], skipped = [];
+        files.forEach(function(f) {
+          var target = f.target || targetFor(f.name);
+          if (!target) { skipped.push(f.name + ' (unknown file name)'); return; }
+          if (/\.sav$/.test(target) && !validSave(f.data)) { skipped.push(f.name + ' (not a save file)'); return; }
+          var old = readFile(target);
+          if (old) FS.writeFile(DIR + '/' + target.replace(/(\.\w+)$/, '-' + Date.now() + '.bak$1'), old);
+          FS.writeFile(DIR + '/' + target, f.data);
+          written.push(target);
+        });
+        if (!written.length) { say('Nothing imported: ' + skipped.join(', '), true); return; }
+        console.log('[Web] Imported ' + written.join(', ') + (skipped.length ? '; skipped ' + skipped.join(', ') : ''));
+        say('Imported ' + written.join(', ') + (skipped.length ? ' (skipped ' + skipped.join(', ') + ')' : '') + '. Reloading...');
+        FS.syncfs(false, function(err) {
+          if (err) { say('Saving to browser storage failed: ' + err, true); return; }
+          setTimeout(function() { location.reload(); }, 1200);
+        });
+      }
+
+      function onPicked(e) {
+        var chosen = Array.prototype.slice.call(e.target.files || []);
+        var slot = pickTarget;
+        picker.value = '';
+        if (!chosen.length) return;
+        Promise.all(chosen.map(function(file) {
+          return file.arrayBuffer().then(function(buf) {
+            if (/\.zip$/i.test(file.name)) return readZip(buf);
+            return [{ name: file.name, data: new Uint8Array(buf) }];
+          });
+        })).then(function(groups) {
+          var files = [].concat.apply([], groups);
+          if (slot) {
+            var saves = files.filter(function(f) { return /\.sav$/i.test(f.name) && f.name.toLowerCase() !== 'global.sav'; });
+            if (saves.length !== 1) { say('Pick one .sav file for slot ' + slot.slice(4, 5), true); return; }
+            saves[0].target = slot;
+            files = saves;
+          }
+          install(files);
+        }).catch(function(err) { say('Import failed: ' + err.message, true); });
+      }
+
+      function pick(slot) {
+        pickTarget = slot;
+        picker.click();
+      }
+
+      function fetchIncluded() {
+        return fetch(INCLUDED, { cache: 'no-cache' }).then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.arrayBuffer();
+        }).then(readZip);
+      }
+
+      // Called by web_mount_idbfs once /Save is loaded and before the game reads it
+      function seed(done) {
+        var finished = false;
+        function finish() { if (!finished) { finished = true; done(); } }
+        // ?no-included-save starts with no saves (tools/web-test does)
+        if (/[?&]no-included-save\b/.test(location.search)) { finish(); return; }
+        if (readFile(SEEDED) || SLOTS.some(function(n) { return readFile(n); })) { finish(); return; }
+        setTimeout(finish, 8000);
+        fetchIncluded().then(function(files) {
+          var written = [];
+          files.forEach(function(f) {
+            var target = targetFor(f.name);
+            if (!target || target === 'shipofharkinian.json' || readFile(target) || !validSave(f.data) && target !== 'global.sav') return;
+            FS.writeFile(DIR + '/' + target, f.data);
+            written.push(target);
+          });
+          FS.writeFile(DIR + '/' + SEEDED, INCLUDED);
+          console.log('[Web] Installed the included save (' + written.join(', ') + ')');
+          FS.syncfs(false, function() {});
+        }).catch(function(err) {
+          console.warn('[Web] No included save: ' + err.message);
+        }).then(finish);
+      }
+
+      function addIncluded() {
+        var empty = SLOTS.filter(function(n) { return !readFile(n); })[0];
+        if (!empty) { say('All three slots are in use. Erase one on the file select screen first.', true); return; }
+        fetchIncluded().then(function(files) {
+          var save = files.filter(function(f) { return /^file\d\.sav$/i.test(f.name); })[0];
+          if (!save) throw new Error('no save in ' + INCLUDED);
+          install([{ name: save.name, target: empty, data: save.data }]);
+        }).catch(function(err) { say('Could not load the included save: ' + err.message, true); });
+      }
+
+      function render() {
+        if (!ready()) { list.innerHTML = '<p>Start the game first, then open Save Files again.</p>'; return; }
+        list.innerHTML = '';
+        SLOTS.forEach(function(name, i) {
+          var data = readFile(name);
+          var row = document.createElement('div');
+          row.className = 'sf-row';
+          row.innerHTML = '<div class="sf-info"><b>Slot ' + (i + 1) + '</b><span></span></div>';
+          row.querySelector('span').textContent = data ? playerName(data) : 'Empty';
+          if (data) {
+            var dl = document.createElement('button');
+            dl.textContent = 'Download';
+            dl.onclick = function() { download(name, readFile(name)); };
+            row.appendChild(dl);
+          }
+          var imp = document.createElement('button');
+          imp.textContent = data ? 'Replace...' : 'Import...';
+          imp.onclick = function() { pick(name); };
+          row.appendChild(imp);
+          list.appendChild(row);
+        });
+      }
+
+      function exportAll() {
+        if (!ready()) return;
+        var files = SLOTS.concat(EXTRAS).map(function(name) {
+          return { name: name, data: readFile(name) };
+        }).filter(function(f) { return f.data; });
+        if (!files.length) { say('No save files yet', true); return; }
+        var d = new Date(), pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        download('soh-saves-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.zip', makeZip(files));
+        say('Downloaded ' + files.map(function(f) { return f.name; }).join(', '));
+      }
+
+      function open() {
+        if (!panel) return;
+        say('', false);
+        render();
+        panel.style.display = 'flex';
+      }
+      function close() { if (panel) panel.style.display = 'none'; }
+
+      function build() {
+        var css = document.createElement('style');
+        css.textContent =
+          '#save-panel{position:fixed;inset:0;z-index:10002;display:none;align-items:center;justify-content:center;' +
+          'background:rgba(5,5,15,.85);padding:16px;touch-action:pan-y}' +
+          '#save-panel .sf-box{width:100%;max-width:520px;max-height:100%;overflow:auto;background:#111128;color:#dde;' +
+          'border:1px solid #2a2a5a;border-radius:12px;padding:16px;font:14px/1.4 sans-serif}' +
+          '#save-panel h2{font-size:18px;margin-bottom:6px}' +
+          '#save-panel p{color:#99a;margin:6px 0 10px}' +
+          '#save-panel .sf-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #223}' +
+          '#save-panel .sf-info{flex:1;min-width:0;display:flex;flex-direction:column}' +
+          '#save-panel .sf-info span{color:#aab;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+          '#save-panel button{padding:9px 12px;border-radius:8px;border:1px solid #446;background:#1a1a3a;color:#def;font:14px sans-serif}' +
+          '#save-panel .sf-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}' +
+          '#save-msg{min-height:1.4em;margin-top:10px;word-break:break-word}';
+        document.head.appendChild(css);
+
+        panel = document.createElement('div');
+        panel.id = 'save-panel';
+        panel.innerHTML =
+          '<div class="sf-box"><h2>Save Files</h2>' +
+          '<p>Saves use the same format as desktop Ship of Harkinian. Import file1.sav, file2.sav or file3.sav from its ' +
+          'Save folder, or a .zip downloaded here. Anything replaced is kept as a .bak file. The page reloads after an ' +
+          'import, so unsaved progress in the current game is lost.</p>' +
+          '<div id="save-list"></div>' +
+          '<div class="sf-actions"><button data-a="all">Download all (.zip)</button>' +
+          '<button data-a="import">Import files...</button><button data-a="included">Add included save</button>' +
+          '<button data-a="close">Close</button></div>' +
+          '<div id="save-msg"></div></div>';
+        list = panel.querySelector('#save-list');
+        msg = panel.querySelector('#save-msg');
+        panel.addEventListener('click', function(e) {
+          var a = e.target.getAttribute && e.target.getAttribute('data-a');
+          if (a === 'all') exportAll();
+          else if (a === 'import') { if (ready()) pick(null); }
+          else if (a === 'included') { if (ready()) addIncluded(); }
+          else if (a === 'close' || e.target === panel) close();
+        });
+        // Keep the game from seeing keys typed while the panel is open
+        panel.addEventListener('keydown', function(e) { e.stopPropagation(); if (e.key === 'Escape') close(); });
+
+        picker = document.createElement('input');
+        picker.type = 'file';
+        picker.multiple = true;
+        picker.style.display = 'none';
+        picker.addEventListener('change', onPicked);
+        panel.appendChild(picker);
+        document.body.appendChild(panel);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+
+      return { open: open, close: close, seed: seed };
+    })();
+
     // ---- Touch Gamepad (UI only — WASM integration handled separately) ----
     var TouchGamepad = {
       _active: false,

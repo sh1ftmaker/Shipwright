@@ -635,6 +635,9 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
         )
         # Relink when the page template changes, not just the code
         set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/soh/web/shell.html)
+        # Save the page installs on a browser's first visit (shell.html SaveFiles)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/soh/web/soh-save-2026-10-15.zip $<TARGET_FILE_DIR:${PROJECT_NAME}>/)
     else()
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
         set(CPU_OPTION -msse2 -mfpmath=sse)

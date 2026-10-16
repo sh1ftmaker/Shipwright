@@ -20,6 +20,8 @@
 //                       WebGL2 on many machines; "weston" runs a GPU-backed offscreen compositor.
 //   --device <name>     desktop | phone-portrait | phone-landscape (default: desktop). Phone modes
 //                       emulate a touch phone and press the on-screen gamepad with real touch events.
+//   --included-save     Let the page install the save it ships with (soh/soh/web/soh-save-*.zip). By
+//                       default the test starts with no saves, since it creates file 1 itself.
 //   --fps-seconds <n>   Length of each frame-pacing sample (default: 10)
 //   --fps <list>        InterpolationFPS values to check with Match Refresh Rate off, e.g. "20,30,60"
 //                       (20 = original: one frame per game tick, no interpolation)
@@ -325,6 +327,7 @@ try {
         server = await serve(BUILD_DIR);
         url = `http://127.0.0.1:${server.address().port}/soh.html`;
     }
+    if (!args['included-save']) url += (url.includes('?') ? '&' : '?') + 'no-included-save';
     ({ browser, cleanup, display: report.display } = await launchBrowser(args.display ?? 'auto'));
     log(`page ${url} (display: ${report.display})`);
 

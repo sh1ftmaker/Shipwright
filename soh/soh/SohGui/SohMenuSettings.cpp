@@ -10,6 +10,9 @@
 #include <ship/Context.h>
 #include <fast/Fast3dWindow.h>
 #include <fast/interpreter.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 extern "C" {
 #include "include/z64audio.h"
@@ -195,6 +198,13 @@ void SohMenu::AddMenuSettings() {
     AddWidget(path, "Reset Button Combination:", WIDGET_CVAR_BTN_SELECTOR)
         .CVar("gSettings.ResetBtn")
         .Options(BtnSelectorOptions().DefaultValue(BTN_CUSTOM_MODIFIER2));
+#ifdef __EMSCRIPTEN__
+    // There is no folder to open in a browser; the page has its own save import/export panel (shell.html)
+    AddWidget(path, "Save Files (Import / Export)", WIDGET_BUTTON)
+        .RaceDisable(false)
+        .Callback([](WidgetInfo& info) { emscripten_run_script("SaveFiles.open()"); })
+        .Options(ButtonOptions().Tooltip("Download your save files, or import saves from desktop Ship of Harkinian."));
+#else
     AddWidget(path, "Open App Files Folder", WIDGET_BUTTON)
         .RaceDisable(false)
         .Callback([](WidgetInfo& info) {
@@ -202,6 +212,7 @@ void SohMenu::AddMenuSettings() {
             SDL_OpenURL(std::string("file:///" + std::filesystem::absolute(filesPath).string()).c_str());
         })
         .Options(ButtonOptions().Tooltip("Opens the folder that contains the save and mods folders, etc."));
+#endif
 
     AddWidget(path, "Boot", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Boot Sequence", WIDGET_CVAR_COMBOBOX)

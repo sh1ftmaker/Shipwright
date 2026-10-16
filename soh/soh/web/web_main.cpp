@@ -192,8 +192,9 @@ EM_JS(void, web_mount_idbfs, (), {
                 console.log("[Web]   " + files.join(", "));
             } catch(e) {}
         }
-        // Signal C side that IDBFS is ready
-        setValue(_web_idbfs_ready_ptr(), 1, 'i32');
+        // Signal C side that IDBFS is ready, after the page has added its included save (shell.html)
+        var ready = function() { setValue(_web_idbfs_ready_ptr(), 1, 'i32'); };
+        if (!err && typeof SaveFiles !== 'undefined' && SaveFiles.seed) SaveFiles.seed(ready); else ready();
     });
 });
 

@@ -30,6 +30,9 @@ Screenshots and `report.json` (step results, FPS samples, console log) go to
   camera follows Link).
 - **Devices**: `--device phone-portrait` / `phone-landscape` emulate a touch phone and press the
   on-screen gamepad with real touch events.
+- **Saves**: the page installs the save it ships with (`soh/soh/web/soh-save-*.zip`) on a browser's first
+  visit. The test opens the page with `?no-included-save` so it starts with empty slots and creates file 1
+  itself; `--included-save` turns that off.
 - **Settings**: `web_cvar_set_int(name, value)` in `web_main.cpp` sets a CVar and
   re-runs its ShipInit hooks (the test uses it to skip the intro cutscene).
 
