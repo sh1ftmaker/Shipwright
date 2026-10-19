@@ -1097,12 +1097,13 @@
     }
 
     // ---- URL hash parameter: Anchor/PartyKit networking config ----
-    // Params: room, name, color (hex RGB), team
+    // Params: room, name, color (hex RGB), team, anchor, join, slot
     // Example: #room=myroom&name=Player1&color=FF0000&team=red
+    // Join link: #room=myroom&name=Player2&join=1
 
     function configureAnchorFromHash() {
       var params = getHashParams();
-      if (!params.room && !params.name && !params.color && !params.team && !params.anchor) return false;
+      if (!params.room && !params.name && !params.color && !params.team && !params.anchor && !params.join) return false;
 
       // Store config as globals for C++ to read via EM_JS during game init
       window._anchorConfig = {
@@ -1110,7 +1111,9 @@
         name:  params.name  || '',
         color: params.color || '',
         team:  params.team  || 'default',
-        anchor: params.anchor || ''  // WebSocket URL of another Anchor bridge (soh/soh/web/anchor-bridge)
+        anchor: params.anchor || '', // WebSocket URL of another Anchor bridge (soh/soh/web/anchor-bridge)
+        join:  params.join  || '',   // 1: connect, load straight into a save and go to the room owner
+        slot:  params.slot  || ''    // save slot (1-3) a join link loads, default 3
       };
 
       console.log('[Web] Anchor config stored for game init:', window._anchorConfig);

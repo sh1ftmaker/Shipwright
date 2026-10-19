@@ -53,8 +53,13 @@ All parameters are passed via the URL hash (`#key=value&key2=value2`):
 | `color` | Player color (hex RGB) | `64FF64` |
 | `team` | Team ID for item/flag sync | `default` |
 | `anchor` | WebSocket URL of a different Anchor bridge | built-in bridge |
+| `join` | `1`: connect, skip the menus, load a save and go to the room owner | — |
+| `slot` | Save slot (1-3) a join link loads, created if empty | `3` |
 
-`room`, `name`, `color` and `team` fill in Network > Anchor; press Enable there to join. URLs in these
+`room`, `name`, `color` and `team` fill in Network > Anchor; press Enable there to join, or add `join=1` to
+connect straight away. A join link such as `#room=myroom&name=Navi&join=1` skips the title and file select, loads
+(or creates) the save in `slot`, syncs the team's progress and teleports to the room owner. It also turns on
+Skip Intro, so a new file doesn't start with the opening cutscene. URLs in these
 parameters must be URL-encoded if they contain `&` or `#`.
 
 ## Multiplayer

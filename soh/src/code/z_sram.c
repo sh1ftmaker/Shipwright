@@ -224,6 +224,22 @@ void Sram_OpenSave() {
     gSaveContext.magicLevel = 0;
 }
 
+/**
+ *  Set where and when a new file starts, and the language its name is written in
+ */
+void Sram_SetNewFileStart(void) {
+    gSaveContext.entranceIndex = ENTR_LINKS_HOUSE_CHILD_SPAWN;
+    gSaveContext.linkAge = 1;
+    gSaveContext.dayTime = 0x6AAB;
+    gSaveContext.cutsceneIndex = 0xFFF1;
+    if (ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN) {
+        gSaveContext.ship.filenameLanguage = NAME_LANGUAGE_PAL;
+    } else { // GAME_REGION_NTSC
+        gSaveContext.ship.filenameLanguage =
+            (gSaveContext.language == LANGUAGE_JPN) ? NAME_LANGUAGE_NTSC_JPN : NAME_LANGUAGE_NTSC_ENG;
+    }
+}
+
 void Sram_InitSave(FileChooseContext* fileChooseCtx) {
     u16 offset;
     u16 j;
@@ -237,16 +253,7 @@ void Sram_InitSave(FileChooseContext* fileChooseCtx) {
         Sram_InitDebugSave();
     }
 
-    gSaveContext.entranceIndex = ENTR_LINKS_HOUSE_CHILD_SPAWN;
-    gSaveContext.linkAge = 1;
-    gSaveContext.dayTime = 0x6AAB;
-    gSaveContext.cutsceneIndex = 0xFFF1;
-    if (ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN) {
-        gSaveContext.ship.filenameLanguage = NAME_LANGUAGE_PAL;
-    } else { // GAME_REGION_NTSC
-        gSaveContext.ship.filenameLanguage =
-            (gSaveContext.language == LANGUAGE_JPN) ? NAME_LANGUAGE_NTSC_JPN : NAME_LANGUAGE_NTSC_ENG;
-    }
+    Sram_SetNewFileStart();
 
     if ((fileChooseCtx->buttonIndex == 0 &&
          Ship_QuestDebugEnabled(fileChooseCtx->questType[fileChooseCtx->buttonIndex]))) {

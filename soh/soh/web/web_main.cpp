@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <fstream>
 #include <atomic>
 #include <emscripten.h>
@@ -14,6 +15,8 @@
 #include "soh/cvar_prefixes.h"
 #include "soh/Enhancements/enhancementTypes.h"
 #include "soh/ShipInit.hpp"
+#include "soh/Network/Anchor/Anchor.h"
+#include "WebJoin.h"
 
 // ---- Touch Gamepad Bridge ----
 // Read touch gamepad state from JavaScript and merge into OSContPad
@@ -100,6 +103,8 @@ void web_apply_anchor_config() {
     char* color = (char*)web_anchor_config_get("color");
     char* team  = (char*)web_anchor_config_get("team");
     char* anchor = (char*)web_anchor_config_get("anchor");
+    char* join = (char*)web_anchor_config_get("join");
+    char* slot = (char*)web_anchor_config_get("slot");
 
     printf("[Web] Applying Anchor config: room=%s name=%s color=%s team=%s\n",
            room ? room : "", name ? name : "", color ? color : "", team ? team : "");
@@ -125,9 +130,26 @@ void web_apply_anchor_config() {
         CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), team);
     }
 
-    // URL params are now just defaults; do NOT force enable or skip to file select
+    // URL params are just defaults, except on a join link: connect, load straight into a save and
+    // go to the room owner
+    if (join && strcmp(join, "1") == 0) {
+        if (CVarGetString(CVAR_REMOTE_ANCHOR("Name"), "")[0] == '\0') {
+            CVarSetString(CVAR_REMOTE_ANCHOR("Name"), "Guest");
+        }
+        CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
+        Anchor::Instance->teleportToOwnerOnLoad = true;
+        // A new join file would otherwise start with the minute-long intro
+        CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Intro"), 1);
 
-    free(room); free(name); free(color); free(team); free(anchor);
+        int slotNum = (slot && slot[0]) ? atoi(slot) : 3;
+        if (slotNum < 1 || slotNum > 3) {
+            slotNum = 3;
+        }
+        WebJoin_RequestBootToSlot(slotNum - 1, CVarGetString(CVAR_REMOTE_ANCHOR("Name"), ""));
+        printf("[Web] Join link: loading slot %d\n", slotNum);
+    }
+
+    free(room); free(name); free(color); free(team); free(anchor); free(join); free(slot);
     printf("[Web] Anchor configured. Room: %s\n", roomId.c_str());
 }
 

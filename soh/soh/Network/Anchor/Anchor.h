@@ -83,6 +83,7 @@ class Anchor : public Network {
     uint32_t spawningDummyPlayerForClientId = 0;
     bool shouldRefreshActors = false;
     bool justLoadedSave = false;
+    uint16_t framesSinceLoad = 0;
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
     std::queue<nlohmann::json> incomingPacketQueue;
@@ -121,6 +122,7 @@ class Anchor : public Network {
 
   public:
     uint32_t ownClientId;
+    bool teleportToOwnerOnLoad = false; // Set by web join links
     inline static const std::string clientVersion = (char*)gGitCommitHash;
 
     // Packet types //

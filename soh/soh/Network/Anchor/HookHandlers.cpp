@@ -87,7 +87,22 @@ void Anchor::RegisterHooks() {
     COND_HOOK(OnPlayerUpdate, isConnected, [&]() {
         if (justLoadedSave) {
             justLoadedSave = false;
+            framesSinceLoad = 0;
             SendPacket_RequestTeamState();
+        }
+
+        // Join links send the player to the room owner once, after the team state has had time to arrive.
+        // Give up after about 30 seconds (owner not loaded in, in a blocked scene, teleport off, ...)
+        if (teleportToOwnerOnLoad && IsSaveLoaded() && ++framesSinceLoad >= 40) {
+            uint32_t ownerId = roomState.ownerClientId;
+            if ((ownerId != 0 && ownerId == ownClientId) || framesSinceLoad > 600) {
+                teleportToOwnerOnLoad = false;
+            } else if (ownerId != 0 && CanTeleportTo(ownerId) && clients[ownerId].clientVersion == clientVersion &&
+                       !GameInteractor::IsGameplayPaused() && gPlayState->transitionTrigger == TRANS_TRIGGER_OFF &&
+                       gPlayState->transitionMode == TRANS_MODE_OFF) {
+                teleportToOwnerOnLoad = false;
+                SendPacket_RequestTeleport(ownerId);
+            }
         }
 
         if (shouldRefreshActors) {

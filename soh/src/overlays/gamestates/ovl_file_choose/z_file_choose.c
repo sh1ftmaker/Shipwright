@@ -2699,6 +2699,8 @@ void FileChoose_FadeOut(GameState* thisx) {
     }
 }
 
+void FileChoose_FinishLoadGame(GameState* thisx);
+
 /**
  * Load the save for the appropriate file and start the game.
  * Note: On Debug ROM, File 1 will go to Map Select.
@@ -2733,7 +2735,14 @@ void FileChoose_LoadGame(GameState* thisx) {
         SET_NEXT_GAMESTATE(&this->state, Play_Init, PlayState);
     }
 
-    this->state.running = false;
+    FileChoose_FinishLoadGame(&this->state);
+}
+
+/**
+ * Leave File Select for the next game state with the opened save in a fresh state for play
+ */
+void FileChoose_FinishLoadGame(GameState* thisx) {
+    thisx->running = false;
 
     gSaveContext.respawn[0].entranceIndex = ENTR_LOAD_OPENING;
     gSaveContext.respawnFlag = 0;
