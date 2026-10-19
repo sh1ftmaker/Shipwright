@@ -66,6 +66,29 @@ jobs:
             build-web-${{ github.ref_name }}-${{ runner.os }}-
             build-web-feature/emscripten-web-port-${{ runner.os }}-
 
+      # ccache reuses compiled objects across runs by content. The cached build
+      # directory alone doesn't help much: checkout gives every source a fresh
+      # timestamp, so ninja would recompile all of it.
+      - name: Install ccache
+        run: |
+          curl -sSfL https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-linux-x86_64.tar.xz | tar xJ -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/ccache-4.10.2-linux-x86_64" >> $GITHUB_PATH
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> $GITHUB_ENV
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "CCACHE_NOHASHDIR=true" >> $GITHUB_ENV
+          echo "CCACHE_MAXSIZE=2G" >> $GITHUB_ENV
+          # emsdk is reinstalled each run, so identify the compiler by version, not mtime
+          echo "CCACHE_COMPILERCHECK=string:emsdk-3.1.64" >> $GITHUB_ENV
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-web-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ccache-web-${{ github.ref_name }}-
+            ccache-web-feature/emscripten-web-port-
+
       - name: Verify Emscripten
         run: emcc --version
 
@@ -73,13 +96,15 @@ jobs:
       # Torch-based soh-o2r-packer, so it always matches this build's version.
       - name: Build soh.o2r
         run: |
-          cmake -B build-tools -G Ninja -DCMAKE_BUILD_TYPE=Release -DSOH_TOOLS_ONLY=ON
+          cmake -B build-tools -G Ninja -DCMAKE_BUILD_TYPE=Release -DSOH_TOOLS_ONLY=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build-tools --target GenerateSohOtr --parallel 2
 
       - name: Configure CMake
         run: |
           emcmake cmake -B build-web -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       # file(DOWNLOAD) in libultraship re-downloads stb_image.h every
       # configure, giving it a fresh timestamp. Since it's transitively
@@ -99,6 +124,7 @@ jobs:
       - name: Build for web
         run: |
           emmake cmake --build build-web --parallel 2
+          ccache --show-stats
 
       # Determine deploy path: main branch deploys to root, others to /branch-name/
       - name: Set deploy path
