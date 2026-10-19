@@ -18,7 +18,7 @@ extern "C" {
 // Browsers can't open TCP sockets, so web builds reach the Anchor server through a WebSocket bridge
 // (soh/soh/web/anchor-bridge). Set with -DSOH_WEB_ANCHOR_URL=... when configuring.
 #ifndef SOH_WEB_ANCHOR_URL
-#define SOH_WEB_ANCHOR_URL "wss://soh-anchor-bridge.workers.dev"
+#define SOH_WEB_ANCHOR_URL "wss://soh-anchor-bridge.sh1ftmaker.workers.dev"
 #endif
 #endif
 

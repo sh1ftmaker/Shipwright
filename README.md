@@ -65,7 +65,8 @@ browsers can't do, so the web build connects to a Cloudflare Worker that relays 
 (`soh/soh/web/anchor-bridge/`). Web and desktop players therefore share rooms, though items and flags only sync
 between identical builds (Anchor compares git commit hashes).
 
-Deploy the bridge to your Cloudflare account (free plan is fine) and build with its URL:
+Builds use `wss://soh-anchor-bridge.sh1ftmaker.workers.dev` by default. To run your own, deploy the bridge to your
+Cloudflare account (free plan is fine) and build with its URL:
 ```bash
 cd soh/soh/web/anchor-bridge && npm install && npx wrangler deploy
 cmake -B build-web ... -DSOH_WEB_ANCHOR_URL=wss://soh-anchor-bridge.<your-subdomain>.workers.dev
