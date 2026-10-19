@@ -15,27 +15,13 @@ extern PlayState* gPlayState;
 
 void Anchor::Enable() {
 #ifdef __EMSCRIPTEN__
-    // For web builds, connect via WebSocket to PartyKit server
-    // Production: wss://soh-anchor.zalo.partykit.dev/party/<room>
-    // Local dev: ws://localhost:1999/party/<room>
-
-    // Get configured URL or default
-    const char* wsUrlCStr = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"),
-                                          "wss://soh-anchor.zalo.partykit.dev/party/default");
-    std::string wsUrl(wsUrlCStr);
-    const std::string defaultUrl = "wss://soh-anchor.zalo.partykit.dev/party/default";
-
-    // If still on default, try to build URL from RoomId
-    if (wsUrl == defaultUrl) {
-        const char* roomIdCStr = CVarGetString(CVAR_REMOTE_ANCHOR("RoomId"), "default");
-        std::string roomId(roomIdCStr);
-        if (!roomId.empty() && roomId != "default") {
-            wsUrl = "wss://soh-anchor.zalo.partykit.dev/party/" + roomId;
-        }
+    // The room comes from the HANDSHAKE packet, like on desktop. Saved URLs of the retired PartyKit relay
+    // (*.partykit.dev, shut down October 2026) are replaced by the bridge.
+    std::string wsUrl = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), SOH_WEB_ANCHOR_URL);
+    if (wsUrl.empty() || wsUrl.find("partykit.dev") != std::string::npos) {
+        wsUrl = SOH_WEB_ANCHOR_URL;
+        CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), wsUrl.c_str());
     }
-
-    // Keep CVar in sync with the actual URL we're using
-    CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), wsUrl.c_str());
 
     Network::EnableWebSocket(wsUrl);
     isEnabled = true;

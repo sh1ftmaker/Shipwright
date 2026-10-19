@@ -5,7 +5,7 @@
 
 Play Ocarina of Time in your browser. This is an Emscripten/WebAssembly fork of [Ship of Harkinian](https://github.com/HarbourMasters/Shipwright) that runs entirely client-side.
 
-**Play now: [zalo.github.io/Shipwright/](https://zalo.github.io/Shipwright/)**
+**Play now: [sh1ftmaker.github.io/Shipwright/](https://sh1ftmaker.github.io/Shipwright/)**
 
 > This is an independent fork. The upstream project has no plans to merge web support.
 
@@ -16,7 +16,7 @@ This fork adds:
 - **Emscripten/WASM build** — the full game compiled to WebAssembly with WebGL rendering
 - **Browser ROM loading** — upload `.o2r` files or load them from URLs via hash parameters
 - **URL-based configuration** — pass game archives, multiplayer room, player name, and color all via URL
-- **PartyKit multiplayer** — WebSocket-based Anchor networking for browser-to-browser multiplayer
+- **Anchor multiplayer** — the web build joins the same Anchor rooms as desktop SoH, through a small WebSocket bridge
 - **Mobile support** — touch gamepad with analog stick and all N64 buttons, scaled UI for small screens, iOS audio compatibility, and persistent save files via IndexedDB
 - **IndexedDB persistence** — game archives cached on first load, save files persisted automatically
 - **Cutscene skipping** — all TimeSaver skip enhancements enabled by default
@@ -26,11 +26,11 @@ This fork adds:
 You need two archive files: `soh.o2r` (game engine assets) and `oot.o2r` (extracted ROM data). These are not included — you must provide a legally acquired ROM.
 
 ### Option 1: Upload files manually
-Visit [zalo.github.io/Shipwright/](https://zalo.github.io/Shipwright/) and drag/drop your `soh.o2r` and `oot.o2r` files.
+Visit [sh1ftmaker.github.io/Shipwright/](https://sh1ftmaker.github.io/Shipwright/) and drag/drop your `soh.o2r` and `oot.o2r` files.
 
 ### Option 2: Load via URL parameters
 ```
-https://zalo.github.io/Shipwright/#soh=<SOH_URL>&oot=<OOT_URL>
+https://sh1ftmaker.github.io/Shipwright/#soh=<SOH_URL>&oot=<OOT_URL>
 ```
 
 ### Option 3: Local file server
@@ -45,23 +45,34 @@ All parameters are passed via the URL hash (`#key=value&key2=value2`):
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
+| `rom` | URL to a ROM (`.z64`/`.n64`/`.v64`), converted in the browser | — |
 | `soh` | URL to `soh.o2r` archive | — |
 | `oot` | URL to `oot.o2r` archive | — |
 | `room` | Multiplayer room name | `default` |
 | `name` | Player display name | — |
 | `color` | Player color (hex RGB) | `64FF64` |
 | `team` | Team ID for item/flag sync | `default` |
+| `anchor` | WebSocket URL of a different Anchor bridge | built-in bridge |
 
-When `room` or `name` are provided, Anchor networking is automatically enabled and the game boots to file select.
+`room`, `name`, `color` and `team` fill in Network > Anchor; press Enable there to join. URLs in these
+parameters must be URL-encoded if they contain `&` or `#`.
 
 ## Multiplayer
 
-This fork uses [PartyKit](https://partykit.io/) for WebSocket-based multiplayer via the Anchor networking system. Players in the same room can see each other, trade items, and sync game flags.
+Anchor (Network > Anchor) works as on desktop: players in the same room see each other, and players on the same
+team share items and flags. Desktop builds connect to the Anchor server (`anchor.hm64.org:43383`) over TCP, which
+browsers can't do, so the web build connects to a Cloudflare Worker that relays its WebSocket to that server
+(`soh/soh/web/anchor-bridge/`). Web and desktop players therefore share rooms, though items and flags only sync
+between identical builds (Anchor compares git commit hashes).
 
-The PartyKit server is at `soh/soh/web/partykit/`. Deploy with:
+Deploy the bridge to your Cloudflare account (free plan is fine) and build with its URL:
 ```bash
-cd soh/soh/web/partykit && npx partykit deploy
+cd soh/soh/web/anchor-bridge && npm install && npx wrangler deploy
+cmake -B build-web ... -DSOH_WEB_ANCHOR_URL=wss://soh-anchor-bridge.<your-subdomain>.workers.dev
 ```
+`npx wrangler dev` runs it locally (`#anchor=ws://127.0.0.1:8787` points the game at it).
+
+The earlier PartyKit relay was retired along with PartyKit's hosted platform (October 2026).
 
 ## Building
 

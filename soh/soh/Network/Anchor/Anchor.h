@@ -14,6 +14,14 @@ extern "C" {
 #include "z64.h"
 }
 
+#ifdef __EMSCRIPTEN__
+// Browsers can't open TCP sockets, so web builds reach the Anchor server through a WebSocket bridge
+// (soh/soh/web/anchor-bridge). Set with -DSOH_WEB_ANCHOR_URL=... when configuring.
+#ifndef SOH_WEB_ANCHOR_URL
+#define SOH_WEB_ANCHOR_URL "wss://soh-anchor-bridge.workers.dev"
+#endif
+#endif
+
 void DummyPlayer_Init(Actor* actor, PlayState* play);
 void DummyPlayer_Update(Actor* actor, PlayState* play);
 void DummyPlayer_Draw(Actor* actor, PlayState* play);

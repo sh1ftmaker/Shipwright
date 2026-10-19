@@ -1,0 +1,10 @@
+{
+  // Deploy with: npx wrangler deploy   (local test: npx wrangler dev)
+  "name": "soh-anchor-bridge",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "vars": {
+    "ANCHOR_HOST": "anchor.hm64.org",
+    "ANCHOR_PORT": "43383"
+  }
+}

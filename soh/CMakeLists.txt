@@ -431,6 +431,11 @@ if(BUILD_FOR_WEB)
         SPDLOG_ACTIVE_LEVEL=${SPDLOG_MIN_CUTOFF}
         LOG_LEVEL_GAME_PRINTS=${SPDLOG_LEVEL_OFF}
     )
+    # WebSocket bridge to the Anchor multiplayer server (soh/soh/web/anchor-bridge); empty uses the default in Anchor.h
+    set(SOH_WEB_ANCHOR_URL "" CACHE STRING "wss:// URL of the Anchor WebSocket bridge for web builds")
+    if(SOH_WEB_ANCHOR_URL)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE SOH_WEB_ANCHOR_URL="${SOH_WEB_ANCHOR_URL}")
+    endif()
 endif()
 ################################################################################
 # Compile and link options

@@ -99,15 +99,17 @@ void web_apply_anchor_config() {
     char* name  = (char*)web_anchor_config_get("name");
     char* color = (char*)web_anchor_config_get("color");
     char* team  = (char*)web_anchor_config_get("team");
+    char* anchor = (char*)web_anchor_config_get("anchor");
 
     printf("[Web] Applying Anchor config: room=%s name=%s color=%s team=%s\n",
            room ? room : "", name ? name : "", color ? color : "", team ? team : "");
 
-    // Build WebSocket URL
+    // The room travels in the HANDSHAKE packet; the WebSocket URL stays the Anchor bridge
     std::string roomId = (room && room[0]) ? room : "default";
-    std::string wsUrl = "wss://soh-anchor.zalo.partykit.dev/party/" + roomId;
-    CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), wsUrl.c_str());
     CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), roomId.c_str());
+    if (anchor && anchor[0]) {
+        CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), anchor);
+    }
 
     if (name && name[0]) {
         CVarSetString(CVAR_REMOTE_ANCHOR("Name"), name);
@@ -125,8 +127,8 @@ void web_apply_anchor_config() {
 
     // URL params are now just defaults; do NOT force enable or skip to file select
 
-    free(room); free(name); free(color); free(team);
-    printf("[Web] Anchor configured. WebSocket URL: %s\n", wsUrl.c_str());
+    free(room); free(name); free(color); free(team); free(anchor);
+    printf("[Web] Anchor configured. Room: %s\n", roomId.c_str());
 }
 
 static int s_otr_loaded = 0;
@@ -266,11 +268,12 @@ const char* web_get_rom_version(const char* romPath) {
 }
 
 // Set an integer CVar and re-run any ShipInit hooks that depend on it, the same way the
-// menu does. Used by automated browser tests (tools/web-test).
+// menu does, and save it. Used by automated browser tests (tools/web-test).
 EMSCRIPTEN_KEEPALIVE
 void web_cvar_set_int(const char* name, int value) {
     CVarSetInteger(name, value);
     ShipInit::Init(name);
+    Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
 }
 
 EMSCRIPTEN_KEEPALIVE

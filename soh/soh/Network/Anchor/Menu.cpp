@@ -23,8 +23,9 @@ void AnchorMainMenu(WidgetInfo& info) {
     std::string anchorName = CVarGetString(CVAR_REMOTE_ANCHOR("Name"), "");
 
 #ifdef __EMSCRIPTEN__
-    std::string wsUrl = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), "wss://soh-anchor.zalo.partykit.dev/party/default");
-    bool isFormValid = !SohUtils::IsStringEmpty(wsUrl) && !SohUtils::IsStringEmpty(anchorName);
+    std::string wsUrl = CVarGetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), SOH_WEB_ANCHOR_URL);
+    bool isFormValid = !SohUtils::IsStringEmpty(wsUrl) && !SohUtils::IsStringEmpty(anchorRoomId) &&
+                       !SohUtils::IsStringEmpty(anchorName);
 #else
     std::string host = CVarGetString(CVAR_REMOTE_ANCHOR("Host"), "anchor.hm64.org");
     uint16_t port = CVarGetInteger(CVAR_REMOTE_ANCHOR("Port"), 43383);
@@ -94,7 +95,7 @@ void AnchorMainMenu(WidgetInfo& info) {
                                                   .Size(ImVec2(ImGui::GetContentRegionAvail().x / 2, 0))
                                                   .Color(UIWidgets::Colors::Red))) {
 #ifdef __EMSCRIPTEN__
-        CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), "wss://soh-anchor.zalo.partykit.dev/party/default");
+        CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), SOH_WEB_ANCHOR_URL);
 #else
         CVarSetString(CVAR_REMOTE_ANCHOR("Host"), "anchor.hm64.org");
         CVarSetInteger(CVAR_REMOTE_ANCHOR("Port"), 43383);
@@ -105,20 +106,22 @@ void AnchorMainMenu(WidgetInfo& info) {
         Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
     }
 
-#ifndef __EMSCRIPTEN__
     ImGui::SameLine();
 
     if (UIWidgets::Button("Global Room", UIWidgets::ButtonOptions()
                                              .Color(UIWidgets::Colors::Blue)
                                              .Tooltip("Always-online public room so you don't have to experience "
                                                       "Hyrule alone. PVP and syncing are disabled."))) {
+#ifdef __EMSCRIPTEN__
+        CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), SOH_WEB_ANCHOR_URL);
+#else
         CVarSetString(CVAR_REMOTE_ANCHOR("Host"), "anchor.hm64.org");
         CVarSetInteger(CVAR_REMOTE_ANCHOR("Port"), 43383);
+#endif
         CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
         CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), "soh-global");
         Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
     }
-#endif
 
     ImGui::EndDisabled();
 

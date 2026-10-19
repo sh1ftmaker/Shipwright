@@ -1,0 +1,12 @@
+{
+  "name": "soh-anchor-bridge",
+  "private": true,
+  "description": "Relays the web build's Anchor WebSocket to the Anchor TCP server",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

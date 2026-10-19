@@ -621,29 +621,30 @@
     // The result is written to the Emscripten FS once the runtime is ready.
 
     var _sohO2rPromise = (function() {
-      // First check IndexedDB cache
-      return getCachedFile('soh.o2r').then(function(buf) {
-        if (buf) {
-          console.log('[Web] soh.o2r found in IndexedDB cache (' + buf.byteLength + ' bytes)');
-          return buf;
-        }
-        // Not cached — fetch from server
-        return new Promise(function(resolve, reject) {
-          console.log('[Web] Prefetching soh.o2r from server...');
-          var xhr = new XMLHttpRequest();
-          xhr.open('GET', 'soh.o2r', true);
-          xhr.responseType = 'arraybuffer';
-          xhr.onload = function() {
-            if (xhr.status === 200) {
-              console.log('[Web] soh.o2r downloaded: ' + xhr.response.byteLength + ' bytes');
-              cacheFile('soh.o2r', xhr.response).catch(function() {});
-              resolve(xhr.response);
-            } else {
-              reject('HTTP ' + xhr.status);
-            }
-          };
-          xhr.onerror = function() { reject('network error'); };
-          xhr.send();
+      // Always ask the server so a new build's soh.o2r replaces the stored one (an unchanged file is a cheap
+      // 304); the copy in IndexedDB is only used when the server can't be reached.
+      return new Promise(function(resolve, reject) {
+        console.log('[Web] Prefetching soh.o2r from server...');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'soh.o2r', true);
+        xhr.setRequestHeader('Cache-Control', 'no-cache');
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            console.log('[Web] soh.o2r downloaded: ' + xhr.response.byteLength + ' bytes');
+            cacheFile('soh.o2r', xhr.response).catch(function() {});
+            resolve(xhr.response);
+          } else {
+            reject('HTTP ' + xhr.status);
+          }
+        };
+        xhr.onerror = function() { reject('network error'); };
+        xhr.send();
+      }).catch(function(err) {
+        console.warn('[Web] Could not download soh.o2r (' + err + '), trying the stored copy');
+        return getCachedFile('soh.o2r').then(function(buf) {
+          if (buf) console.log('[Web] soh.o2r found in IndexedDB cache (' + buf.byteLength + ' bytes)');
+          return buf || null;
         });
       }).catch(function(err) {
         console.warn('[Web] Failed to prefetch soh.o2r:', err);
@@ -1101,14 +1102,15 @@
 
     function configureAnchorFromHash() {
       var params = getHashParams();
-      if (!params.room && !params.name && !params.color && !params.team) return false;
+      if (!params.room && !params.name && !params.color && !params.team && !params.anchor) return false;
 
       // Store config as globals for C++ to read via EM_JS during game init
       window._anchorConfig = {
         room:  params.room  || 'default',
         name:  params.name  || '',
         color: params.color || '',
-        team:  params.team  || 'default'
+        team:  params.team  || 'default',
+        anchor: params.anchor || ''  // WebSocket URL of another Anchor bridge (soh/soh/web/anchor-bridge)
       };
 
       console.log('[Web] Anchor config stored for game init:', window._anchorConfig);
