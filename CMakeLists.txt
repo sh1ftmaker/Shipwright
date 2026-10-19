@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 23 CACHE STRING "The C standard to use")
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
-project(Ship VERSION 9.3.0 LANGUAGES C CXX)
+project(Ship VERSION 9.3.1 LANGUAGES C CXX)
 
 # Emscripten/WebAssembly build (see soh/soh/web/)
 if(EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
