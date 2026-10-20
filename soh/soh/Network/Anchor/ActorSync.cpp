@@ -62,6 +62,7 @@ constexpr uint32_t STATE_REFRESH = 10;        // Resend enemies that haven't cha
 constexpr uint32_t HEALTH_RESEND = 20;        // Remind the room owner about damage it hasn't applied
 constexpr uint32_t SLOW_TICK = 40;            // Moved blocks and dead enemies are resent this often
 constexpr uint32_t BLOCK_SETTLE_FRAMES = 60;  // Ignore block positions this long after a push
+constexpr uint32_t ZERO_HEALTH_GRACE = 30;    // Someone else's enemy at 0 health gets this long to die by itself
 
 // Actor ID, room and spawn list index. The ID makes sure two clients never match different actors (a different scene
 // layer, or an actor that only one of them spawned). Sent as a JSON number, so it must stay below 2^53.
@@ -99,7 +100,11 @@ std::unordered_map<Key, RemoteEnemy> sRemote;
 std::unordered_map<Key, SentEnemy> sSent;
 std::unordered_map<Key, s16> sLastHealth;
 std::unordered_map<Key, uint32_t> sHealthSentFrame;
-std::unordered_set<Key> sDead;
+std::unordered_set<Key> sDead;       // Killed by anyone this visit
+std::unordered_set<Key> sKilledHere; // ...of those, the ones this game killed, which play out their own death
+// Enemies that someone else took to 0 health, and when. Some deaths aren't defeats (a Freezard melting), so this game
+// may never hear more about them.
+std::unordered_map<Key, uint32_t> sRemoteZero;
 std::unordered_map<Key, Block> sBlocks;
 // IDs for actors that aren't in a spawn list but are made by one that is, worked out when they spawn
 std::unordered_map<Actor*, Key> sDerivedKeys;
@@ -307,9 +312,23 @@ void FollowRoomOwner(Actor* actor, Key key) {
     actor->world.rot.y = remote.worldRotY;
 
     if (remote.health < actor->colChkInfo.health) {
-        actor->colChkInfo.health = remote.health;
-        sLastHealth[key] = remote.health;
+        actor->colChkInfo.health = MAX(remote.health, 0);
+        sLastHealth[key] = actor->colChkInfo.health;
+        if (actor->colChkInfo.health == 0) {
+            sRemoteZero.emplace(key, sFrame);
+        }
     }
+}
+
+void KillEnemy(Actor* actor, bool withEffect) {
+    if (withEffect) {
+        static Vec3f zero = { 0.0f, 0.0f, 0.0f };
+        Vec3f pos = actor->world.pos;
+        pos.y += 20.0f;
+        EffectSsDeadDb_Spawn(gPlayState, &pos, &zero, &zero, 150, 0, 255, 255, 255, 255, 0, 0, 255, 1, 9, true);
+        SoundSource_PlaySfxAtFixedWorldPos(gPlayState, &actor->world.pos, 40, NA_SE_EN_EXTINCT);
+    }
+    Actor_Kill(actor);
 }
 
 void SendHealth(Key key, s16 health) {
@@ -322,9 +341,17 @@ void SendHealth(Key key, s16 health) {
 }
 
 void EnemyPreUpdate(Actor* actor, Key key, bool* should) {
-    if (sDead.contains(key)) {
-        // Someone already killed it this visit
+    if (sDead.contains(key) && !sKilledHere.contains(key)) {
+        // Someone else already killed it this visit
         Actor_Kill(actor);
+        *should = false;
+        return;
+    }
+    // Someone else took it to 0 health, so its own death never started here
+    auto zero = sRemoteZero.find(key);
+    if (zero != sRemoteZero.end() && actor->colChkInfo.health == 0 && sFrame - zero->second > ZERO_HEALTH_GRACE) {
+        sDead.insert(key);
+        KillEnemy(actor, true);
         *should = false;
         return;
     }
@@ -400,17 +427,6 @@ void SendEnemyStates() {
     }
 }
 
-void KillEnemy(Actor* actor, bool withEffect) {
-    if (withEffect) {
-        static Vec3f zero = { 0.0f, 0.0f, 0.0f };
-        Vec3f pos = actor->world.pos;
-        pos.y += 20.0f;
-        EffectSsDeadDb_Spawn(gPlayState, &pos, &zero, &zero, 150, 0, 255, 255, 255, 255, 0, 0, 255, 1, 9, true);
-        SoundSource_PlaySfxAtFixedWorldPos(gPlayState, &actor->world.pos, 40, NA_SE_EN_EXTINCT);
-    }
-    Actor_Kill(actor);
-}
-
 void SendDeadList() {
     if (sDead.empty()) {
         return;
@@ -428,13 +444,9 @@ void SendDeadList() {
 
 // Enemies respawn when their room loads again, like in single player, once nobody is left in it
 void ForgetDeadInEmptyRooms() {
-    for (auto it = sDead.begin(); it != sDead.end();) {
-        if (!IsRoomOccupied(KeyRoom(*it))) {
-            it = sDead.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    std::erase_if(sDead, [](Key key) { return !IsRoomOccupied(KeyRoom(key)); });
+    std::erase_if(sKilledHere, [](Key key) { return !IsRoomOccupied(KeyRoom(key)); });
+    std::erase_if(sRemoteZero, [](const auto& entry) { return !IsRoomOccupied(KeyRoom(entry.first)); });
 }
 
 // MARK: - Push blocks
@@ -551,6 +563,7 @@ struct BossField {
 
 struct BossDef {
     s16 actorId;
+    bool (*match)(Actor* actor); // Which of the actors with this ID (projectiles and parts can share it); all if null
     size_t actionFuncOffset;
     size_t skelAnimeOffset;
     std::vector<BossActionFunc> fightActions;  // Sent as an index into this list
@@ -567,6 +580,7 @@ struct BossDef {
 const std::vector<BossDef>& BossDefs() {
     static const std::vector<BossDef> defs = {
         { ACTOR_BOSS_GOMA,
+          nullptr,
           offsetof(BossGoma, actionFunc),
           offsetof(BossGoma, skelanime),
           { BOSS_ACTION(BossGoma_FloorAttackPosture), BOSS_ACTION(BossGoma_FloorPrepareAttack),
@@ -606,12 +620,10 @@ const std::vector<BossDef>& BossDefs() {
     return defs;
 }
 
+// By ID rather than category: some change category during their fight
 const BossDef* GetBossDef(Actor* actor) {
-    if (actor->category != ACTORCAT_BOSS) {
-        return nullptr;
-    }
     for (const BossDef& def : BossDefs()) {
-        if (def.actorId == actor->id) {
+        if (def.actorId == actor->id && (def.match == nullptr || def.match(actor))) {
             return &def;
         }
     }
@@ -619,17 +631,22 @@ const BossDef* GetBossDef(Actor* actor) {
 }
 
 struct Boss {
-    nlohmann::json state; // Latest from the room owner
-    uint32_t stateFrame = 0;
+    nlohmann::json state;          // Latest from the room owner, not applied yet
+    uint32_t stateSeq = 0;         // Its sequence number, so a late packet doesn't undo a newer one
+    uint32_t stateFrom = 0;
     uint32_t ignoreStateUntil = 0; // After sending a hit, until the room owner's state includes it
     bool pendingDefeat = false;    // Defeated elsewhere while this game was still in the intro
     BossActionFunc preAction = nullptr;
     s16 preHealth = 0;
+    // As the boss's own update left it. Other actors (a reflected projectile, a part of the boss) can hit it before its
+    // next update, so a change between this and the next pre-update is a hit too.
+    BossActionFunc postAction = nullptr;
+    s16 postHealth = 0;
+    uint32_t sentSeq = 0;
 };
 
 std::unordered_map<Key, Boss> sBosses;
 
-constexpr uint32_t BOSS_STATE_TIMEOUT = 10;
 constexpr uint32_t BOSS_HIT_HOLD = 10;
 
 BossActionFunc& ActionOf(Actor* actor, const BossDef& def) {
@@ -727,16 +744,34 @@ void SendBossPacket(const std::string& type, Key key, nlohmann::json state) {
     SendToPeers(payload);
 }
 
+bool WasHit(Actor* actor, const BossDef& def, BossActionFunc before, s16 healthBefore) {
+    BossActionFunc action = ActionOf(actor, def);
+    return (action != before && IsIn(def.hitReactions, action)) || actor->colChkInfo.health < healthBefore;
+}
+
+void SendBossHit(Actor* actor, Key key, const BossDef& def, Boss& boss) {
+    // This player hit it: the room owner takes it from here
+    SendBossPacket(BOSS_HIT, key, BossSnapshot(actor, def));
+    boss.ignoreStateUntil = sFrame + BOSS_HIT_HOLD;
+    boss.state = nullptr;
+}
+
 void BossPreUpdate(Actor* actor, Key key, const BossDef& def) {
     Boss& boss = sBosses[key];
     bool fighting = FightActionIndex(actor, def) >= 0;
+    bool ownsRoom = OwnsRoom(actor->room);
+    TargetNearestLink(actor);
 
+    if (fighting && !ownsRoom && boss.postAction != nullptr && WasHit(actor, def, boss.postAction, boss.postHealth)) {
+        SendBossHit(actor, key, def, boss);
+    }
     if (boss.pendingDefeat && fighting) {
         boss.pendingDefeat = false;
         def.defeat(actor);
-    } else if (fighting && !OwnsRoom(actor->room) && !boss.state.is_null() &&
-               sFrame - boss.stateFrame <= BOSS_STATE_TIMEOUT && sFrame >= boss.ignoreStateUntil) {
+    } else if (fighting && !ownsRoom && !boss.state.is_null() && sFrame >= boss.ignoreStateUntil) {
+        // Once: the boss runs by itself until the next one, so animation events don't fire twice
         ApplyBossSnapshot(actor, def, boss.state);
+        boss.state = nullptr;
     }
     boss.preAction = ActionOf(actor, def);
     boss.preHealth = actor->colChkInfo.health;
@@ -745,6 +780,8 @@ void BossPreUpdate(Actor* actor, Key key, const BossDef& def) {
 void BossPostUpdate(Actor* actor, Key key, const BossDef& def) {
     Boss& boss = sBosses[key];
     BossActionFunc action = ActionOf(actor, def);
+    boss.postAction = action;
+    boss.postHealth = actor->colChkInfo.health;
 
     if (action == def.defeatedAction) {
         if (boss.preAction != def.defeatedAction) {
@@ -756,12 +793,11 @@ void BossPostUpdate(Actor* actor, Key key, const BossDef& def) {
         return; // Intro
     }
     if (OwnsRoom(actor->room)) {
-        SendBossPacket(BOSS_STATE, key, BossSnapshot(actor, def));
-    } else if ((action != boss.preAction && IsIn(def.hitReactions, action)) ||
-               actor->colChkInfo.health < boss.preHealth) {
-        // This player hit it: the room owner takes it from here
-        SendBossPacket(BOSS_HIT, key, BossSnapshot(actor, def));
-        boss.ignoreStateUntil = sFrame + BOSS_HIT_HOLD;
+        nlohmann::json state = BossSnapshot(actor, def);
+        state["seq"] = ++boss.sentSeq;
+        SendBossPacket(BOSS_STATE, key, std::move(state));
+    } else if (WasHit(actor, def, boss.preAction, boss.preHealth)) {
+        SendBossHit(actor, key, def, boss);
     }
 }
 
@@ -776,6 +812,8 @@ void Reset() {
     sLastHealth.clear();
     sHealthSentFrame.clear();
     sDead.clear();
+    sKilledHere.clear();
+    sRemoteZero.clear();
     sBlocks.clear();
     sBosses.clear();
     sDerivedKeys.clear();
@@ -827,6 +865,7 @@ void OnEnemyDefeat(Actor* actor) {
         return;
     }
     CheckScene();
+    sKilledHere.insert(key);
     if (!sDead.insert(key).second || !HasPeers()) {
         return;
     }
@@ -848,6 +887,8 @@ void OnActorInit(Actor* actor) {
         return;
     }
     sRemote.erase(key);
+    sRemoteZero.erase(key);
+    sKilledHere.erase(key);
     sLastHealth.erase(key);
     sSent.erase(key);
     sBlocks.erase(key);
@@ -915,6 +956,9 @@ void HandlePacket_ActorHealth(nlohmann::json& payload) {
     if (actor != nullptr && actor->update != nullptr && IsSyncedEnemy(actor) && health < actor->colChkInfo.health) {
         actor->colChkInfo.health = MAX(health, 0);
         sLastHealth[key] = actor->colChkInfo.health;
+        if (actor->colChkInfo.health == 0) {
+            sRemoteZero.emplace(key, sFrame);
+        }
     }
 }
 
@@ -928,8 +972,9 @@ void HandlePacket_ActorKill(nlohmann::json& payload) {
         Key key = entry.get<Key>();
         sDead.insert(key);
         Actor* actor = FindActor(key);
-        // An enemy at 0 health is already playing its own death here
-        if (actor != nullptr && actor->update != nullptr && IsSyncedEnemy(actor) && actor->colChkInfo.health > 0) {
+        // An enemy that got to 0 health here by itself is already playing its own death
+        if (actor != nullptr && actor->update != nullptr && IsSyncedEnemy(actor) && !sKilledHere.contains(key) &&
+            (actor->colChkInfo.health > 0 || sRemoteZero.contains(key))) {
             KillEnemy(actor, withEffect);
         }
     }
@@ -976,8 +1021,13 @@ void HandlePacket_BossState(nlohmann::json& payload) {
         return;
     }
     Boss& boss = sBosses[key];
-    boss.state = payload["state"];
-    boss.stateFrame = sFrame;
+    uint32_t seq = payload["state"].value("seq", 0u);
+    uint32_t sender = payload.value("clientId", (uint32_t)0);
+    if (seq > boss.stateSeq || sender != boss.stateFrom) {
+        boss.stateSeq = seq;
+        boss.stateFrom = sender;
+        boss.state = payload["state"];
+    }
 }
 
 void HandlePacket_BossHit(nlohmann::json& payload) {
