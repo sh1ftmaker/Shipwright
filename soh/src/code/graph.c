@@ -732,6 +732,15 @@ EMSCRIPTEN_KEEPALIVE int web_debug_warp(int entrance) {
     gSaveContext.nextTransitionType = TRANS_TYPE_INSTANT;
     return 1;
 }
+
+// Link's age (0 adult, 1 child) from the next warp on, like the Switch Age enhancement (tools/web-test)
+EMSCRIPTEN_KEEPALIVE int web_debug_set_age(int age) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return 0;
+    }
+    gPlayState->linkAgeOnLoad = age;
+    return 1;
+}
 #endif
 
 void Graph_ThreadEntry(void* arg0) {
