@@ -29,7 +29,18 @@ void Anchor::Enable() {
     Network::Enable(CVarGetString(CVAR_REMOTE_ANCHOR("Host"), "anchor.hm64.org"),
                     CVarGetInteger(CVAR_REMOTE_ANCHOR("Port"), 43383));
 #endif
+#ifdef __EMSCRIPTEN__
+    // Every tab of the game shares the saved settings, and the server closes the older connection when a client ID
+    // connects again, so two tabs starting from the saved ID would knock each other off forever. Start each page
+    // with a fresh ID and only keep the one this page was given (reconnects reuse it without coming through here).
+    static bool hasPageClientId = false;
+    if (!hasPageClientId) {
+        ownClientId = 0;
+        hasPageClientId = true;
+    }
+#else
     ownClientId = CVarGetInteger(CVAR_REMOTE_ANCHOR("LastClientId"), 0);
+#endif
     roomState.ownerClientId = 0;
 }
 
