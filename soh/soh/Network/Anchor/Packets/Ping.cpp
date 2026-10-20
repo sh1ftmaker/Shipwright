@@ -2,9 +2,19 @@
 
 #include "soh/Network/Anchor/Anchor.h"
 
+/**
+ * PING
+ *
+ * Web only. A keepalive this client addresses to itself (targetClientId), so the server sends it straight back. Its
+ * return shows the whole path (browser, bridge, server) still works: a WebSocket that silently died never closes by
+ * itself, and nothing else comes in while nobody moves. The bridge also closes connections whose browser stopped
+ * sending these. Other clients never see them.
+ */
+
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#endif
+
 
 /**
  * PING
@@ -15,8 +25,7 @@
  * sending these. Other clients never see them.
  */
 
-void Anchor::SendPacket_Ping() {
-#ifdef __EMSCRIPTEN__
+nlohmann::json Anchor::PrepPing() {
     nlohmann::json payload;
     payload["type"] = PING;
     payload["clientId"] = ownClientId;
@@ -27,14 +36,15 @@ void Anchor::SendPacket_Ping() {
     if (!unackedPackets.empty()) {
         payload["ack"] = unackedPackets.back().first;
     }
-
     lastPingTime = emscripten_get_now();
-    Network::SendJsonToRemote(payload);
-#endif
+    return payload;
+}
+
+void Anchor::SendPacket_Ping() {
+    Network::SendJsonToRemote(PrepPing());
 }
 
 void Anchor::HandlePacket_Ping(nlohmann::json payload) {
-#ifdef __EMSCRIPTEN__
     if (payload.contains("sentAt")) {
         pingMs = (int)(emscripten_get_now() - payload["sentAt"].get<double>());
     }
@@ -44,5 +54,14 @@ void Anchor::HandlePacket_Ping(nlohmann::json payload) {
             unackedPackets.pop_front();
         }
     }
-#endif
 }
+
+#else
+
+void Anchor::SendPacket_Ping() {
+}
+
+void Anchor::HandlePacket_Ping(nlohmann::json payload) {
+}
+
+#endif

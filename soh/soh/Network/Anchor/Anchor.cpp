@@ -267,7 +267,13 @@ void Anchor::ProcessOutgoingPackets() {
     }
 
     // Send packets without holding the lock
+#ifdef __EMSCRIPTEN__
+    // All of them in one WebSocket message, one JSON packet per line; the bridge splits them up again. The bridge's
+    // Durable Object is billed per incoming message, and players send many packets per frame (one per player for
+    // positions and enemies).
+    std::string batch;
     bool sentDurable = false;
+#endif
     while (!packetsToSend.empty()) {
         nlohmann::json payload = packetsToSend.front();
         packetsToSend.pop();
@@ -282,14 +288,26 @@ void Anchor::ProcessOutgoingPackets() {
             unackedPackets.emplace_back(++sentDurablePackets, payload);
             sentDurable = true;
         }
-#endif
+        // The server's packet limit is far bigger; this keeps WebSocket messages to a reasonable size
+        if (batch.size() > 256 * 1024) {
+            SendDataToRemote(batch.c_str());
+            batch.clear();
+        }
+        batch += (batch.empty() ? "" : "\n") + payload.dump();
+#else
         Network::SendJsonToRemote(payload);
+#endif
     }
 
+#ifdef __EMSCRIPTEN__
     // The server handles a connection's packets in order, so this coming back confirms the ones before it
     if (sentDurable) {
-        SendPacket_Ping();
+        batch += "\n" + PrepPing().dump();
     }
+    if (!batch.empty()) {
+        SendDataToRemote(batch.c_str());
+    }
+#endif
 }
 
 bool Anchor::IsDurablePacket(const nlohmann::json& payload) {

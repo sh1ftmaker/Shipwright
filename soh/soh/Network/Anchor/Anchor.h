@@ -121,6 +121,7 @@ class Anchor : public Network {
 
     bool IsDurablePacket(const nlohmann::json& payload);
     bool MarkPacketSeen(const std::string& packetId);
+    nlohmann::json PrepPing();
     void CheckRoomOwner(double now);
     nlohmann::json PrepClientState();
     nlohmann::json PrepRoomState();
