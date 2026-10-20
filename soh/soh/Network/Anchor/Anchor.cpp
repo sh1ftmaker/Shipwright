@@ -162,6 +162,11 @@ void Anchor::OnTimerTick() {
         return;
     }
 
+    // No game frames run in a hidden tab, so take the messages in here (OnIncomingJson keeps what's worth keeping)
+    if (isPaused) {
+        PollIncoming();
+    }
+
     double now = emscripten_get_now();
     if (isConnected && sessionReady && now - lastPingTime >= KEEPALIVE_INTERVAL_MS) {
         SendPacket_Ping();
@@ -170,6 +175,47 @@ void Anchor::OnTimerTick() {
     CheckRoomOwner(now);
     // Sends what CheckRoomOwner queued, and anything else, when the game loop isn't running
     ProcessOutgoingPackets();
+}
+
+// The page was hidden (another tab, phone locked) or shown again (AnchorWeb.cpp)
+void Anchor::SetPaused(bool paused) {
+    if (paused == isPaused || !isEnabled) {
+        isPaused = paused;
+        return;
+    }
+    isPaused = paused;
+
+    if (paused) {
+        // Tell the others now (PrepClientState), as the game loop is about to stop
+        if (sessionReady) {
+            SendPacket_UpdateClientState();
+            ProcessOutgoingPackets();
+        }
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(incomingPacketQueueMutex);
+        for (auto& [clientId, payload] : pausedPlayerUpdates) {
+            incomingPacketQueue.push(payload);
+        }
+    }
+    pausedPlayerUpdates.clear();
+
+    // Timers barely run in a hidden tab, so the connection may have died a while ago, or a reconnect may be waiting
+    if (!isConnected) {
+        ReconnectNow();
+        return;
+    }
+    if (!CheckLiveness(LIVENESS_TIMEOUT_MS)) {
+        return;
+    }
+    SendPacket_Ping();
+    if (sessionReady) {
+        SendPacket_UpdateClientState();
+        SendPacket_RequestTeamState();
+        ProcessOutgoingPackets();
+    }
 }
 #endif
 
@@ -183,8 +229,11 @@ void Anchor::CheckRoomOwner(double now) {
         return;
     }
 
+    // A hidden tab doesn't count as here; neither do we while ours is
     auto owner = clients.find(roomState.ownerClientId);
-    if (owner != clients.end() && (owner->second.self || owner->second.online)) {
+    bool ownerHere = owner != clients.end() &&
+                     (owner->second.self ? !isPaused : owner->second.online && !owner->second.paused);
+    if (ownerHere || isPaused) {
         ownerAwaySince = 0;
         return;
     }
@@ -196,7 +245,7 @@ void Anchor::CheckRoomOwner(double now) {
     }
 
     for (auto& [clientId, client] : clients) {
-        if (!client.self && client.online && clientId < ownClientId) {
+        if (!client.self && client.online && !client.paused && clientId < ownClientId) {
             return;
         }
     }
@@ -276,7 +325,7 @@ void Anchor::SendJsonToRemote(nlohmann::json payload) {
     // else would be stale by then; the handshake sends our current state. Until the server has given us our ID,
     // positions and the like are dropped too.
     bool durable = IsDurablePacket(payload);
-    if ((!isConnected && !durable) || (!sessionReady && IsRealtimePacket(packetType))) {
+    if ((!isConnected && !durable) || ((!sessionReady || isPaused) && IsRealtimePacket(packetType))) {
         return;
     }
     if (durable) {
@@ -312,6 +361,15 @@ void Anchor::OnIncomingJson(nlohmann::json payload) {
     // Our own keepalive coming back: receiving it was the point (Network::CheckLiveness)
     if (packetType == PING) {
         HandlePacket_Ping(payload);
+        return;
+    }
+
+    // While the tab is hidden the game doesn't run. Keep only each player's latest position and drop the other
+    // continuous updates, instead of piling them all up to be applied at once when it's back.
+    if (isPaused && IsRealtimePacket(packetType)) {
+        if (packetType == PLAYER_UPDATE && payload.contains("clientId")) {
+            pausedPlayerUpdates[payload["clientId"].get<uint32_t>()] = payload;
+        }
         return;
     }
 

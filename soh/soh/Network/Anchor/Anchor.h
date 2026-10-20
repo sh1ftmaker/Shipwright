@@ -49,6 +49,7 @@ typedef struct {
     uint32_t seed;
     bool isSaveLoaded;
     bool isGameComplete;
+    bool paused; // Web: tab hidden or phone locked, so not playing right now (sent as not having a save loaded)
     s16 sceneNum;
     s8 curRoomNum;
     s32 entranceIndex;
@@ -101,6 +102,7 @@ class Anchor : public Network {
     bool pendingTeamStateRequest = false;
     double lastPingTime = 0;
     double ownerAwaySince = 0;
+    std::map<uint32_t, nlohmann::json> pausedPlayerUpdates;
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
     std::queue<nlohmann::json> incomingPacketQueue;
@@ -155,6 +157,7 @@ class Anchor : public Network {
     // The server has accepted this connection and given us our ID (first ALL_CLIENT_STATE). Packets wait for it.
     bool sessionReady = false;
     int pingMs = -1; // Round trip of the last keepalive, through the bridge and the server
+    bool isPaused = false; // Web: the tab is hidden, so the game isn't running
     bool teleportToOwnerOnLoad = false; // Set by web join links
     inline static const std::string clientVersion = (char*)gGitCommitHash;
 
@@ -202,6 +205,7 @@ class Anchor : public Network {
     void OnDisconnected();
 #ifdef __EMSCRIPTEN__
     void OnTimerTick();
+    void SetPaused(bool paused);
 #endif
     void AutoEquipSwordAndShield();
     void ProcessOutgoingPackets();

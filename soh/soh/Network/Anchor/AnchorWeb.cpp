@@ -71,8 +71,40 @@ EM_JS(void, anchor_web_store_client_id, (int id), {
         .catch(function() {});
 });
 
+// MARK: - Page events
+
+// Hidden tabs (and locked phones) run no game frames, so others are told this player is away (Anchor::SetPaused).
+// Coming back online retries a waiting reconnect straight away.
+EM_JS(void, anchor_web_listen, (), {
+    if (Module.anchorListening) {
+        return;
+    }
+    Module.anchorListening = true;
+    var update = function() { Module._anchor_web_set_hidden(document.visibilityState == 'hidden' ? 1 : 0); };
+    document.addEventListener('visibilitychange', update);
+    window.addEventListener('online', function() { Module._anchor_web_online(); });
+    update();
+});
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE void anchor_web_set_hidden(int hidden) {
+    if (Anchor::Instance != nullptr) {
+        Anchor::Instance->SetPaused(hidden != 0);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE void anchor_web_online(void) {
+    if (Anchor::Instance != nullptr) {
+        Anchor::Instance->ReconnectNow();
+    }
+}
+
+} // extern "C"
+
 void AnchorWeb::Init() {
     anchor_web_claim_client_id();
+    anchor_web_listen();
 }
 
 uint32_t AnchorWeb::GetStoredClientId() {

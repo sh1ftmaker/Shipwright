@@ -27,8 +27,11 @@ nlohmann::json Anchor::PrepClientState() {
     payload["clientVersion"] = clientVersion;
     payload["teamId"] = CVarGetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
     payload["online"] = true;
+    // A hidden tab says it has no save loaded: others stop sending it positions and hide its dummy, and the server
+    // doesn't pass team state requests to it, as it couldn't answer until it comes back
+    payload["paused"] = isPaused;
 
-    if (IsSaveLoaded()) {
+    if (IsSaveLoaded() && !isPaused) {
         payload["seed"] = IS_RANDO ? Rando::Context::GetInstance()->GetSeed() : 0;
         payload["isSaveLoaded"] = true;
         payload["isGameComplete"] = gSaveContext.ship.stats.gameComplete;
@@ -69,6 +72,7 @@ void Anchor::HandlePacket_UpdateClientState(nlohmann::json payload) {
         clients[clientId].seed = client.seed;
         clients[clientId].isSaveLoaded = client.isSaveLoaded;
         clients[clientId].isGameComplete = client.isGameComplete;
+        clients[clientId].paused = client.paused;
         clients[clientId].sceneNum = client.sceneNum;
         clients[clientId].curRoomNum = client.curRoomNum;
         clients[clientId].entranceIndex = client.entranceIndex;
