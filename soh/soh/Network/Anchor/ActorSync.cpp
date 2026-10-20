@@ -15,6 +15,7 @@ extern "C" {
 #include "functions.h"
 #include "src/overlays/actors/ovl_Obj_Oshihiki/z_obj_oshihiki.h"
 #include "src/overlays/actors/ovl_Boss_Goma/z_boss_goma.h"
+#include "src/overlays/actors/ovl_Boss_Dodongo/z_boss_dodongo.h"
 #include "soh/ResourceManagerHelpers.h"
 void SkelAnime_SetUpdate(SkelAnime* skelAnime);
 extern PlayState* gPlayState;
@@ -41,6 +42,18 @@ void BossGoma_CeilingIdle(BossGoma* goma, PlayState* play);
 void BossGoma_FloorMain(BossGoma* goma, PlayState* play);
 void BossGoma_WallClimb(BossGoma* goma, PlayState* play);
 void BossGoma_CeilingMoveToCenter(BossGoma* goma, PlayState* play);
+void BossDodongo_Walk(BossDodongo* kd, PlayState* play);
+void BossDodongo_Inhale(BossDodongo* kd, PlayState* play);
+void BossDodongo_BlowFire(BossDodongo* kd, PlayState* play);
+void BossDodongo_Roll(BossDodongo* kd, PlayState* play);
+void BossDodongo_Explode(BossDodongo* kd, PlayState* play);
+void BossDodongo_LayDown(BossDodongo* kd, PlayState* play);
+void BossDodongo_Vulnerable(BossDodongo* kd, PlayState* play);
+void BossDodongo_GetUp(BossDodongo* kd, PlayState* play);
+void BossDodongo_Damaged(BossDodongo* kd, PlayState* play);
+void BossDodongo_DeathCutscene(BossDodongo* kd, PlayState* play);
+void BossDodongo_SetupDeathCutscene(BossDodongo* kd);
+void BossDodongo_SetupExplode(BossDodongo* kd);
 void CollisionCheck_ApplyDamage(PlayState* play, CollisionCheckContext* colChkCtx, Collider* collider,
                                 ColliderInfo* info);
 }
@@ -1064,11 +1077,44 @@ const StateSyncDef sGohma = {
         GameInteractor_ExecuteOnBossDefeat(actor);
     },
 };
+
+const StateSyncDef sKingDodongo = {
+    .name = "King Dodongo",
+    .actorId = ACTOR_BOSS_DODONGO,
+    .size = sizeof(BossDodongo),
+    .actionOffset = offsetof(BossDodongo, actionFunc),
+    .fightActions = { ACTION(BossDodongo_Walk), ACTION(BossDodongo_Inhale), ACTION(BossDodongo_BlowFire),
+                      ACTION(BossDodongo_Roll), ACTION(BossDodongo_Explode), ACTION(BossDodongo_LayDown),
+                      ACTION(BossDodongo_Vulnerable), ACTION(BossDodongo_GetUp), ACTION(BossDodongo_Damaged) },
+    // Explode: he swallowed a bomb, which only the game that threw it sees
+    .hitReactions = { ACTION(BossDodongo_Explode), ACTION(BossDodongo_Damaged) },
+    .deathActions = { ACTION(BossDodongo_DeathCutscene) },
+    // A bomb or explosion in his mouth while he breathes in makes him give up and walk on
+    .wasHit = [](Actor* actor, const void* before) {
+        return ((const BossDodongo*)before)->actionFunc == BossDodongo_Inhale &&
+               ((BossDodongo*)actor)->actionFunc == BossDodongo_Walk && ((BossDodongo*)actor)->unk_1DA == 50;
+    },
+    .skelAnimes = { offsetof(BossDodongo, skelAnime) },
+    .health = { offsetof(BossDodongo, health), 2 },
+    // Not the cameras, the lava textures or what's worked out from the local Link each frame
+    .fields = { FIELDS(BossDodongo, unk_19E, unk_1A2), FIELDS(BossDodongo, numWallCollisions, unk_1B0),
+                FIELDS(BossDodongo, unk_1BE, unk_1C0), FIELD(BossDodongo, unk_1C4), FIELD(BossDodongo, unk_1C8),
+                FIELDS(BossDodongo, unk_1DA, unk_1DE), FIELDS(BossDodongo, unk_1E4, unk_1EC),
+                FIELDS(BossDodongo, unk_1F8, unk_200), FIELD(BossDodongo, unk_208), FIELD(BossDodongo, unk_228),
+                FIELDS(BossDodongo, unk_240, unk_244), FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED) },
+    .defeat = [](Actor* actor) {
+        // His death cutscene fires the defeat hook
+        ((BossDodongo*)actor)->health = 0;
+        BossDodongo_SetupDeathCutscene((BossDodongo*)actor);
+        Enemy_StartFinishingBlow(gPlayState, actor);
+    },
+};
 // clang-format on
 
 const std::vector<const StateSyncDef*>& StateSyncDefs() {
     static const std::vector<const StateSyncDef*> defs = {
         &sGohma,
+        &sKingDodongo,
     };
     return defs;
 }
@@ -1442,6 +1488,27 @@ struct DebugTarget {
 
 const DebugTarget sDebugTargets[] = {
     { "Gohma", 0, offsetof(BossGoma, collider) },
+    { "King Dodongo", 0, offsetof(BossDodongo, collider) },
+};
+
+// Things that happen to a fight only on the game of the player who did them, other than collider hits
+struct DebugPoke {
+    const char* name;
+    int member;
+    bool (*poke)(Actor* actor); // false if it can't happen right now
+};
+
+const DebugPoke sDebugPokes[] = {
+    // Swallows a bomb
+    { "King Dodongo", 0,
+      [](Actor* actor) {
+          BossDodongo* kd = (BossDodongo*)actor;
+          if (kd->actionFunc != BossDodongo_Inhale) {
+              return false;
+          }
+          BossDodongo_SetupExplode(kd);
+          return true;
+      } },
 };
 
 // A state-synced actor that leads its group, by its def's name
@@ -1620,6 +1687,18 @@ EMSCRIPTEN_KEEPALIVE int web_debug_synced_hit(const char* name, int member, int 
         info->acHitInfo = &attack;
         CollisionCheck_ApplyDamage(gPlayState, &gPlayState->colChkCtx, collider, info);
         return 1;
+    }
+    return 0;
+}
+
+// Something only the player who does it sees (sDebugPokes), e.g. King Dodongo swallowing a bomb
+EMSCRIPTEN_KEEPALIVE int web_debug_synced_poke(const char* name, int member) {
+    const StateSyncDef* def;
+    Actor* actor = FindSyncedMember(name, member, &def);
+    for (const DebugPoke& poke : sDebugPokes) {
+        if (actor != nullptr && strcmp(poke.name, name) == 0 && poke.member == member) {
+            return poke.poke(actor);
+        }
     }
     return 0;
 }
