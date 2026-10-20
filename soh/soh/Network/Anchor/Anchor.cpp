@@ -162,11 +162,48 @@ void Anchor::OnTimerTick() {
         return;
     }
 
-    if (isConnected && sessionReady && emscripten_get_now() - lastPingTime >= KEEPALIVE_INTERVAL_MS) {
+    double now = emscripten_get_now();
+    if (isConnected && sessionReady && now - lastPingTime >= KEEPALIVE_INTERVAL_MS) {
         SendPacket_Ping();
     }
+
+    CheckRoomOwner(now);
+    // Sends what CheckRoomOwner queued, and anything else, when the game loop isn't running
+    ProcessOutgoingPackets();
 }
 #endif
+
+// The server never moves room ownership, so a room whose owner left would have no admin and send join links to
+// nobody. When the owner has been gone for a while, the client with the lowest ID that's here takes the room over,
+// keeping its settings (the server accepts UPDATE_ROOM_STATE from anyone).
+void Anchor::CheckRoomOwner(double now) {
+    bool isGlobalRoom = (std::string("soh-global") == CVarGetString(CVAR_REMOTE_ANCHOR("RoomId"), ""));
+    if (!isConnected || !sessionReady || roomState.ownerClientId == 0 || isGlobalRoom) {
+        ownerAwaySince = 0;
+        return;
+    }
+
+    auto owner = clients.find(roomState.ownerClientId);
+    if (owner != clients.end() && (owner->second.self || owner->second.online)) {
+        ownerAwaySince = 0;
+        return;
+    }
+    if (ownerAwaySince == 0) {
+        ownerAwaySince = now;
+    }
+    if (now - ownerAwaySince < 5000) {
+        return;
+    }
+
+    for (auto& [clientId, client] : clients) {
+        if (!client.self && client.online && clientId < ownClientId) {
+            return;
+        }
+    }
+    SPDLOG_INFO("[Anchor] Room owner {} is gone, taking the room over", roomState.ownerClientId);
+    ownerAwaySince = 0;
+    SendPacket_ClaimRoom();
+}
 
 void Anchor::ProcessOutgoingPackets() {
     if (!isConnected || !sessionReady) {
@@ -439,6 +476,26 @@ void Anchor::RefreshClientActors() {
         client.player = (Player*)dummy;
     }
     spawningDummyPlayerForClientId = 0;
+}
+
+uint32_t Anchor::GetJoinTeleportTarget() {
+    uint32_t ownerId = roomState.ownerClientId;
+    if (ownerId == ownClientId) {
+        return ownClientId;
+    }
+    auto owner = clients.find(ownerId);
+    if (owner != clients.end() && owner->second.online && owner->second.isSaveLoaded) {
+        return ownerId;
+    }
+
+    // The teammate with the lowest ID, as everyone else joining picks the same one
+    std::string teamId = CVarGetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
+    for (auto& [clientId, client] : clients) {
+        if (!client.self && client.online && client.isSaveLoaded && client.teamId == teamId) {
+            return clientId;
+        }
+    }
+    return 0;
 }
 
 bool Anchor::IsRealtimePacket(const std::string& type) {

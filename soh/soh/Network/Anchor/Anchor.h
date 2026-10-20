@@ -100,6 +100,7 @@ class Anchor : public Network {
     uint16_t framesSinceLoad = 0;
     bool pendingTeamStateRequest = false;
     double lastPingTime = 0;
+    double ownerAwaySince = 0;
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
     std::queue<nlohmann::json> incomingPacketQueue;
@@ -118,6 +119,7 @@ class Anchor : public Network {
 
     bool IsDurablePacket(const nlohmann::json& payload);
     bool MarkPacketSeen(const std::string& packetId);
+    void CheckRoomOwner(double now);
     nlohmann::json PrepClientState();
     nlohmann::json PrepRoomState();
     void RegisterHooks();
@@ -211,8 +213,11 @@ class Anchor : public Network {
     // never held back or replayed (one-off events like kills and hits aren't)
     static bool IsRealtimePacket(const std::string& type);
     bool CanTeleportTo(uint32_t clientId);
+    // Who a join link takes us to: the room owner, or a teammate if the owner isn't in the game
+    uint32_t GetJoinTeleportTarget();
     uint32_t GetDummyPlayerClientId(const Actor* actor);
 
+    void SendPacket_ClaimRoom();
     void SendPacket_ClearTeamState(std::string teamId);
     void SendPacket_DamagePlayer(u32 clientId, u8 damageEffect, u8 damage);
     void SendPacket_EntranceDiscovered(u16 entranceIndex);
