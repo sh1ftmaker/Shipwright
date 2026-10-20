@@ -63,8 +63,9 @@ constexpr uint32_t HEALTH_RESEND = 20;        // Remind the room owner about dam
 constexpr uint32_t SLOW_TICK = 40;            // Moved blocks and dead enemies are resent this often
 constexpr uint32_t BLOCK_SETTLE_FRAMES = 60;  // Ignore block positions this long after a push
 
-// Room in the high half, spawn list index in the low half
-typedef uint32_t Key;
+// Actor ID, room and spawn list index. The ID makes sure two clients never match different actors (a different scene
+// layer, or an actor that only one of them spawned). Sent as a JSON number, so it must stay below 2^53.
+typedef uint64_t Key;
 
 struct RemoteEnemy {
     Vec3f pos;
@@ -103,16 +104,12 @@ std::unordered_map<Key, Block> sBlocks;
 // IDs for actors that aren't in a spawn list but are made by one that is, worked out when they spawn
 std::unordered_map<Actor*, Key> sDerivedKeys;
 
-Key MakeKey(s8 room, s16 index) {
-    return ((uint32_t)(u8)room << 16) | (u16)index;
+Key MakeKey(s16 actorId, s8 room, s16 index) {
+    return ((Key)(u16)actorId << 24) | ((Key)(u8)room << 16) | (u16)index;
 }
 
 s8 KeyRoom(Key key) {
     return (s8)(key >> 16);
-}
-
-s16 KeyIndex(Key key) {
-    return (s16)(key & 0xFFFF);
 }
 
 // Only actors from a room's spawn list have an ID every client agrees on
@@ -129,7 +126,7 @@ bool GetKey(Actor* actor, Key* key) {
         *key = derived->second;
         return true;
     }
-    *key = MakeKey(actor->room, index);
+    *key = MakeKey(actor->id, actor->room, index);
     return true;
 }
 
@@ -142,7 +139,7 @@ void DeriveKey(Actor* actor) {
     }
     s16 parentIndex = GetActorListIndex(actor->parent);
     if (parentIndex >= 0) {
-        sDerivedKeys[actor] = MakeKey(actor->room, parentIndex | 0x4000);
+        sDerivedKeys[actor] = MakeKey(actor->id, actor->room, parentIndex | 0x4000);
     }
 }
 
@@ -153,7 +150,8 @@ bool IsEnabled() {
 
 bool IsPeer(const AnchorClient& client) {
     return !client.self && client.online && client.isSaveLoaded && client.actorSync &&
-           client.sceneNum == gPlayState->sceneNum && client.clientVersion == Anchor::clientVersion;
+           client.sceneNum == gPlayState->sceneNum && client.sceneLayer == gSaveContext.sceneLayer &&
+           client.clientVersion == Anchor::clientVersion;
 }
 
 bool HasPeers() {
@@ -318,8 +316,7 @@ void SendHealth(Key key, s16 health) {
     sHealthSentFrame[key] = sFrame;
     nlohmann::json payload;
     payload["type"] = ACTOR_HEALTH;
-    payload["room"] = KeyRoom(key);
-    payload["index"] = KeyIndex(key);
+    payload["key"] = key;
     payload["health"] = health;
     SendToPeers(payload);
 }
@@ -391,7 +388,7 @@ void SendEnemyStates() {
             continue;
         }
         sSent[key] = now;
-        list.push_back({ KeyRoom(key), KeyIndex(key), now.pos.x, now.pos.y, now.pos.z, now.shapeRotY, now.worldRotY,
+        list.push_back({ key, now.pos.x, now.pos.y, now.pos.z, now.shapeRotY, now.worldRotY,
                          now.health });
     }
 
@@ -420,7 +417,7 @@ void SendDeadList() {
     }
     nlohmann::json list = nlohmann::json::array();
     for (Key key : sDead) {
-        list.push_back({ KeyRoom(key), KeyIndex(key) });
+        list.push_back(key);
     }
     nlohmann::json payload;
     payload["type"] = ACTOR_KILL;
@@ -497,8 +494,7 @@ void BlockPostUpdate(Actor* actor, Key key) {
             // The local player started pushing it. Nothing has moved yet, so home is still the start position.
             nlohmann::json payload;
             payload["type"] = BLOCK_PUSH;
-            payload["room"] = KeyRoom(key);
-            payload["index"] = KeyIndex(key);
+            payload["key"] = key;
             payload["from"] = { actor->home.pos.x, actor->home.pos.y, actor->home.pos.z };
             payload["direction"] = block->direction;
             payload["angle"] = block->dyna.unk_158;
@@ -523,7 +519,7 @@ void SendBlockPositions() {
             Math3D_Vec3fDistSq(&actor->world.pos, &tracked->second.spawnPos) <= 1.0f) {
             continue;
         }
-        list.push_back({ KeyRoom(key), KeyIndex(key), actor->world.pos.x, actor->world.pos.y, actor->world.pos.z });
+        list.push_back({ key, actor->world.pos.x, actor->world.pos.y, actor->world.pos.z });
     }
     if (!list.empty()) {
         nlohmann::json payload;
@@ -726,8 +722,7 @@ void ApplyBossSnapshot(Actor* actor, const BossDef& def, const nlohmann::json& s
 void SendBossPacket(const std::string& type, Key key, nlohmann::json state) {
     nlohmann::json payload;
     payload["type"] = type;
-    payload["room"] = KeyRoom(key);
-    payload["index"] = KeyIndex(key);
+    payload["key"] = key;
     payload["state"] = std::move(state);
     SendToPeers(payload);
 }
@@ -837,7 +832,7 @@ void OnEnemyDefeat(Actor* actor) {
     }
     nlohmann::json payload;
     payload["type"] = ACTOR_KILL;
-    payload["actors"] = nlohmann::json::array({ { KeyRoom(key), KeyIndex(key) } });
+    payload["actors"] = nlohmann::json::array({ key });
     payload["effect"] = true;
     SendToPeers(payload);
 }
@@ -863,7 +858,7 @@ void OnActorDestroy(Actor* actor) {
     sDerivedKeys.erase(actor);
 }
 
-bool GetActorKey(Actor* actor, uint32_t* key) {
+bool GetActorKey(Actor* actor, uint64_t* key) {
     return GetKey(actor, key);
 }
 
@@ -895,16 +890,16 @@ void HandlePacket_ActorState(nlohmann::json& payload) {
     CheckScene();
     uint32_t sender = payload.value("clientId", (uint32_t)0);
     for (auto& entry : payload["actors"]) {
-        Key key = MakeKey(entry[0].get<s8>(), entry[1].get<s16>());
+        Key key = entry[0].get<Key>();
         // Only the room owner's state counts; anyone else is just running their own copy for a moment
         if (RoomOwner(KeyRoom(key)) != sender) {
             continue;
         }
         RemoteEnemy& remote = sRemote[key];
-        remote.pos = { entry[2].get<f32>(), entry[3].get<f32>(), entry[4].get<f32>() };
-        remote.shapeRotY = entry[5].get<s16>();
-        remote.worldRotY = entry[6].get<s16>();
-        remote.health = entry[7].get<s16>();
+        remote.pos = { entry[1].get<f32>(), entry[2].get<f32>(), entry[3].get<f32>() };
+        remote.shapeRotY = entry[4].get<s16>();
+        remote.worldRotY = entry[5].get<s16>();
+        remote.health = entry[6].get<s16>();
         remote.frame = sFrame;
     }
 }
@@ -914,7 +909,7 @@ void HandlePacket_ActorHealth(nlohmann::json& payload) {
         return;
     }
     CheckScene();
-    Key key = MakeKey(payload["room"].get<s8>(), payload["index"].get<s16>());
+    Key key = payload["key"].get<Key>();
     s16 health = payload["health"].get<s16>();
     Actor* actor = FindActor(key);
     if (actor != nullptr && actor->update != nullptr && IsSyncedEnemy(actor) && health < actor->colChkInfo.health) {
@@ -930,7 +925,7 @@ void HandlePacket_ActorKill(nlohmann::json& payload) {
     CheckScene();
     bool withEffect = payload.value("effect", false);
     for (auto& entry : payload["actors"]) {
-        Key key = MakeKey(entry[0].get<s8>(), entry[1].get<s16>());
+        Key key = entry.get<Key>();
         sDead.insert(key);
         Actor* actor = FindActor(key);
         // An enemy at 0 health is already playing its own death here
@@ -945,7 +940,7 @@ void HandlePacket_BlockPush(nlohmann::json& payload) {
         return;
     }
     CheckScene();
-    Key key = MakeKey(payload["room"].get<s8>(), payload["index"].get<s16>());
+    Key key = payload["key"].get<Key>();
     Actor* actor = FindActor(key);
     if (actor == nullptr || actor->id != ACTOR_OBJ_OSHIHIKI || actor->update == nullptr) {
         return;
@@ -965,7 +960,7 @@ static Actor* FindBoss(nlohmann::json& payload, Key* key, const BossDef** def) {
         return nullptr;
     }
     CheckScene();
-    *key = MakeKey(payload["room"].get<s8>(), payload["index"].get<s16>());
+    *key = payload["key"].get<Key>();
     Actor* actor = FindActor(*key);
     if (actor == nullptr || actor->update == nullptr || (*def = GetBossDef(actor)) == nullptr) {
         return nullptr;
@@ -1017,14 +1012,14 @@ void HandlePacket_BlockPos(nlohmann::json& payload) {
     CheckScene();
     uint32_t sender = payload.value("clientId", (uint32_t)0);
     for (auto& entry : payload["blocks"]) {
-        Key key = MakeKey(entry[0].get<s8>(), entry[1].get<s16>());
+        Key key = entry[0].get<Key>();
         Actor* actor = FindActor(key);
         if (actor == nullptr || actor->id != ACTOR_OBJ_OSHIHIKI || actor->update == nullptr) {
             continue;
         }
         ObjOshihiki* block = (ObjOshihiki*)actor;
         Block& tracked = TrackBlock(actor, key);
-        Vec3f pos = { entry[2].get<f32>(), entry[3].get<f32>(), entry[4].get<f32>() };
+        Vec3f pos = { entry[1].get<f32>(), entry[2].get<f32>(), entry[3].get<f32>() };
         if (!IsBlockIdle(block) || !tracked.pendingPushes.empty() ||
             sFrame - tracked.lastPushFrame < BLOCK_SETTLE_FRAMES ||
             Math3D_Vec3fDistSq(&actor->world.pos, &pos) <= 1.0f) {
@@ -1057,7 +1052,7 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
         for (int category : { ACTORCAT_ENEMY, ACTORCAT_PROP, ACTORCAT_BOSS }) {
             for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor != nullptr;
                  actor = actor->next) {
-                uint32_t key;
+                uint64_t key;
                 if (!AnchorActorSync::GetActorKey(actor, &key) ||
                     (category == ACTORCAT_PROP && actor->id != ACTOR_OBJ_OSHIHIKI)) {
                     continue;
@@ -1085,7 +1080,7 @@ static Actor* WebDebug_FindActor(int room, int index) {
     }
     for (int category = 0; category < ACTORCAT_MAX; category++) {
         for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor != nullptr; actor = actor->next) {
-            uint32_t key;
+            uint64_t key;
             if (actor->room == room && AnchorActorSync::GetActorKey(actor, &key) && (s16)(key & 0xFFFF) == index) {
                 return actor;
             }
