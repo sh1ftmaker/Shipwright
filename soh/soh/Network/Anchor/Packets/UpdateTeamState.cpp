@@ -229,6 +229,22 @@ void Anchor::HandlePacket_UpdateTeamState(nlohmann::json payload) {
             }
         }
 
+        // Keep items the incoming state doesn't have, so a teammate with less doesn't take them away
+        for (int i = 0; i < ARRAY_COUNT(gSaveContext.inventory.items); i++) {
+            if (loadedData.inventory.items[i] == ITEM_NONE) {
+                loadedData.inventory.items[i] = gSaveContext.inventory.items[i];
+            }
+        }
+
+        // Keep the bigger of each bag/quiver/wallet. A smaller one would cap the ammo restored above, down to
+        // 0 on the next pickup when the incoming state has no bag at all
+        for (int i = 0; i < ARRAY_COUNT(gUpgradeMasks); i++) {
+            u32 own = gSaveContext.inventory.upgrades & gUpgradeMasks[i];
+            if ((loadedData.inventory.upgrades & gUpgradeMasks[i]) < own) {
+                loadedData.inventory.upgrades = (loadedData.inventory.upgrades & ~gUpgradeMasks[i]) | own;
+            }
+        }
+
         gSaveContext.inventory = loadedData.inventory;
 
         // The commented out code below is an attempt at sending the entire randomizer seed over, in hopes that a player
