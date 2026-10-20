@@ -3,6 +3,8 @@
 #include "Anchor.h"
 #include "soh/Enhancements/nametag.h"
 #include "soh/ObjectExtension/ObjectExtension.h"
+#include "soh/Notification/Notification.h"
+#include <cmath>
 #include <random>
 
 #ifdef __EMSCRIPTEN__
@@ -68,6 +70,8 @@ void Anchor::Disable() {
         outgoingPacketQueue = {};
     }
     unackedPackets.clear();
+    disconnectedAt = 0;
+    announcedDisconnect = false;
 
     clients.clear();
     RefreshClientActors();
@@ -97,6 +101,42 @@ void Anchor::OnConnected() {
     }
 }
 
+void Anchor::OnSessionReady() {
+    // Held packets can go out with our ID now, and the next drop starts over with short reconnect waits
+    sessionReady = true;
+#ifdef __EMSCRIPTEN__
+    ResetReconnectBackoff();
+    AnchorWeb::StoreClientId(ownClientId);
+#endif
+    if (announcedDisconnect) {
+        Notification::Emit({
+            .prefix = "Anchor",
+            .message = "Reconnected",
+        });
+    }
+    announcedDisconnect = false;
+    disconnectedAt = 0;
+}
+
+std::string Anchor::GetConnectionStatus() {
+    if (sessionReady) {
+        return "Connected";
+    }
+#ifdef __EMSCRIPTEN__
+    double delay = GetReconnectDelay();
+    if (delay > 0) {
+        char status[64];
+        snprintf(status, sizeof(status), "Reconnecting in %ds (attempt %d)", (int)ceil(delay / 1000),
+                 GetReconnectAttempts());
+        return status;
+    }
+    if (disconnectedAt != 0) {
+        return "Reconnecting...";
+    }
+#endif
+    return "Connecting...";
+}
+
 void Anchor::AutoEquipSwordAndShield() {
     // Equip the best sword the player owns
     for (int sword = EQUIP_VALUE_SWORD_BIGGORON; sword >= EQUIP_VALUE_SWORD_KOKIRI; sword--) {
@@ -120,6 +160,11 @@ void Anchor::AutoEquipSwordAndShield() {
 void Anchor::OnDisconnected() {
     sessionReady = false;
     pendingTeamStateRequest = false;
+#ifdef __EMSCRIPTEN__
+    if (isEnabled && disconnectedAt == 0) {
+        disconnectedAt = emscripten_get_now();
+    }
+#endif
 
     // Nobody else is here until the server says so again (ALL_CLIENT_STATE after reconnecting): their dummies and
     // compass icons go away and no teleports are offered. Actor states from before the drop are stale.
@@ -162,12 +207,21 @@ void Anchor::OnTimerTick() {
         return;
     }
 
+    // Short drops come and go unnoticed; tell the player about longer ones (OnSessionReady says when it's back)
+    double now = emscripten_get_now();
+    if (disconnectedAt != 0 && !announcedDisconnect && now - disconnectedAt > 2000) {
+        announcedDisconnect = true;
+        Notification::Emit({
+            .prefix = "Anchor",
+            .message = "Connection lost, reconnecting...",
+        });
+    }
+
     // No game frames run in a hidden tab, so take the messages in here (OnIncomingJson keeps what's worth keeping)
     if (isPaused) {
         PollIncoming();
     }
 
-    double now = emscripten_get_now();
     if (isConnected && sessionReady && now - lastPingTime >= KEEPALIVE_INTERVAL_MS) {
         SendPacket_Ping();
     }

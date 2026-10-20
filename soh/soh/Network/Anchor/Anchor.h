@@ -102,6 +102,8 @@ class Anchor : public Network {
     bool pendingTeamStateRequest = false;
     double lastPingTime = 0;
     double ownerAwaySince = 0;
+    double disconnectedAt = 0;
+    bool announcedDisconnect = false;
     std::map<uint32_t, nlohmann::json> pausedPlayerUpdates;
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
@@ -204,6 +206,10 @@ class Anchor : public Network {
     void OnIncomingJson(nlohmann::json payload);
     void OnConnected();
     void OnDisconnected();
+    // The server has accepted the connection (first ALL_CLIENT_STATE)
+    void OnSessionReady();
+    // "Connecting...", "Reconnecting in 4s (attempt 3)", ...
+    std::string GetConnectionStatus();
 #ifdef __EMSCRIPTEN__
     void OnTimerTick();
     void SetPaused(bool paused);

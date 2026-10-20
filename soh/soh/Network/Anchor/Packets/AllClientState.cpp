@@ -71,13 +71,7 @@ void Anchor::HandlePacket_AllClientState(nlohmann::json payload) {
 
     shouldRefreshActors = true;
 
-    // The server has accepted the connection: held packets can go out with our ID, and the next drop starts over
-    // with short reconnect waits
     if (!sessionReady) {
-        sessionReady = true;
-#ifdef __EMSCRIPTEN__
-        ResetReconnectBackoff();
-        AnchorWeb::StoreClientId(ownClientId);
-#endif
+        OnSessionReady();
     }
 }

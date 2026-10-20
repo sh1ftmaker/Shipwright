@@ -154,8 +154,8 @@ void AnchorMainMenu(WidgetInfo& info) {
         return;
     }
 
-    if (!anchor->isConnected) {
-        ImGui::Text("Connecting...");
+    if (!anchor->sessionReady) {
+        ImGui::Text("%s", anchor->GetConnectionStatus().c_str());
         return;
     }
 

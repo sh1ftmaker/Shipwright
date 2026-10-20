@@ -10,7 +10,8 @@ extern PlayState* gPlayState;
 }
 
 void AnchorRoomWindow::Draw() {
-    if (!IsVisible() || !Anchor::Instance->isConnected) {
+    // Stays up while reconnecting, saying so (DrawElement)
+    if (!IsVisible() || !Anchor::Instance->isEnabled) {
         return;
     }
 
@@ -36,6 +37,11 @@ void AnchorRoomWindow::Draw() {
 }
 
 void AnchorRoomWindow::DrawElement() {
+    if (!Anchor::Instance->sessionReady) {
+        ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "%s", Anchor::Instance->GetConnectionStatus().c_str());
+        return;
+    }
+
     bool isGlobalRoom = (std::string("soh-global") == CVarGetString(CVAR_REMOTE_ANCHOR("RoomId"), ""));
 
     if (isGlobalRoom) {
@@ -60,8 +66,25 @@ void AnchorRoomWindow::DrawElement() {
             ImGui::SeparatorText(team.c_str());
         }
         bool isOwnTeam = team == CVarGetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
+
+        // The server never forgets anyone, so players who left (or reloaded an older build, which got a new ID each
+        // time) pile up. Offline entries named like someone who is here are hidden; the rest go on one line.
+        std::set<std::string> namesHere;
+        for (auto& [clientId, client] : Anchor::Instance->clients) {
+            if (client.teamId == team && (client.self || client.online)) {
+                namesHere.insert(client.self ? CVarGetString(CVAR_REMOTE_ANCHOR("Name"), "") : client.name);
+            }
+        }
+        std::vector<std::string> offlineNames;
+
         for (auto& [clientId, client] : Anchor::Instance->clients) {
             if (client.teamId != team) {
+                continue;
+            }
+            if (!client.self && !client.online) {
+                if (!namesHere.contains(client.name)) {
+                    offlineNames.push_back(client.name);
+                }
                 continue;
             }
 
@@ -74,10 +97,8 @@ void AnchorRoomWindow::DrawElement() {
 
             if (client.self) {
                 ImGui::TextColored(ImVec4(0.8f, 1.0f, 0.8f, 1.0f), "%s", CVarGetString(CVAR_REMOTE_ANCHOR("Name"), ""));
-            } else if (!client.online) {
-                ImGui::TextColored(ImVec4(1, 1, 1, 0.3f), "%s - offline", client.name.c_str());
-                ImGui::PopID();
-                continue;
+            } else if (client.paused) {
+                ImGui::TextColored(ImVec4(1, 1, 1, 0.5f), "%s - away", client.name.c_str());
             } else {
                 ImGui::Text("%s", client.name.c_str());
             }
@@ -126,6 +147,19 @@ void AnchorRoomWindow::DrawElement() {
                 }
             }
             ImGui::PopID();
+        }
+
+        if (offlineNames.size() == 1) {
+            ImGui::TextColored(ImVec4(1, 1, 1, 0.3f), "%s - offline", offlineNames[0].c_str());
+        } else if (!offlineNames.empty()) {
+            ImGui::TextColored(ImVec4(1, 1, 1, 0.3f), "%d offline", (int)offlineNames.size());
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                for (auto& name : offlineNames) {
+                    ImGui::Text("%s", name.c_str());
+                }
+                ImGui::EndTooltip();
+            }
         }
     }
 }
