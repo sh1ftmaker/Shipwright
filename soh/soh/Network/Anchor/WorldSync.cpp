@@ -2,18 +2,45 @@
 #include "WorldSync.h"
 #include "soh/Enhancements/game-interactor/GameInteractionEffect.h"
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
+#include "soh/OTRGlobals.h"
+#include "soh/Enhancements/randomizer/SeedContext.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 
 #include <chrono>
 #include <climits>
 #include <deque>
+#include <unordered_map>
 #include <unordered_set>
 
 extern "C" {
 #include "macros.h"
 #include "variables.h"
 #include "functions.h"
+#include "src/overlays/actors/ovl_Bg_Ddan_Kd/z_bg_ddan_kd.h"
+#include "src/overlays/actors/ovl_Bg_Heavy_Block/z_bg_heavy_block.h"
+#include "src/overlays/actors/ovl_Bg_Jya_Megami/z_bg_jya_megami.h"
+#include "src/overlays/actors/ovl_En_G_Switch/z_en_g_switch.h"
+#include "src/overlays/actors/ovl_Obj_Bean/z_obj_bean.h"
+#include "src/overlays/actors/ovl_Obj_Switch/z_obj_switch.h"
+#include "src/overlays/actors/ovl_Obj_Syokudai/z_obj_syokudai.h"
 extern PlayState* gPlayState;
+void BgDdanKd_CheckForExplosions(BgDdanKd* bgDdanKd, PlayState* play);
+void BgDdanKd_LowerStairs(BgDdanKd* bgDdanKd, PlayState* play);
+void BgHeavyBlock_Wait(BgHeavyBlock* bgHeavyBlock, PlayState* play);
+void BgHeavyBlock_SpawnPieces(BgHeavyBlock* bgHeavyBlock, PlayState* play);
+void BgJyaMegami_DetectLight(BgJyaMegami* bgJyaMegami, PlayState* play);
+void EnGSwitch_SilverRupeeIdle(EnGSwitch* enGSwitch, PlayState* play);
+void EnGSwitch_SilverRupeeCollected(EnGSwitch* enGSwitch, PlayState* play);
+void ObjBean_WaitForBean(ObjBean* objBean, PlayState* play);
+void func_80B8FE6C(ObjBean* objBean);
+void ObjSwitch_FloorUp(ObjSwitch* objSwitch, PlayState* play);
+void ObjSwitch_FloorPressInit(ObjSwitch* objSwitch);
+void ObjSwitch_FloorDown(ObjSwitch* objSwitch, PlayState* play);
+void ObjSwitch_FloorReleaseInit(ObjSwitch* objSwitch);
+void ObjSwitch_EyeOpen(ObjSwitch* objSwitch, PlayState* play);
+void ObjSwitch_EyeClosingInit(ObjSwitch* objSwitch);
+void ObjSwitch_EyeClosed(ObjSwitch* objSwitch, PlayState* play);
+void ObjSwitch_EyeOpeningInit(ObjSwitch* objSwitch);
 }
 
 namespace AnchorWorldSync {
@@ -385,6 +412,43 @@ bool TakeBeanPlanted() {
     return planted;
 }
 
+// MARK: - Live world
+
+/**
+ * WORLD_EVENT
+ *
+ * Changes to things in a room that no flag records until they're finished: a torch of a group lit (the group's flag
+ * is only set when all of them burn) and a silver rupee collected (the puzzle's flag is only set by the last one).
+ * Actors are found by their spawn list key, like ActorSync. Not queued: they only matter while in the room.
+ */
+enum WorldEventKind : u8 {
+    WORLD_EVENT_TORCH_LIT,
+    WORLD_EVENT_SILVER_RUPEE,
+};
+
+static s16 sEventScene = -1;
+static std::unordered_set<uint64_t> sTorchesToLight;
+static std::unordered_set<uint64_t> sSilverRupeesToCollect;
+// State before the actor's update, to see what the local player did in it
+static std::unordered_map<Actor*, s16> sTorchLitTimer;
+static std::unordered_map<Actor*, void*> sSilverAction;
+// Changed by a teammate's event this frame, so not sent back
+static std::unordered_set<Actor*> sForced;
+
+static void ResetWorldEvents() {
+    sEventScene = gPlayState != nullptr ? gPlayState->sceneNum : -1;
+    sTorchesToLight.clear();
+    sSilverRupeesToCollect.clear();
+    sTorchLitTimer.clear();
+    sSilverAction.clear();
+    sForced.clear();
+}
+
+static bool SilverRupeesShuffled() {
+    // Shuffled silver rupees are items with their own flags
+    return IS_RANDO && RAND_GET_OPTION(RSK_SHUFFLE_SILVER);
+}
+
 } // namespace AnchorWorldSync
 
 using namespace AnchorWorldSync;
@@ -395,9 +459,46 @@ constexpr auto TEAM_STATE_PUSH_INTERVAL = std::chrono::seconds(60);
 // Frames to wait after a merge before pushing, so the queued packets that came with the state are applied first
 constexpr int TEAM_STATE_PUSH_DELAY = 20;
 
+void Anchor::SendPacket_WorldEvent(u8 kind, uint64_t actorKey) {
+    if (!IsSaveLoaded() || !roomState.syncItemsAndFlags) {
+        return;
+    }
+
+    nlohmann::json payload;
+    payload["type"] = WORLD_EVENT;
+    payload["targetTeamId"] = CVarGetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
+    payload["sceneNum"] = gPlayState->sceneNum;
+    payload["kind"] = kind;
+    payload["key"] = actorKey;
+    payload["quiet"] = true;
+
+    SendJsonToRemote(payload);
+}
+
+void Anchor::HandlePacket_WorldEvent(nlohmann::json payload) {
+    if (!IsSaveLoaded() || !roomState.syncItemsAndFlags ||
+        payload.value("sceneNum", (s16)-1) != gPlayState->sceneNum) {
+        return;
+    }
+    if (sEventScene != gPlayState->sceneNum) {
+        ResetWorldEvents();
+    }
+
+    uint64_t key = payload.at("key").get<uint64_t>();
+    switch (payload.at("kind").get<u8>()) {
+        case WORLD_EVENT_TORCH_LIT:
+            sTorchesToLight.insert(key);
+            break;
+        case WORLD_EVENT_SILVER_RUPEE:
+            sSilverRupeesToCollect.insert(key);
+            break;
+    }
+}
+
 void Anchor::RegisterWorldSyncHooks() {
     COND_HOOK(OnSceneSpawnActors, isConnected, [&]() {
         RefreshSnapshot();
+        ResetWorldEvents();
 
         static auto lastPush = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
@@ -418,6 +519,149 @@ void Anchor::RegisterWorldSyncHooks() {
             pendingTeamStatePush = false;
             SendPacket_UpdateTeamState();
             SendPacket_MergeTeamState();
+        }
+    });
+
+    // Floor and eye switches only look at their flag when they spawn, so press (or release) them when a teammate
+    // flips it. Hold switches (subtypes 2 and 3) follow whoever stands on them, so they're left alone
+    COND_ID_HOOK(ShouldActorUpdate, ACTOR_OBJ_SWITCH, isConnected, [&](void* refActor, bool* should) {
+        ObjSwitch* actor = static_cast<ObjSwitch*>(refActor);
+        s32 type = actor->dyna.actor.params & 7;
+        s32 subType = (actor->dyna.actor.params >> 4) & 7;
+        bool on = Flags_GetSwitch(gPlayState, (actor->dyna.actor.params >> 8) & 0x3F);
+
+        if (type == OBJSWITCH_TYPE_FLOOR || type == OBJSWITCH_TYPE_FLOOR_RUSTY) {
+            bool isToggle = type == OBJSWITCH_TYPE_FLOOR && subType == OBJSWITCH_SUBTYPE_FLOOR_1;
+            bool staysDown = type == OBJSWITCH_TYPE_FLOOR_RUSTY || subType == OBJSWITCH_SUBTYPE_FLOOR_0;
+            if (actor->actionFunc == ObjSwitch_FloorUp && on && (staysDown || isToggle)) {
+                actor->cooldownOn = false;
+                ObjSwitch_FloorPressInit(actor);
+            } else if (actor->actionFunc == ObjSwitch_FloorDown && !on && isToggle) {
+                actor->cooldownOn = false;
+                ObjSwitch_FloorReleaseInit(actor);
+            }
+        } else if (type == OBJSWITCH_TYPE_EYE) {
+            if (actor->actionFunc == ObjSwitch_EyeOpen && on) {
+                actor->cooldownOn = false;
+                ObjSwitch_EyeClosingInit(actor);
+            } else if (actor->actionFunc == ObjSwitch_EyeClosed && !on && subType == OBJSWITCH_SUBTYPE_EYE_1) {
+                actor->cooldownOn = false;
+                ObjSwitch_EyeOpeningInit(actor);
+            }
+        }
+    });
+
+    // Dodongo's Cavern stairs
+    COND_ID_HOOK(ShouldActorUpdate, ACTOR_BG_DDAN_KD, isConnected, [&](void* refActor, bool* should) {
+        BgDdanKd* actor = static_cast<BgDdanKd*>(refActor);
+
+        if (actor->actionFunc == BgDdanKd_CheckForExplosions && Flags_GetSwitch(gPlayState, actor->dyna.actor.params)) {
+            actor->actionFunc = BgDdanKd_LowerStairs;
+        }
+    });
+
+    // Golden Gauntlets pillar a teammate threw
+    COND_ID_HOOK(ShouldActorUpdate, ACTOR_BG_HEAVY_BLOCK, isConnected, [&](void* refActor, bool* should) {
+        BgHeavyBlock* actor = static_cast<BgHeavyBlock*>(refActor);
+
+        if ((actor->dyna.actor.params & 0xFF) == HEAVYBLOCK_BREAKABLE && actor->actionFunc == BgHeavyBlock_Wait &&
+            Flags_GetSwitch(gPlayState, (actor->dyna.actor.params >> 8) & 0x3F)) {
+            BgHeavyBlock_SpawnPieces(actor, gPlayState);
+            SoundSource_PlaySfxAtFixedWorldPos(gPlayState, &actor->dyna.actor.world.pos, 40, NA_SE_EV_WALL_BROKEN);
+            Actor_Kill(&actor->dyna.actor);
+            *should = false;
+        }
+    });
+
+    // Spirit Temple face a teammate shone light on
+    COND_ID_HOOK(ShouldActorUpdate, ACTOR_BG_JYA_MEGAMI, isConnected, [&](void* refActor, bool* should) {
+        BgJyaMegami* actor = static_cast<BgJyaMegami*>(refActor);
+
+        if (actor->actionFunc == BgJyaMegami_DetectLight &&
+            Flags_GetSwitch(gPlayState, actor->dyna.actor.params & 0x3F)) {
+            actor->lightTimer = 41;
+        }
+    });
+
+    // Soft soil a teammate planted a bean in
+    COND_ID_HOOK(ShouldActorUpdate, ACTOR_OBJ_BEAN, isConnected, [&](void* refActor, bool* should) {
+        ObjBean* actor = static_cast<ObjBean*>(refActor);
+
+        if (actor->actionFunc == ObjBean_WaitForBean && Flags_GetSwitch(gPlayState, actor->dyna.actor.params & 0x3F)) {
+            func_80B8FE6C(actor);
+        }
+    });
+
+    // Torches: one of a group lit by a teammate, lit here as if by a fire arrow so this group counts it too
+    COND_ID_HOOK(ShouldActorUpdate, ACTOR_OBJ_SYOKUDAI, isConnected, [&](void* refActor, bool* should) {
+        ObjSyokudai* actor = static_cast<ObjSyokudai*>(refActor);
+        uint64_t key;
+
+        if (!sTorchesToLight.empty() && AnchorActorSync::GetActorKey(&actor->actor, &key) &&
+            sTorchesToLight.erase(key) && actor->litTimer == 0) {
+            static ColliderInfo sFireArrow = {};
+            sFireArrow.toucher.dmgFlags = 0x800;
+            actor->colliderFlame.base.acFlags |= AC_HIT;
+            actor->colliderFlame.info.acHitInfo = &sFireArrow;
+            sForced.insert(&actor->actor);
+        }
+        sTorchLitTimer[&actor->actor] = actor->litTimer;
+    });
+
+    COND_ID_HOOK(OnActorUpdate, ACTOR_OBJ_SYOKUDAI, isConnected, [&](void* refActor) {
+        ObjSyokudai* actor = static_cast<ObjSyokudai*>(refActor);
+        uint64_t key;
+
+        auto before = sTorchLitTimer.find(&actor->actor);
+        bool forced = sForced.erase(&actor->actor) > 0;
+        // Timed lighting only: a finished group sets its flag, which syncs by itself
+        if (before != sTorchLitTimer.end() && before->second == 0 && actor->litTimer > 0 && !forced &&
+            AnchorActorSync::GetActorKey(&actor->actor, &key)) {
+            SendPacket_WorldEvent(WORLD_EVENT_TORCH_LIT, key);
+        }
+    });
+
+    // Silver rupees: each one collected counts for everyone in the room
+    COND_ID_HOOK(ShouldActorUpdate, ACTOR_EN_G_SWITCH, isConnected, [&](void* refActor, bool* should) {
+        EnGSwitch* actor = static_cast<EnGSwitch*>(refActor);
+        if (actor->type == ENGSWITCH_SILVER_RUPEE) {
+            sSilverAction[&actor->actor] = (void*)actor->actionFunc;
+        }
+    });
+
+    COND_VB_SHOULD(VB_SILVER_COLLECT, isConnected, {
+        EnGSwitch* actor = va_arg(args, EnGSwitch*);
+        uint64_t key;
+
+        if (!*should && !sSilverRupeesToCollect.empty() && !SilverRupeesShuffled() &&
+            AnchorActorSync::GetActorKey(&actor->actor, &key) && sSilverRupeesToCollect.erase(key)) {
+            *should = true;
+            sForced.insert(&actor->actor);
+        }
+    });
+
+    COND_ID_HOOK(OnActorUpdate, ACTOR_EN_G_SWITCH, isConnected, [&](void* refActor) {
+        EnGSwitch* actor = static_cast<EnGSwitch*>(refActor);
+        uint64_t key;
+
+        if (actor->type != ENGSWITCH_SILVER_RUPEE) {
+            return;
+        }
+        auto before = sSilverAction.find(&actor->actor);
+        bool forced = sForced.erase(&actor->actor) > 0;
+        if (before != sSilverAction.end() && before->second == (void*)EnGSwitch_SilverRupeeIdle &&
+            actor->actionFunc == EnGSwitch_SilverRupeeCollected && !forced && !SilverRupeesShuffled() &&
+            AnchorActorSync::GetActorKey(&actor->actor, &key)) {
+            SendPacket_WorldEvent(WORLD_EVENT_SILVER_RUPEE, key);
+        }
+    });
+
+    COND_HOOK(OnActorDestroy, isConnected, [&](void* refActor) {
+        Actor* actor = static_cast<Actor*>(refActor);
+        if (actor->id == ACTOR_OBJ_SYOKUDAI || actor->id == ACTOR_EN_G_SWITCH) {
+            sTorchLitTimer.erase(actor);
+            sSilverAction.erase(actor);
+            sForced.erase(actor);
         }
     });
 }

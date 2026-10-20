@@ -125,6 +125,7 @@ class Anchor : public Network {
     void HandlePacket_UpdateRoomState(nlohmann::json payload);
     void HandlePacket_UpdateTeamState(nlohmann::json payload);
     void HandlePacket_MergeTeamState(nlohmann::json payload);
+    void HandlePacket_WorldEvent(nlohmann::json payload);
 
     // World, flag and key item sync (WorldSync.h)
     bool pendingTeamStatePush = false;
@@ -169,6 +170,7 @@ class Anchor : public Network {
     inline static const std::string BOSS_HIT = "BOSS_HIT";
     inline static const std::string BOSS_DEFEATED = "BOSS_DEFEATED";
     inline static const std::string MERGE_TEAM_STATE = "MERGE_TEAM_STATE";
+    inline static const std::string WORLD_EVENT = "WORLD_EVENT";
 
     static Anchor* Instance;
     std::map<uint32_t, AnchorClient> clients;
@@ -209,6 +211,7 @@ class Anchor : public Network {
     void SendPacket_UpdateRoomState();
     void SendPacket_UpdateTeamState();
     void SendPacket_MergeTeamState();
+    void SendPacket_WorldEvent(u8 kind, uint64_t actorKey);
 };
 
 typedef enum {

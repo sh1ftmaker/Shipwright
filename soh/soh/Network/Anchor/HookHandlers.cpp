@@ -250,7 +250,7 @@ void Anchor::RegisterHooks() {
 
     // #endregion
 
-    // Team state pushes and bean planting (WorldSync.cpp)
+    // Team state pushes, bean planting and live world updates (WorldSync.cpp)
     RegisterWorldSyncHooks();
 
     // #region Hooks that are purely to sync actor states across the clients, not super essential
