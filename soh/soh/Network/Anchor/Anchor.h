@@ -8,7 +8,9 @@
 #include <ship/window/gui/GuiWindow.h>
 #include <spdlog/spdlog.h>
 #include <queue>
+#include <deque>
 #include <mutex>
+#include <unordered_set>
 
 extern "C" {
 #include "variables.h"
@@ -96,7 +98,18 @@ class Anchor : public Network {
     std::mutex incomingPacketQueueMutex;
     std::queue<nlohmann::json> outgoingPacketQueue;
     std::mutex outgoingPacketQueueMutex;
+    // Save changes (IsDurablePacket) sent on this connection that the server isn't known to have handled yet. A PING
+    // carrying the last one's number comes back once it has; after a drop, the rest go out again.
+    std::deque<std::pair<uint32_t, nlohmann::json>> unackedPackets;
+    uint32_t sentDurablePackets = 0;
+    // Save changes get an ID ("pid", unique per page), so receivers can skip one that comes twice
+    std::string packetIdPrefix;
+    uint32_t packetIdCount = 0;
+    std::unordered_set<std::string> seenPacketIds;
+    std::queue<std::string> seenPacketIdOrder;
 
+    bool IsDurablePacket(const nlohmann::json& payload);
+    bool MarkPacketSeen(const std::string& packetId);
     nlohmann::json PrepClientState();
     nlohmann::json PrepRoomState();
     void RegisterHooks();

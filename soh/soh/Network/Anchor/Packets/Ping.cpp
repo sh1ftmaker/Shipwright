@@ -23,6 +23,10 @@ void Anchor::SendPacket_Ping() {
     payload["targetClientId"] = ownClientId;
     payload["quiet"] = true;
     payload["sentAt"] = emscripten_get_now();
+    // Its return confirms the save changes sent before it (Anchor::unackedPackets)
+    if (!unackedPackets.empty()) {
+        payload["ack"] = unackedPackets.back().first;
+    }
 
     lastPingTime = emscripten_get_now();
     Network::SendJsonToRemote(payload);
@@ -33,6 +37,12 @@ void Anchor::HandlePacket_Ping(nlohmann::json payload) {
 #ifdef __EMSCRIPTEN__
     if (payload.contains("sentAt")) {
         pingMs = (int)(emscripten_get_now() - payload["sentAt"].get<double>());
+    }
+    if (payload.contains("ack")) {
+        uint32_t ack = payload["ack"].get<uint32_t>();
+        while (!unackedPackets.empty() && unackedPackets.front().first <= ack) {
+            unackedPackets.pop_front();
+        }
     }
 #endif
 }

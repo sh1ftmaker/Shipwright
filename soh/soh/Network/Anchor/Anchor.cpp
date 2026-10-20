@@ -3,6 +3,7 @@
 #include "Anchor.h"
 #include "soh/Enhancements/nametag.h"
 #include "soh/ObjectExtension/ObjectExtension.h"
+#include <random>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -46,10 +47,25 @@ void Anchor::Enable() {
     ownClientId = CVarGetInteger(CVAR_REMOTE_ANCHOR("LastClientId"), 0);
 #endif
     roomState.ownerClientId = 0;
+
+    if (packetIdPrefix.empty()) {
+        std::random_device random;
+        char prefix[16];
+        snprintf(prefix, sizeof(prefix), "%08x-", (unsigned)random());
+        packetIdPrefix = prefix;
+    }
+    // Save changes are sent (or held) from now on, connected or not
+    RegisterHooks();
 }
 
 void Anchor::Disable() {
     Network::Disable();
+
+    {
+        std::lock_guard<std::mutex> lock(outgoingPacketQueueMutex);
+        outgoingPacketQueue = {};
+    }
+    unackedPackets.clear();
 
     clients.clear();
     RefreshClientActors();
@@ -107,9 +123,21 @@ void Anchor::OnDisconnected() {
     shouldRefreshActors = true;
     AnchorActorSync::Reset();
 
+    // Save changes the server may not have got go out again after reconnecting, in order and ahead of anything newer
+    // (receivers skip items they already got, see ProcessIncomingPacketQueue). Everything else would be stale by then.
     {
         std::lock_guard<std::mutex> lock(outgoingPacketQueueMutex);
-        outgoingPacketQueue = {};
+        std::queue<nlohmann::json> keep;
+        for (auto& [seq, payload] : unackedPackets) {
+            keep.push(payload);
+        }
+        unackedPackets.clear();
+        for (; !outgoingPacketQueue.empty(); outgoingPacketQueue.pop()) {
+            if (IsDurablePacket(outgoingPacketQueue.front())) {
+                keep.push(outgoingPacketQueue.front());
+            }
+        }
+        outgoingPacketQueue.swap(keep);
     }
 
     RegisterHooks();
@@ -145,6 +173,7 @@ void Anchor::ProcessOutgoingPackets() {
     }
 
     // Send packets without holding the lock
+    bool sentDurable = false;
     while (!packetsToSend.empty()) {
         nlohmann::json payload = packetsToSend.front();
         packetsToSend.pop();
@@ -154,12 +183,40 @@ void Anchor::ProcessOutgoingPackets() {
         if (!payload.contains("quiet")) {
             SPDLOG_DEBUG("[Anchor] Sending payload:\n{}", payload.dump());
         }
+#ifdef __EMSCRIPTEN__
+        if (payload.contains("pid")) {
+            unackedPackets.emplace_back(++sentDurablePackets, payload);
+            sentDurable = true;
+        }
+#endif
         Network::SendJsonToRemote(payload);
+    }
+
+    // The server handles a connection's packets in order, so this coming back confirms the ones before it
+    if (sentDurable) {
+        SendPacket_Ping();
     }
 }
 
+bool Anchor::IsDurablePacket(const nlohmann::json& payload) {
+    std::string type = payload.value("type", "");
+    return payload.value("addToQueue", false) || type == ENTRANCE_DISCOVERED || type == GAME_COMPLETE;
+}
+
+bool Anchor::MarkPacketSeen(const std::string& packetId) {
+    if (!seenPacketIds.insert(packetId).second) {
+        return false;
+    }
+    seenPacketIdOrder.push(packetId);
+    if (seenPacketIdOrder.size() > 4096) {
+        seenPacketIds.erase(seenPacketIdOrder.front());
+        seenPacketIdOrder.pop();
+    }
+    return true;
+}
+
 void Anchor::SendJsonToRemote(nlohmann::json payload) {
-    if (!isConnected) {
+    if (!isEnabled) {
         return;
     }
 
@@ -170,9 +227,15 @@ void Anchor::SendJsonToRemote(nlohmann::json payload) {
         return;
     }
 
-    // Until the server has given us our ID, positions and the like would only be stale by the time they go out
-    if (!sessionReady && IsRealtimePacket(packetType)) {
+    // While disconnected, save changes wait to go out after reconnecting, so teammates still get them. Anything
+    // else would be stale by then; the handshake sends our current state. Until the server has given us our ID,
+    // positions and the like are dropped too.
+    bool durable = IsDurablePacket(payload);
+    if ((!isConnected && !durable) || (!sessionReady && IsRealtimePacket(packetType))) {
         return;
+    }
+    if (durable) {
+        payload["pid"] = packetIdPrefix + std::to_string(++packetIdCount);
     }
 
     if (!payload.contains("quiet")) {
@@ -182,6 +245,10 @@ void Anchor::SendJsonToRemote(nlohmann::json payload) {
     // Queue the packet to be sent on the network thread
     std::lock_guard<std::mutex> lock(outgoingPacketQueueMutex);
     outgoingPacketQueue.push(payload);
+    // A very long time offline: keep the newest
+    while (outgoingPacketQueue.size() > 4096) {
+        outgoingPacketQueue.pop();
+    }
 }
 
 void Anchor::OnIncomingJson(nlohmann::json payload) {
@@ -238,6 +305,12 @@ void Anchor::ProcessIncomingPacketQueue() {
         packetsToProcess.pop();
 
         std::string packetType = payload["type"].get<std::string>();
+
+        // A teammate's item can come twice: sent again after their connection dropped, or replayed from the team
+        // queue after we got it live. Other save changes set values, so applying them twice does no harm.
+        if (packetType == GIVE_ITEM && payload.contains("pid") && !MarkPacketSeen(payload["pid"].get<std::string>())) {
+            continue;
+        }
 
         isProcessingIncomingPacket = true;
 
