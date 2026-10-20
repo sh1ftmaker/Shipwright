@@ -665,3 +665,21 @@ void Anchor::RegisterWorldSyncHooks() {
         }
     });
 }
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+// For automated browser tests (tools/web-test)
+extern "C" {
+
+// Ask the team (or the server) for its state again, like loading the save does
+EMSCRIPTEN_KEEPALIVE int web_debug_anchor_request_team_state(void) {
+    if (Anchor::Instance == nullptr || !Anchor::Instance->isConnected) {
+        return 0;
+    }
+    Anchor::Instance->SendPacket_RequestTeamState();
+    return 1;
+}
+
+} // extern "C"
+#endif
