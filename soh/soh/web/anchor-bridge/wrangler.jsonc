@@ -3,6 +3,11 @@
   "name": "soh-anchor-bridge",
   "main": "src/index.js",
   "compatibility_date": "2026-10-01",
+  "durable_objects": {
+    "bindings": [{ "name": "RELAY", "class_name": "AnchorRelay" }]
+  },
+  // Free plan Durable Objects must use the SQLite backend (nothing is stored either way)
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AnchorRelay"] }],
   "vars": {
     "ANCHOR_HOST": "anchor.hm64.org",
     "ANCHOR_PORT": "43383"

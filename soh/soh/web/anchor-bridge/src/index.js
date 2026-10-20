@@ -6,9 +6,14 @@
  * messages separated by NUL bytes; each WebSocket text message is one of those JSON messages. The room comes
  * from the client's HANDSHAKE packet, so web and desktop players in the same room meet.
  *
+ * Each connection is relayed by its own Durable Object. A plain Worker counts a whole WebSocket as one request, so
+ * on the free plan (10 ms of CPU per request) Cloudflare cut connections after a few seconds of gameplay traffic;
+ * a Durable Object gets fresh CPU time with every incoming WebSocket message.
+ *
  * Nothing is stored: each WebSocket gets its own TCP connection and both close together.
  */
 import { connect } from "cloudflare:sockets";
+import { DurableObject } from "cloudflare:workers";
 
 export default {
   async fetch(request, env) {
@@ -17,7 +22,14 @@ export default {
         headers: { "content-type": "text/plain" },
       });
     }
+    const relay = env.RELAY.get(env.RELAY.newUniqueId());
+    return relay.fetch(request);
+  },
+};
 
+export class AnchorRelay extends DurableObject {
+  async fetch(request) {
+    const env = this.env;
     const host = env.ANCHOR_HOST || "anchor.hm64.org";
     const port = Number(env.ANCHOR_PORT || 43383);
 
@@ -77,5 +89,5 @@ export default {
     })();
 
     return new Response(null, { status: 101, webSocket: client });
-  },
-};
+  }
+}
