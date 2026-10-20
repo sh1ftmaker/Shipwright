@@ -52,11 +52,19 @@ void Anchor::Disable() {
 }
 
 void Anchor::OnConnected() {
+    // Everything but the handshake waits until the server has given us our ID (sessionReady, ALL_CLIENT_STATE)
+    sessionReady = false;
+    {
+        std::lock_guard<std::mutex> lock(incomingPacketQueueMutex);
+        incomingPacketQueue = {};
+    }
     SendPacket_Handshake();
     RegisterHooks();
 
+    // Requested once the room state has arrived (HandlePacket_UpdateRoomState): it depends on the room's settings,
+    // which a page that just connected doesn't know yet
+    pendingTeamStateRequest = true;
     if (IsSaveLoaded()) {
-        SendPacket_RequestTeamState();
         AutoEquipSwordAndShield();
     }
 }
@@ -82,10 +90,32 @@ void Anchor::AutoEquipSwordAndShield() {
 }
 
 void Anchor::OnDisconnected() {
+    sessionReady = false;
+    pendingTeamStateRequest = false;
+
+    // Nobody else is here until the server says so again (ALL_CLIENT_STATE after reconnecting): their dummies and
+    // compass icons go away and no teleports are offered. Actor states from before the drop are stale.
+    for (auto& [clientId, client] : clients) {
+        if (!client.self) {
+            client.online = false;
+        }
+    }
+    shouldRefreshActors = true;
+    AnchorActorSync::Reset();
+
+    {
+        std::lock_guard<std::mutex> lock(outgoingPacketQueueMutex);
+        outgoingPacketQueue = {};
+    }
+
     RegisterHooks();
 }
 
 void Anchor::ProcessOutgoingPackets() {
+    if (!isConnected || !sessionReady) {
+        return;
+    }
+
     // Copy all queued packets while holding the lock, then send them after releasing
     std::queue<nlohmann::json> packetsToSend;
     {
@@ -98,6 +128,8 @@ void Anchor::ProcessOutgoingPackets() {
         nlohmann::json payload = packetsToSend.front();
         packetsToSend.pop();
 
+        // Set when sending rather than when queueing, as packets queued before the server gave us our ID had none
+        payload["clientId"] = ownClientId;
         if (!payload.contains("quiet")) {
             SPDLOG_DEBUG("[Anchor] Sending payload:\n{}", payload.dump());
         }
@@ -110,14 +142,20 @@ void Anchor::SendJsonToRemote(nlohmann::json payload) {
         return;
     }
 
-    payload["clientId"] = ownClientId;
-    if (!payload.contains("quiet")) {
-        SPDLOG_DEBUG("[Anchor] Queuing payload:\n{}", payload.dump());
-    }
-
-    if (payload["type"] == HANDSHAKE) {
+    std::string packetType = payload["type"].get<std::string>();
+    if (packetType == HANDSHAKE) {
+        payload["clientId"] = ownClientId;
         Network::SendJsonToRemote(payload);
         return;
+    }
+
+    // Until the server has given us our ID, positions and the like would only be stale by the time they go out
+    if (!sessionReady && IsRealtimePacket(packetType)) {
+        return;
+    }
+
+    if (!payload.contains("quiet")) {
+        SPDLOG_DEBUG("[Anchor] Queuing payload:\n{}", payload.dump());
     }
 
     // Queue the packet to be sent on the network thread
@@ -293,6 +331,11 @@ void Anchor::RefreshClientActors() {
         client.player = (Player*)dummy;
     }
     spawningDummyPlayerForClientId = 0;
+}
+
+bool Anchor::IsRealtimePacket(const std::string& type) {
+    return type == PLAYER_UPDATE || type == PLAYER_SFX || type == OCARINA_SFX || type == ACTOR_STATE ||
+           type == BLOCK_POS || type == BOSS_STATE;
 }
 
 bool Anchor::IsSaveLoaded() {

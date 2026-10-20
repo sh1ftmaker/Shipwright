@@ -12,6 +12,10 @@ bool WebSocketClient::IsConnected() const {
     return mConnected;
 }
 
+bool WebSocketClient::IsConnecting() const {
+    return mConnecting;
+}
+
 bool WebSocketClient::Poll(std::string& outMessage) {
     std::lock_guard<std::mutex> lock(mQueueMutex);
     if (mIncomingQueue.empty()) {
@@ -34,6 +38,11 @@ bool WebSocketClient::Connect(const std::string& url) {
         emscripten_websocket_delete(mSocket);
         mSocket = 0;
     }
+    // Messages the old socket left behind belong to the old session
+    {
+        std::lock_guard<std::mutex> lock(mQueueMutex);
+        mIncomingQueue = {};
+    }
 
     EmscriptenWebSocketCreateAttributes attrs;
     attrs.url = url.c_str();
@@ -50,6 +59,7 @@ bool WebSocketClient::Connect(const std::string& url) {
     emscripten_websocket_set_onmessage_callback(mSocket, this, OnMessage);
     emscripten_websocket_set_onclose_callback(mSocket, this, OnClose);
     emscripten_websocket_set_onerror_callback(mSocket, this, OnError);
+    mConnecting = true;
 
     SPDLOG_INFO("[WebSocket] Connecting to {}", url);
     return true;
@@ -62,6 +72,7 @@ void WebSocketClient::Disconnect() {
         mSocket = 0;
     }
     mConnected = false;
+    mConnecting = false;
 }
 
 void WebSocketClient::Send(const std::string& data) {
@@ -77,6 +88,7 @@ EM_BOOL WebSocketClient::OnOpen(int eventType, const EmscriptenWebSocketOpenEven
         return EM_TRUE; // An old socket
     }
     self->mConnected = true;
+    self->mConnecting = false;
     SPDLOG_INFO("[WebSocket] Connected!");
     if (self->mOnConnect) {
         self->mOnConnect();
@@ -103,6 +115,7 @@ EM_BOOL WebSocketClient::OnClose(int eventType, const EmscriptenWebSocketCloseEv
         return EM_TRUE;
     }
     self->mConnected = false;
+    self->mConnecting = false;
     std::string reason = event->reason ? event->reason : "";
     SPDLOG_INFO("[WebSocket] Disconnected (code={}, reason={})", event->code, reason);
     if (self->mOnDisconnect) {

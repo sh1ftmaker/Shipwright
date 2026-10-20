@@ -31,6 +31,8 @@ class WebSocketClient {
     bool Connect(const std::string& url);
     void Disconnect();
     bool IsConnected() const;
+    // Opening: created but neither open nor closed yet
+    bool IsConnecting() const;
     void Send(const std::string& data);
 
     // Poll for received messages (call from main thread)
@@ -41,6 +43,7 @@ class WebSocketClient {
 
   private:
     bool mConnected = false;
+    bool mConnecting = false;
     std::queue<std::string> mIncomingQueue;
     std::mutex mQueueMutex;
 

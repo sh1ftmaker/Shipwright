@@ -53,4 +53,10 @@ void Anchor::HandlePacket_UpdateRoomState(nlohmann::json payload) {
     roomState.syncItemsAndFlags = payload["state"]["syncItemsAndFlags"].get<u8>();
     // Rooms made by builds without actor sync don't have it
     roomState.syncActors = payload["state"].value("syncActors", (u8)0);
+
+    // Once per connection (OnConnected), now that we know whether the room syncs items and flags
+    if (pendingTeamStateRequest) {
+        pendingTeamStateRequest = false;
+        SendPacket_RequestTeamState();
+    }
 }

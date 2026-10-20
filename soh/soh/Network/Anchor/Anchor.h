@@ -88,6 +88,7 @@ class Anchor : public Network {
     bool shouldRefreshActors = false;
     bool justLoadedSave = false;
     uint16_t framesSinceLoad = 0;
+    bool pendingTeamStateRequest = false;
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
     std::queue<nlohmann::json> incomingPacketQueue;
@@ -126,6 +127,8 @@ class Anchor : public Network {
 
   public:
     uint32_t ownClientId;
+    // The server has accepted this connection and given us our ID (first ALL_CLIENT_STATE). Packets wait for it.
+    bool sessionReady = false;
     bool teleportToOwnerOnLoad = false; // Set by web join links
     inline static const std::string clientVersion = (char*)gGitCommitHash;
 
@@ -176,6 +179,9 @@ class Anchor : public Network {
     void ProcessIncomingPacketQueue();
     void SendJsonToRemote(nlohmann::json packet);
     bool IsSaveLoaded();
+    // Positions, sounds and actor/boss states, sent many times a second: only worth anything right now, so they're
+    // never held back or replayed (one-off events like kills and hits aren't)
+    static bool IsRealtimePacket(const std::string& type);
     bool CanTeleportTo(uint32_t clientId);
     uint32_t GetDummyPlayerClientId(const Actor* actor);
 

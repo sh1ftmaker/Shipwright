@@ -19,7 +19,8 @@ class Network {
     void PollWebSocket();
     std::string wsUrl;
     int reconnectAttempts = 0;
-    bool reconnectScheduled = false;
+    int reconnectTimer = 0;
+    double reconnectTime = 0;
     void ScheduleReconnect();
 #else
     IPaddress networkAddress;
@@ -51,6 +52,13 @@ class Network {
     void EnableWebSocket(const std::string& url);
     // Poll for incoming WebSocket messages (call from game thread)
     void PollIncoming();
+    // Connect straight away instead of waiting for the next scheduled attempt
+    void ReconnectNow();
+    // Call once the server has accepted the connection, so the next drop starts again from the shortest wait
+    void ResetReconnectBackoff();
+    int GetReconnectAttempts() const;
+    // Milliseconds until the next scheduled attempt, 0 if none is scheduled
+    double GetReconnectDelay() const;
 #endif
 };
 
