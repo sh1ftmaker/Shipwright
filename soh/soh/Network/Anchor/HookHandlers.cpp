@@ -91,17 +91,18 @@ void Anchor::RegisterHooks() {
             SendPacket_RequestTeamState();
         }
 
-        // Join links send the player to the room owner once, after the team state has had time to arrive.
-        // Give up after about 30 seconds (owner not loaded in, in a blocked scene, teleport off, ...)
+        // Join links send the player to the room owner (or a teammate, if the owner isn't in the game) once, after
+        // the team state has had time to arrive. Give up after about 30 seconds (nobody loaded in, in a blocked
+        // scene, teleport off, ...)
         if (teleportToOwnerOnLoad && IsSaveLoaded() && ++framesSinceLoad >= 40) {
-            uint32_t ownerId = roomState.ownerClientId;
-            if ((ownerId != 0 && ownerId == ownClientId) || framesSinceLoad > 600) {
+            uint32_t targetId = roomState.ownerClientId != 0 ? GetJoinTeleportTarget() : 0;
+            if ((targetId != 0 && targetId == ownClientId) || framesSinceLoad > 600) {
                 teleportToOwnerOnLoad = false;
-            } else if (ownerId != 0 && CanTeleportTo(ownerId) && clients[ownerId].clientVersion == clientVersion &&
+            } else if (targetId != 0 && CanTeleportTo(targetId) && clients[targetId].clientVersion == clientVersion &&
                        !GameInteractor::IsGameplayPaused() && gPlayState->transitionTrigger == TRANS_TRIGGER_OFF &&
                        gPlayState->transitionMode == TRANS_MODE_OFF) {
                 teleportToOwnerOnLoad = false;
-                SendPacket_RequestTeleport(ownerId);
+                SendPacket_RequestTeleport(targetId);
             }
         }
 
@@ -127,15 +128,17 @@ void Anchor::RegisterHooks() {
     COND_HOOK(OnOcarinaNote, isConnected,
               [&](uint8_t note, float modulator, int8_t bend) { SendPacket_OcarinaSfx(note, modulator, bend); });
 
-    COND_HOOK(OnLoadGame, isConnected, [&](s16 fileNum) { justLoadedSave = true; });
+    // Save changes keep being sent while the connection is down: Anchor::SendJsonToRemote holds them until it's back
 
-    COND_HOOK(OnSaveFile, isConnected, [&](s16 fileNum, int sectionID) {
+    COND_HOOK(OnLoadGame, isEnabled, [&](s16 fileNum) { justLoadedSave = true; });
+
+    COND_HOOK(OnSaveFile, isEnabled, [&](s16 fileNum, int sectionID) {
         if (sectionID == 0) {
             SendPacket_UpdateTeamState();
         }
     });
 
-    COND_HOOK(OnFlagSet, isConnected, [&](s16 flagType, s16 flag) {
+    COND_HOOK(OnFlagSet, isEnabled, [&](s16 flagType, s16 flag) {
         SendPacket_SetFlag(SCENE_ID_MAX, flagType, flag);
 
         // If we're not in rando, we have to sync some of the great fairy rewards manually
@@ -156,33 +159,33 @@ void Anchor::RegisterHooks() {
         }
     });
 
-    COND_HOOK(OnFlagUnset, isConnected,
+    COND_HOOK(OnFlagUnset, isEnabled,
               [&](s16 flagType, s16 flag) { SendPacket_UnsetFlag(SCENE_ID_MAX, flagType, flag); });
 
-    COND_HOOK(OnSceneFlagSet, isConnected,
+    COND_HOOK(OnSceneFlagSet, isEnabled,
               [&](s16 sceneNum, s16 flagType, s16 flag) { SendPacket_SetFlag(sceneNum, flagType, flag); });
 
-    COND_HOOK(OnSceneFlagUnset, isConnected,
+    COND_HOOK(OnSceneFlagUnset, isEnabled,
               [&](s16 sceneNum, s16 flagType, s16 flag) { SendPacket_UnsetFlag(sceneNum, flagType, flag); });
 
-    COND_HOOK(OnRandoSetCheckStatus, isConnected, [&](RandomizerCheck rc, RandomizerCheckStatus status) {
+    COND_HOOK(OnRandoSetCheckStatus, isEnabled, [&](RandomizerCheck rc, RandomizerCheckStatus status) {
         if (!isHandlingUpdateTeamState) {
             SendPacket_SetCheckStatus(rc);
         }
     });
 
-    COND_HOOK(OnRandoSetIsSkipped, isConnected, [&](RandomizerCheck rc, bool isSkipped) {
+    COND_HOOK(OnRandoSetIsSkipped, isEnabled, [&](RandomizerCheck rc, bool isSkipped) {
         if (!isHandlingUpdateTeamState) {
             SendPacket_SetCheckStatus(rc);
         }
     });
 
-    COND_HOOK(OnRandoEntranceDiscovered, isConnected,
+    COND_HOOK(OnRandoEntranceDiscovered, isEnabled,
               [&](u16 entranceIndex, u8 isReversedEntrance) { SendPacket_EntranceDiscovered(entranceIndex); });
 
-    COND_ID_HOOK(OnBossDefeat, ACTOR_BOSS_GANON2, isConnected, [&](void* refActor) { SendPacket_GameComplete(); });
+    COND_ID_HOOK(OnBossDefeat, ACTOR_BOSS_GANON2, isEnabled, [&](void* refActor) { SendPacket_GameComplete(); });
 
-    COND_HOOK(OnItemReceive, isConnected, [&](GetItemEntry itemEntry) {
+    COND_HOOK(OnItemReceive, isEnabled, [&](GetItemEntry itemEntry) {
         // Handle vanilla dungeon items a bit differently
         if (itemEntry.modIndex == MOD_NONE &&
             (itemEntry.itemId >= ITEM_KEY_BOSS && itemEntry.itemId <= ITEM_KEY_SMALL)) {
@@ -193,7 +196,7 @@ void Anchor::RegisterHooks() {
         SendPacket_GiveItem(itemEntry.tableId, itemEntry.getItemId);
     });
 
-    COND_HOOK(OnDungeonKeyUsed, isConnected, [&](uint16_t mapIndex) {
+    COND_HOOK(OnDungeonKeyUsed, isEnabled, [&](uint16_t mapIndex) {
         // Handle vanilla dungeon items a bit differently
         SendPacket_UpdateDungeonItems();
     });

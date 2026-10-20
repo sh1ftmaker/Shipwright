@@ -51,6 +51,7 @@ void Anchor::HandlePacket_AllClientState(nlohmann::json payload) {
         clients[client.clientId].seed = client.seed;
         clients[client.clientId].isSaveLoaded = client.isSaveLoaded;
         clients[client.clientId].isGameComplete = client.isGameComplete;
+        clients[client.clientId].paused = client.paused;
         clients[client.clientId].sceneNum = client.sceneNum;
         clients[client.clientId].entranceIndex = client.entranceIndex;
     }
@@ -69,4 +70,8 @@ void Anchor::HandlePacket_AllClientState(nlohmann::json payload) {
     }
 
     shouldRefreshActors = true;
+
+    if (!sessionReady) {
+        OnSessionReady();
+    }
 }

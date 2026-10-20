@@ -6,14 +6,25 @@
  * messages separated by NUL bytes; each WebSocket text message is one of those JSON messages. The room comes
  * from the client's HANDSHAKE packet, so web and desktop players in the same room meet.
  *
+ * Newer clients send all the packets of a frame in one WebSocket message, one JSON packet per line (JSON as the
+ * client writes it has no raw newlines); older ones send one packet per message, which reads the same. Incoming
+ * WebSocket messages are what the Durable Object is billed for.
+ *
  * Each connection is relayed by its own Durable Object. A plain Worker counts a whole WebSocket as one request, so
  * on the free plan (10 ms of CPU per request) Cloudflare cut connections after a few seconds of gameplay traffic;
  * a Durable Object gets fresh CPU time with every incoming WebSocket message.
  *
  * Nothing is stored: each WebSocket gets its own TCP connection and both close together.
+ *
+ * Clients that send keepalives (PING, every 3 s) are closed after IDLE_TIMEOUT_MS without a message, so a browser
+ * that vanished without closing (wifi gone, phone asleep) shows up as offline to the others quickly; otherwise the
+ * server would keep it "online" until a write failed, which can take minutes. Older clients don't send keepalives,
+ * so this only starts once one has been seen.
  */
 import { connect } from "cloudflare:sockets";
 import { DurableObject } from "cloudflare:workers";
+
+const IDLE_TIMEOUT_MS = 30000;
 
 export default {
   async fetch(request, env) {
@@ -48,19 +59,33 @@ export class AnchorRelay extends DurableObject {
     const writer = socket.writable.getWriter();
     const encoder = new TextEncoder();
     let closed = false;
+    let idleTimer;
     const closeBoth = (code, reason) => {
       if (closed) return;
       closed = true;
+      clearInterval(idleTimer);
       try { server.close(code, reason); } catch {}
       try { writer.releaseLock(); } catch {}
       socket.close().catch(() => {});
     };
 
-    // Browser -> Anchor server: one JSON message per WebSocket message, NUL-terminated on the wire
+    // Browser -> Anchor server: one JSON packet per line of a WebSocket message, NUL-terminated on the wire
     let writing = Promise.resolve();
+    let lastMessage = Date.now();
+    let sendsKeepalives = false;
     server.addEventListener("message", (event) => {
       const text = typeof event.data === "string" ? event.data : new TextDecoder().decode(event.data);
-      writing = writing.then(() => writer.write(encoder.encode(text + "\0"))).catch(() => closeBoth(1011, "server write failed"));
+      lastMessage = Date.now();
+      if (!sendsKeepalives && text.includes('"PING"')) {
+        sendsKeepalives = true;
+        idleTimer = setInterval(() => {
+          if (Date.now() - lastMessage > IDLE_TIMEOUT_MS) closeBoth(4000, "browser went quiet");
+        }, 5000);
+      }
+      const lines = text.split("\n").filter((line) => line.length);
+      if (!lines.length) return;
+      const packets = lines.join("\0") + "\0";
+      writing = writing.then(() => writer.write(encoder.encode(packets))).catch(() => closeBoth(1011, "server write failed"));
     });
     server.addEventListener("close", () => closeBoth(1000, "client closed"));
     server.addEventListener("error", () => closeBoth(1011, "client error"));

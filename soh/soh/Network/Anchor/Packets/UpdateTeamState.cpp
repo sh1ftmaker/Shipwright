@@ -324,6 +324,11 @@ void Anchor::HandlePacket_UpdateTeamState(nlohmann::json payload) {
         std::lock_guard<std::mutex> lock(incomingPacketQueueMutex);
         for (auto& item : payload["queue"]) {
             nlohmann::json itemPayload = nlohmann::json::parse(item.get<std::string>());
+            // Our own items are in our inventory since we got them (and the state above keeps them), so giving them
+            // again would double them. Our own flags are replayed: the state above may have reset scene flags.
+            if (itemPayload.value("clientId", 0u) == ownClientId && itemPayload.value("type", "") == GIVE_ITEM) {
+                continue;
+            }
             incomingPacketQueue.push(itemPayload);
         }
     }

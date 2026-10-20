@@ -27,7 +27,10 @@ export default async ({ page, sleep, log }) => {
     const A = page;
     const B = await ctxB.newPage();
 
-    const gameState = (p) => p.evaluate(() => ({ gameState: Module._web_debug_get(13), fileNum: Module._web_debug_get(10) }));
+    // Calling into the game before its runtime is up aborts it (ASSERTIONS), so check first
+    const gameState = (p) =>
+        p.evaluate(() => (typeof Module !== 'undefined' && Module.calledRun
+            ? { gameState: Module._web_debug_get(13), fileNum: Module._web_debug_get(10) } : {}));
     const actors = async (p) => JSON.parse(await p.evaluate(() => UTF8ToString(Module._web_debug_actor_sync())));
     const warp = async (e) => {
         await A.evaluate((e) => Module._web_debug_warp(e), e);

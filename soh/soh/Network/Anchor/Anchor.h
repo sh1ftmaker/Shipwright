@@ -8,7 +8,9 @@
 #include <ship/window/gui/GuiWindow.h>
 #include <spdlog/spdlog.h>
 #include <queue>
+#include <deque>
 #include <mutex>
+#include <unordered_set>
 
 extern "C" {
 #include "variables.h"
@@ -21,6 +23,14 @@ extern "C" {
 #ifndef SOH_WEB_ANCHOR_URL
 #define SOH_WEB_ANCHOR_URL "wss://soh-anchor-bridge.sh1ftmaker.workers.dev"
 #endif
+
+// The browser side of Anchor (AnchorWeb.cpp)
+namespace AnchorWeb {
+void Init();
+// The ID this tab was given before a reload, if no other tab is using it (0 otherwise)
+uint32_t GetStoredClientId();
+void StoreClientId(uint32_t clientId);
+} // namespace AnchorWeb
 #endif
 
 void DummyPlayer_Init(Actor* actor, PlayState* play);
@@ -39,6 +49,7 @@ typedef struct {
     uint32_t seed;
     bool isSaveLoaded;
     bool isGameComplete;
+    bool paused; // Web: tab hidden or phone locked, so not playing right now (sent as not having a save loaded)
     s16 sceneNum;
     s8 curRoomNum;
     s32 entranceIndex;
@@ -88,13 +99,32 @@ class Anchor : public Network {
     bool shouldRefreshActors = false;
     bool justLoadedSave = false;
     uint16_t framesSinceLoad = 0;
+    bool pendingTeamStateRequest = false;
+    double lastPingTime = 0;
+    double ownerAwaySince = 0;
+    double disconnectedAt = 0;
+    bool announcedDisconnect = false;
+    std::map<uint32_t, nlohmann::json> pausedPlayerUpdates;
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
     std::queue<nlohmann::json> incomingPacketQueue;
     std::mutex incomingPacketQueueMutex;
     std::queue<nlohmann::json> outgoingPacketQueue;
     std::mutex outgoingPacketQueueMutex;
+    // Save changes (IsDurablePacket) sent on this connection that the server isn't known to have handled yet. A PING
+    // carrying the last one's number comes back once it has; after a drop, the rest go out again.
+    std::deque<std::pair<uint32_t, nlohmann::json>> unackedPackets;
+    uint32_t sentDurablePackets = 0;
+    // Save changes get an ID ("pid", unique per page), so receivers can skip one that comes twice
+    std::string packetIdPrefix;
+    uint32_t packetIdCount = 0;
+    std::unordered_set<std::string> seenPacketIds;
+    std::queue<std::string> seenPacketIdOrder;
 
+    bool IsDurablePacket(const nlohmann::json& payload);
+    bool MarkPacketSeen(const std::string& packetId);
+    nlohmann::json PrepPing();
+    void CheckRoomOwner(double now);
     nlohmann::json PrepClientState();
     nlohmann::json PrepRoomState();
     void RegisterHooks();
@@ -109,6 +139,7 @@ class Anchor : public Network {
     void HandlePacket_GameComplete(nlohmann::json payload);
     void HandlePacket_GiveItem(nlohmann::json payload);
     void HandlePacket_OcarinaSfx(nlohmann::json payload);
+    void HandlePacket_Ping(nlohmann::json payload);
     void HandlePacket_PlayerSfx(nlohmann::json payload);
     void HandlePacket_PlayerUpdate(nlohmann::json payload);
     void HandlePacket_RequestTeamState(nlohmann::json payload);
@@ -126,6 +157,10 @@ class Anchor : public Network {
 
   public:
     uint32_t ownClientId;
+    // The server has accepted this connection and given us our ID (first ALL_CLIENT_STATE). Packets wait for it.
+    bool sessionReady = false;
+    int pingMs = -1; // Round trip of the last keepalive, through the bridge and the server
+    bool isPaused = false; // Web: the tab is hidden, so the game isn't running
     bool teleportToOwnerOnLoad = false; // Set by web join links
     inline static const std::string clientVersion = (char*)gGitCommitHash;
 
@@ -139,6 +174,7 @@ class Anchor : public Network {
     inline static const std::string HANDSHAKE = "HANDSHAKE";
     inline static const std::string OCARINA_SFX = "OCARINA_SFX";
     inline static const std::string PLAYER_SFX = "PLAYER_SFX";
+    inline static const std::string PING = "PING";
     inline static const std::string PLAYER_UPDATE = "PLAYER_UPDATE";
     inline static const std::string REQUEST_TEAM_STATE = "REQUEST_TEAM_STATE";
     inline static const std::string REQUEST_TELEPORT = "REQUEST_TELEPORT";
@@ -170,15 +206,29 @@ class Anchor : public Network {
     void OnIncomingJson(nlohmann::json payload);
     void OnConnected();
     void OnDisconnected();
+    // The server has accepted the connection (first ALL_CLIENT_STATE)
+    void OnSessionReady();
+    // "Connecting...", "Reconnecting in 4s (attempt 3)", ...
+    std::string GetConnectionStatus();
+#ifdef __EMSCRIPTEN__
+    void OnTimerTick();
+    void SetPaused(bool paused);
+#endif
     void AutoEquipSwordAndShield();
     void ProcessOutgoingPackets();
     void DrawMenu();
     void ProcessIncomingPacketQueue();
     void SendJsonToRemote(nlohmann::json packet);
     bool IsSaveLoaded();
+    // Positions, sounds and actor/boss states, sent many times a second: only worth anything right now, so they're
+    // never held back or replayed (one-off events like kills and hits aren't)
+    static bool IsRealtimePacket(const std::string& type);
     bool CanTeleportTo(uint32_t clientId);
+    // Who a join link takes us to: the room owner, or a teammate if the owner isn't in the game
+    uint32_t GetJoinTeleportTarget();
     uint32_t GetDummyPlayerClientId(const Actor* actor);
 
+    void SendPacket_ClaimRoom();
     void SendPacket_ClearTeamState(std::string teamId);
     void SendPacket_DamagePlayer(u32 clientId, u8 damageEffect, u8 damage);
     void SendPacket_EntranceDiscovered(u16 entranceIndex);
@@ -186,6 +236,7 @@ class Anchor : public Network {
     void SendPacket_GiveItem(u16 modId, s16 getItemId);
     void SendPacket_Handshake();
     void SendPacket_OcarinaSfx(uint8_t note, float modulator, int8_t bend);
+    void SendPacket_Ping();
     void SendPacket_PlayerSfx(u16 sfxId);
     void SendPacket_PlayerUpdate();
     void SendPacket_RequestTeamState();

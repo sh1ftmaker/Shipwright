@@ -1,5 +1,9 @@
 #include "Network.h"
 #include <spdlog/spdlog.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/eventloop.h>
+#endif
 
 // MARK: - Public
 
@@ -48,6 +52,14 @@ void Network::Disable() {
     isEnabled = false;
 
 #ifdef __EMSCRIPTEN__
+    if (reconnectTimer != 0) {
+        emscripten_clear_timeout(reconnectTimer);
+        reconnectTimer = 0;
+    }
+    if (tickTimer != 0) {
+        emscripten_clear_interval(tickTimer);
+        tickTimer = 0;
+    }
     wsClient.Disconnect();
     isConnected = false;
     OnDisconnected();
@@ -93,8 +105,6 @@ void Network::SendJsonToRemote(nlohmann::json payload) {
 }
 
 #ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-
 void Network::EnableWebSocket(const std::string& url) {
     isEnabled = true;
     wsUrl = url;
@@ -102,8 +112,6 @@ void Network::EnableWebSocket(const std::string& url) {
 
     wsClient.SetOnConnect([this]() {
         isConnected = true;
-        reconnectAttempts = 0;
-        reconnectScheduled = false;
         OnConnected();
     });
 
@@ -115,29 +123,94 @@ void Network::EnableWebSocket(const std::string& url) {
         }
     });
 
+    if (tickTimer == 0) {
+        tickTimer = emscripten_set_interval([](void* userData) { static_cast<Network*>(userData)->OnTimerTick(); },
+                                            1000, this);
+    }
+
     wsClient.Connect(url);
 }
 
+void Network::OnTimerTick() {
+}
+
+bool Network::CheckLiveness(double timeoutMs) {
+    if (!isEnabled || (!isConnected && !wsClient.IsConnecting())) {
+        return true;
+    }
+
+    double quietMs = emscripten_get_now() - wsClient.GetLastActivityTime();
+    size_t buffered = wsClient.GetBufferedAmount();
+    if (quietMs < timeoutMs && buffered < 1024 * 1024) {
+        return true;
+    }
+
+    SPDLOG_WARN("[Network] Connection looks dead (nothing received for {}ms, {} bytes unsent), reconnecting",
+                (int)quietMs, buffered);
+    ForceReconnect();
+    return false;
+}
+
+void Network::ForceReconnect() {
+    bool wasConnected = isConnected;
+    // Deleting the socket means its close event never comes, so do what that would have done
+    wsClient.Disconnect();
+    isConnected = false;
+    if (wasConnected) {
+        OnDisconnected();
+    }
+    ScheduleReconnect();
+}
+
 void Network::ScheduleReconnect() {
-    if (reconnectScheduled || !isEnabled || wsUrl.empty()) {
+    if (reconnectTimer != 0 || !isEnabled || wsUrl.empty()) {
         return;
     }
 
-    reconnectScheduled = true;
+    // 1s, 2s, 4s, 8s, then every 15s. Attempts only reset once the server accepts us (ResetReconnectBackoff), so a
+    // bridge that opens and closes again straight away doesn't retry every second. The +-25% jitter keeps players
+    // who dropped together (bridge or server restart) from all coming back in the same instant.
+    static const int delays[] = { 1000, 2000, 4000, 8000, 15000 };
     reconnectAttempts++;
+    double delayMs = delays[std::min(reconnectAttempts, 5) - 1] * (0.75 + 0.5 * emscripten_random());
+    reconnectTime = emscripten_get_now() + delayMs;
+    SPDLOG_INFO("[Network] WebSocket disconnected. Reconnecting in {}ms (attempt {})", (int)delayMs,
+                reconnectAttempts);
 
-    // Exponential backoff: 1s, 2s, 4s, 8s, capped at 15s
-    int delayMs = std::min(1000 * (1 << std::min(reconnectAttempts - 1, 3)), 15000);
-    SPDLOG_INFO("[Network] WebSocket disconnected. Reconnecting in {}ms (attempt {})", delayMs, reconnectAttempts);
+    reconnectTimer = emscripten_set_timeout(
+        [](void* userData) {
+            Network* self = static_cast<Network*>(userData);
+            self->reconnectTimer = 0;
+            self->ReconnectNow();
+        },
+        delayMs, this);
+}
 
-    emscripten_async_call([](void* userData) {
-        Network* self = static_cast<Network*>(userData);
-        self->reconnectScheduled = false;
-        if (self->isEnabled && !self->isConnected) {
-            SPDLOG_INFO("[Network] Attempting WebSocket reconnect to {}", self->wsUrl);
-            self->wsClient.Connect(self->wsUrl);
-        }
-    }, this, delayMs);
+void Network::ReconnectNow() {
+    if (!isEnabled || isConnected || wsClient.IsConnecting() || wsUrl.empty()) {
+        return;
+    }
+    if (reconnectTimer != 0) {
+        emscripten_clear_timeout(reconnectTimer);
+        reconnectTimer = 0;
+    }
+
+    SPDLOG_INFO("[Network] Attempting WebSocket reconnect to {}", wsUrl);
+    if (!wsClient.Connect(wsUrl)) {
+        ScheduleReconnect();
+    }
+}
+
+void Network::ResetReconnectBackoff() {
+    reconnectAttempts = 0;
+}
+
+int Network::GetReconnectAttempts() const {
+    return reconnectAttempts;
+}
+
+double Network::GetReconnectDelay() const {
+    return reconnectTimer != 0 ? std::max(0.0, reconnectTime - emscripten_get_now()) : 0;
 }
 
 void Network::PollIncoming() {

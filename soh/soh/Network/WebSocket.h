@@ -31,7 +31,13 @@ class WebSocketClient {
     bool Connect(const std::string& url);
     void Disconnect();
     bool IsConnected() const;
+    // Opening: created but neither open nor closed yet
+    bool IsConnecting() const;
     void Send(const std::string& data);
+    // emscripten_get_now() of the last sign of life: a message, or the start of the connection
+    double GetLastActivityTime() const;
+    // Bytes sent but not yet handed to the network
+    size_t GetBufferedAmount();
 
     // Poll for received messages (call from main thread)
     bool Poll(std::string& outMessage);
@@ -41,6 +47,8 @@ class WebSocketClient {
 
   private:
     bool mConnected = false;
+    bool mConnecting = false;
+    double mLastActivityTime = 0;
     std::queue<std::string> mIncomingQueue;
     std::mutex mQueueMutex;
 

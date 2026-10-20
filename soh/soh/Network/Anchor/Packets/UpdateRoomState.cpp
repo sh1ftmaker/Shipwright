@@ -41,6 +41,22 @@ void Anchor::SendPacket_UpdateRoomState() {
     Network::SendJsonToRemote(payload);
 }
 
+// Takes over the room with its current settings, unlike PrepRoomState, which has ours (Anchor::CheckRoomOwner)
+void Anchor::SendPacket_ClaimRoom() {
+    nlohmann::json payload;
+    payload["type"] = UPDATE_ROOM_STATE;
+    payload["state"]["ownerClientId"] = ownClientId;
+    payload["state"]["pvpMode"] = roomState.pvpMode;
+    payload["state"]["showLocationsMode"] = roomState.showLocationsMode;
+    payload["state"]["teleportMode"] = roomState.teleportMode;
+    payload["state"]["syncItemsAndFlags"] = roomState.syncItemsAndFlags;
+    payload["state"]["syncActors"] = roomState.syncActors;
+
+    // The server doesn't send it back to us
+    roomState.ownerClientId = ownClientId;
+    SendJsonToRemote(payload);
+}
+
 void Anchor::HandlePacket_UpdateRoomState(nlohmann::json payload) {
     if (!payload.contains("state")) {
         return;
@@ -53,4 +69,10 @@ void Anchor::HandlePacket_UpdateRoomState(nlohmann::json payload) {
     roomState.syncItemsAndFlags = payload["state"]["syncItemsAndFlags"].get<u8>();
     // Rooms made by builds without actor sync don't have it
     roomState.syncActors = payload["state"].value("syncActors", (u8)0);
+
+    // Once per connection (OnConnected), now that we know whether the room syncs items and flags
+    if (pendingTeamStateRequest) {
+        pendingTeamStateRequest = false;
+        SendPacket_RequestTeamState();
+    }
 }

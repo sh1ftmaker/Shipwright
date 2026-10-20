@@ -1,5 +1,8 @@
 #include "WebSocket.h"
 #include <spdlog/spdlog.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 WebSocketClient::WebSocketClient() {
 }
@@ -10,6 +13,14 @@ WebSocketClient::~WebSocketClient() {
 
 bool WebSocketClient::IsConnected() const {
     return mConnected;
+}
+
+bool WebSocketClient::IsConnecting() const {
+    return mConnecting;
+}
+
+double WebSocketClient::GetLastActivityTime() const {
+    return mLastActivityTime;
 }
 
 bool WebSocketClient::Poll(std::string& outMessage) {
@@ -34,6 +45,11 @@ bool WebSocketClient::Connect(const std::string& url) {
         emscripten_websocket_delete(mSocket);
         mSocket = 0;
     }
+    // Messages the old socket left behind belong to the old session
+    {
+        std::lock_guard<std::mutex> lock(mQueueMutex);
+        mIncomingQueue = {};
+    }
 
     EmscriptenWebSocketCreateAttributes attrs;
     attrs.url = url.c_str();
@@ -50,6 +66,8 @@ bool WebSocketClient::Connect(const std::string& url) {
     emscripten_websocket_set_onmessage_callback(mSocket, this, OnMessage);
     emscripten_websocket_set_onclose_callback(mSocket, this, OnClose);
     emscripten_websocket_set_onerror_callback(mSocket, this, OnError);
+    mConnecting = true;
+    mLastActivityTime = emscripten_get_now();
 
     SPDLOG_INFO("[WebSocket] Connecting to {}", url);
     return true;
@@ -62,6 +80,7 @@ void WebSocketClient::Disconnect() {
         mSocket = 0;
     }
     mConnected = false;
+    mConnecting = false;
 }
 
 void WebSocketClient::Send(const std::string& data) {
@@ -71,12 +90,21 @@ void WebSocketClient::Send(const std::string& data) {
     emscripten_websocket_send_utf8_text(mSocket, data.c_str());
 }
 
+size_t WebSocketClient::GetBufferedAmount() {
+    size_t amount = 0;
+    if (mSocket > 0) {
+        emscripten_websocket_get_buffered_amount(mSocket, &amount);
+    }
+    return amount;
+}
+
 EM_BOOL WebSocketClient::OnOpen(int eventType, const EmscriptenWebSocketOpenEvent* event, void* userData) {
     auto* self = static_cast<WebSocketClient*>(userData);
     if (event->socket != self->mSocket) {
         return EM_TRUE; // An old socket
     }
     self->mConnected = true;
+    self->mConnecting = false;
     SPDLOG_INFO("[WebSocket] Connected!");
     if (self->mOnConnect) {
         self->mOnConnect();
@@ -89,6 +117,7 @@ EM_BOOL WebSocketClient::OnMessage(int eventType, const EmscriptenWebSocketMessa
     if (event->socket != self->mSocket) {
         return EM_TRUE;
     }
+    self->mLastActivityTime = emscripten_get_now();
     if (event->isText) {
         std::string msg((const char*)event->data, event->numBytes);
         std::lock_guard<std::mutex> lock(self->mQueueMutex);
@@ -103,6 +132,7 @@ EM_BOOL WebSocketClient::OnClose(int eventType, const EmscriptenWebSocketCloseEv
         return EM_TRUE;
     }
     self->mConnected = false;
+    self->mConnecting = false;
     std::string reason = event->reason ? event->reason : "";
     SPDLOG_INFO("[WebSocket] Disconnected (code={}, reason={})", event->code, reason);
     if (self->mOnDisconnect) {
@@ -120,6 +150,10 @@ EM_BOOL WebSocketClient::OnError(int eventType, const EmscriptenWebSocketErrorEv
 #else
 // Native WebSocket implementation using a simple TCP-based approach
 // For now, provide stub implementations that can be replaced with a real library
+
+size_t WebSocketClient::GetBufferedAmount() {
+    return 0;
+}
 
 bool WebSocketClient::Connect(const std::string& url) {
     SPDLOG_WARN("[WebSocket] Native WebSocket not yet implemented, using stub");
