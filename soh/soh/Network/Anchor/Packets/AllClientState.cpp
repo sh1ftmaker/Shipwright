@@ -76,6 +76,7 @@ void Anchor::HandlePacket_AllClientState(nlohmann::json payload) {
         sessionReady = true;
 #ifdef __EMSCRIPTEN__
         ResetReconnectBackoff();
+        AnchorWeb::StoreClientId(ownClientId);
 #endif
     }
 }

@@ -36,13 +36,15 @@ void Anchor::Enable() {
 #endif
 #ifdef __EMSCRIPTEN__
     // Every tab of the game shares the saved settings, and the server closes the older connection when a client ID
-    // connects again, so two tabs starting from the saved ID would knock each other off forever. Start each page
-    // with a fresh ID and only keep the one this page was given (reconnects reuse it without coming through here).
+    // connects again, so two tabs starting from the saved ID would knock each other off forever. Instead each tab
+    // keeps its own ID across reloads, which a duplicated tab doesn't get (AnchorWeb.cpp); it's looked up when
+    // connecting (OnConnected). Reconnects reuse the page's ID without coming through here.
     static bool hasPageClientId = false;
     if (!hasPageClientId) {
         ownClientId = 0;
         hasPageClientId = true;
     }
+    AnchorWeb::Init();
 #else
     ownClientId = CVarGetInteger(CVAR_REMOTE_ANCHOR("LastClientId"), 0);
 #endif
@@ -78,6 +80,12 @@ void Anchor::OnConnected() {
         std::lock_guard<std::mutex> lock(incomingPacketQueueMutex);
         incomingPacketQueue = {};
     }
+#ifdef __EMSCRIPTEN__
+    // After a reload: the ID this tab had, so the server gives us back our place (and room ownership)
+    if (ownClientId == 0) {
+        ownClientId = AnchorWeb::GetStoredClientId();
+    }
+#endif
     SendPacket_Handshake();
     RegisterHooks();
 

@@ -23,6 +23,14 @@ extern "C" {
 #ifndef SOH_WEB_ANCHOR_URL
 #define SOH_WEB_ANCHOR_URL "wss://soh-anchor-bridge.sh1ftmaker.workers.dev"
 #endif
+
+// The browser side of Anchor (AnchorWeb.cpp)
+namespace AnchorWeb {
+void Init();
+// The ID this tab was given before a reload, if no other tab is using it (0 otherwise)
+uint32_t GetStoredClientId();
+void StoreClientId(uint32_t clientId);
+} // namespace AnchorWeb
 #endif
 
 void DummyPlayer_Init(Actor* actor, PlayState* play);
