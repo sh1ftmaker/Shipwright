@@ -25,6 +25,8 @@
 //   --fps-seconds <n>   Length of each frame-pacing sample (default: 10)
 //   --fps <list>        InterpolationFPS values to check with Match Refresh Rate off, e.g. "20,30,60"
 //                       (20 = original: one frame per game tick, no interpolation)
+//   --steps <module>    Run the default export of a module once the page loads, instead of the
+//                       gameplay steps, e.g. actor-sync-steps.mjs. It gets { page, sleep, log, state, shot }.
 //
 // Exit code is 0 only if every step passed.
 
@@ -359,148 +361,154 @@ try {
         if (!webgl) throw new Error('no WebGL2 in this browser (try --display weston)');
     });
 
-    await step('extract ROM with Torch', async () => {
-        const start = Date.now();
-        await page.evaluate(async () => {
-            const buf = await (await fetch('/__web_test_rom.z64')).arrayBuffer();
-            extractRomInBrowser(buf, 'rom.z64');
-        });
-        await page.waitForFunction(() => {
-            try {
-                const f = FS.readdir('/');
-                return f.includes('oot.o2r') || f.includes('oot-mq.o2r');
-            } catch (e) {
-                return false;
-            }
-        }, null, { timeout: 300000, polling: 500 });
-        const files = await page.evaluate(() => FS.readdir('/').filter((f) => f.endsWith('.o2r')).map((f) => `${f} ${FS.stat('/' + f).size}`));
-        return { secs: +((Date.now() - start) / 1000).toFixed(1), files };
-    });
-
-    await step('boot to title screen', async () => {
-        const s = await waitFor('title demo (Play state)', (s) => s.gameState === GAME_STATE.Play && s.ticks > 60, 120000);
-        await shot('title');
-        return { scene: s.scene, updateRate: s.updateRate };
-    });
-
-    await measureFps('title screen');
-
-    await step('press Start -> file select', async () => {
-        // Skip the opening cutscene on the new file so we land in Link's house in control.
-        await setCVar('gEnhancements.TimeSavers.SkipCutscene.Intro', 1);
-        for (let i = 0; i < 6; i++) {
-            await pad.press('START');
-            const s = await state();
-            if (s.gameState === GAME_STATE.FileChoose) break;
-        }
-        await waitFor('FileChoose state', (s) => s.gameState === GAME_STATE.FileChoose, 20000);
-        await waitTicks(40);
-        await shot('file-select');
-    });
-
-    // File select runs at 60 ticks/s and ignores input during its fades, so leave long gaps.
-    await step('create file 1', async () => {
-        await pad.press('A', 4, 60); // empty slot -> quest select (SoH, when MQ is available) or name entry
-        await shot('quest-or-name');
-        await pad.press('A', 4, 60); // pick the quest; on a vanilla-only setup this just types a letter
-        await pad.press('A', 4, 20); // type the letter under the cursor
-        await shot('name-entry');
-        await pad.press('START', 4, 30); // jump to END
-        await pad.press('A', 4, 90); // confirm name, back to file select
-        await shot('file-created');
-    });
-
-    await step('start file 1', async () => {
-        await pad.press('A', 4, 60); // select file 1
-        await shot('file-confirm');
-        await pad.press('A', 4, 10); // "Yes"
-        const s = await waitFor('gameplay (Play state, in control)', (s) => s.gameState === GAME_STATE.Play && s.fileNum === 0 && s.health > 0, 60000, 500);
-        await waitTicks(60);
-        await shot('in-game');
-        return { scene: s.scene, entrance: s.entrance, pos: s.pos };
-    });
-
-    await step('walk with the analog stick', async () => {
-        // Dismiss any leftover text boxes first.
-        for (let i = 0; i < 4; i++) await pad.press('B', 2, 4);
-        const before = await state();
-        await pad.stick(0, 80, 40); // forward
-        const mid = await state();
-        await pad.stick(70, 0, 30); // right
-        const after = await state();
-        await shot('after-walking');
-        const dist = (a, b) => Math.hypot(a.posX - b.posX, a.posZ - b.posZ);
-        const moved = dist(before, mid) + dist(mid, after);
-        if (moved < 50) throw new Error(`Link barely moved (${moved.toFixed(1)} units): ${JSON.stringify([before.pos, mid.pos, after.pos])}`);
-        return { moved: Math.round(moved), path: [before.pos, mid.pos, after.pos] };
-    });
-
-    await step('outdoors: Kokiri Forest with the follow camera', async () => {
-        // Link's house has a fixed overhead camera; outside, the camera follows Link like most of the game.
-        const KOKIRI_FOREST = 85;
-        await setCVar('gEnhancements.TimeSavers.SkipCutscene.Entrances', 1); // Saria's first-visit greeting
-        const ok = await page.evaluate((e) => Module._web_debug_warp(e), 0x266); // ENTR_KOKIRI_FOREST_OUTSIDE_SHOP, on open ground
-        if (!ok) throw new Error('warp refused (not in gameplay)');
-        await waitFor('Kokiri Forest', (s) => s.scene === KOKIRI_FOREST && s.gameState === GAME_STATE.Play, 30000);
-        await waitTicks(100); // arrival shot and area title
-        await shot('kokiri-forest-greeting');
-        for (let i = 0; i < 8; i++) await pad.press('B', 2, 6); // a Kokiri greets Link here
-        await shot('kokiri-forest');
-        const before = await state();
-        await pad.stick(0, 90, 30); // run forward
-        await pad.stick(90, 0, 20); // and turn
-        const after = await state();
-        await shot('kokiri-forest-after-running');
-        if (after.scene !== KOKIRI_FOREST) throw new Error(`ran into another scene (${after.scene})`);
-        // The pause screen is drawn in 3D too; check it in this layout
-        await pad.press('START', 3, 30);
-        await shot('pause-screen');
-        await pad.press('START', 3, 30);
-        const moved = Math.hypot(after.posX - before.posX, after.posZ - before.posZ);
-        if (moved < 100) throw new Error(`Link barely moved outside (${moved.toFixed(1)} units)`);
-        return { moved: Math.round(moved), path: [before.pos, after.pos] };
-    });
-
-    await step('prerendered backgrounds: a Kokiri house and the Market', async () => {
-        // Fixed-camera scenes drawn over a prerendered image; actors must line up with it
-        const scenes = {};
-        for (const [name, entrance] of [['know-it-all-house', 0x0c9], ['market', 0x0b5]]) {
-            const from = (await state()).scene;
-            await page.evaluate((e) => Module._web_debug_warp(e), entrance);
-            const s = await waitFor(name, (s) => s.scene !== from && s.gameState === GAME_STATE.Play, 30000);
-            await waitTicks(60);
-            await shot(name);
-            const now = await state();
-            scenes[name] = { scene: s.scene, camSetting: now.camSetting, roomType: now.roomType };
-        }
-        return scenes;
-    });
-
-    await measureFps('gameplay (default settings)');
-    if (EXTRA_FPS.length) {
-        await step('FPS setting changes frame rate', async () => {
-            const results = {};
-            const errors = [];
-            await setCVar('gSettings.MatchRefreshRate', 0);
-            for (const fps of EXTRA_FPS) {
-                await setCVar('gSettings.InterpolationFPS', fps);
-                await waitTicks(20);
-                await pad.set([], 0, 70); // keep Link moving so interpolation has work to do
-                const r = await measureFps(`gameplay InterpolationFPS=${fps}`);
-                await shot(`fps-${fps}`);
-                await pad.release();
-                // 20 = original: one frame per 20 Hz tick. Otherwise the setting, capped at the display rate.
-                const expected = fps === 20 ? r.ticksPerSec : Math.min(fps, r.rafPerSec);
-                results[fps] = { presentsPerSec: r.presentsPerSec, expected, ticksPerSec: r.ticksPerSec };
-                if (Math.abs(r.presentsPerSec - expected) > expected * 0.1 + 1) {
-                    errors.push(`InterpolationFPS=${fps}: ${r.presentsPerSec} frames/s, expected ~${expected}`);
+    if (args.steps) {
+        // A test of its own (see --steps) instead of the gameplay steps below
+        const steps = await import(path.resolve(args.steps));
+        await step(path.basename(args.steps), () => steps.default({ page, sleep, log, state, shot }));
+    } else {
+        await step('extract ROM with Torch', async () => {
+            const start = Date.now();
+            await page.evaluate(async () => {
+                const buf = await (await fetch('/__web_test_rom.z64')).arrayBuffer();
+                extractRomInBrowser(buf, 'rom.z64');
+            });
+            await page.waitForFunction(() => {
+                try {
+                    const f = FS.readdir('/');
+                    return f.includes('oot.o2r') || f.includes('oot-mq.o2r');
+                } catch (e) {
+                    return false;
                 }
-                if (Math.abs(r.ticksPerSec - 20) > 2) errors.push(`InterpolationFPS=${fps}: game ran at ${r.ticksPerSec} ticks/s`);
-            }
-            await setCVar('gSettings.MatchRefreshRate', 1);
-            if (errors.length) throw new Error(errors.join('; '));
-            return results;
+            }, null, { timeout: 300000, polling: 500 });
+            const files = await page.evaluate(() => FS.readdir('/').filter((f) => f.endsWith('.o2r')).map((f) => `${f} ${FS.stat('/' + f).size}`));
+            return { secs: +((Date.now() - start) / 1000).toFixed(1), files };
         });
+
+        await step('boot to title screen', async () => {
+            const s = await waitFor('title demo (Play state)', (s) => s.gameState === GAME_STATE.Play && s.ticks > 60, 120000);
+            await shot('title');
+            return { scene: s.scene, updateRate: s.updateRate };
+        });
+
+        await measureFps('title screen');
+
+        await step('press Start -> file select', async () => {
+            // Skip the opening cutscene on the new file so we land in Link's house in control.
+            await setCVar('gEnhancements.TimeSavers.SkipCutscene.Intro', 1);
+            for (let i = 0; i < 6; i++) {
+                await pad.press('START');
+                const s = await state();
+                if (s.gameState === GAME_STATE.FileChoose) break;
+            }
+            await waitFor('FileChoose state', (s) => s.gameState === GAME_STATE.FileChoose, 20000);
+            await waitTicks(40);
+            await shot('file-select');
+        });
+
+        // File select runs at 60 ticks/s and ignores input during its fades, so leave long gaps.
+        await step('create file 1', async () => {
+            await pad.press('A', 4, 60); // empty slot -> quest select (SoH, when MQ is available) or name entry
+            await shot('quest-or-name');
+            await pad.press('A', 4, 60); // pick the quest; on a vanilla-only setup this just types a letter
+            await pad.press('A', 4, 20); // type the letter under the cursor
+            await shot('name-entry');
+            await pad.press('START', 4, 30); // jump to END
+            await pad.press('A', 4, 90); // confirm name, back to file select
+            await shot('file-created');
+        });
+
+        await step('start file 1', async () => {
+            await pad.press('A', 4, 60); // select file 1
+            await shot('file-confirm');
+            await pad.press('A', 4, 10); // "Yes"
+            const s = await waitFor('gameplay (Play state, in control)', (s) => s.gameState === GAME_STATE.Play && s.fileNum === 0 && s.health > 0, 60000, 500);
+            await waitTicks(60);
+            await shot('in-game');
+            return { scene: s.scene, entrance: s.entrance, pos: s.pos };
+        });
+
+        await step('walk with the analog stick', async () => {
+            // Dismiss any leftover text boxes first.
+            for (let i = 0; i < 4; i++) await pad.press('B', 2, 4);
+            const before = await state();
+            await pad.stick(0, 80, 40); // forward
+            const mid = await state();
+            await pad.stick(70, 0, 30); // right
+            const after = await state();
+            await shot('after-walking');
+            const dist = (a, b) => Math.hypot(a.posX - b.posX, a.posZ - b.posZ);
+            const moved = dist(before, mid) + dist(mid, after);
+            if (moved < 50) throw new Error(`Link barely moved (${moved.toFixed(1)} units): ${JSON.stringify([before.pos, mid.pos, after.pos])}`);
+            return { moved: Math.round(moved), path: [before.pos, mid.pos, after.pos] };
+        });
+
+        await step('outdoors: Kokiri Forest with the follow camera', async () => {
+            // Link's house has a fixed overhead camera; outside, the camera follows Link like most of the game.
+            const KOKIRI_FOREST = 85;
+            await setCVar('gEnhancements.TimeSavers.SkipCutscene.Entrances', 1); // Saria's first-visit greeting
+            const ok = await page.evaluate((e) => Module._web_debug_warp(e), 0x266); // ENTR_KOKIRI_FOREST_OUTSIDE_SHOP, on open ground
+            if (!ok) throw new Error('warp refused (not in gameplay)');
+            await waitFor('Kokiri Forest', (s) => s.scene === KOKIRI_FOREST && s.gameState === GAME_STATE.Play, 30000);
+            await waitTicks(100); // arrival shot and area title
+            await shot('kokiri-forest-greeting');
+            for (let i = 0; i < 8; i++) await pad.press('B', 2, 6); // a Kokiri greets Link here
+            await shot('kokiri-forest');
+            const before = await state();
+            await pad.stick(0, 90, 30); // run forward
+            await pad.stick(90, 0, 20); // and turn
+            const after = await state();
+            await shot('kokiri-forest-after-running');
+            if (after.scene !== KOKIRI_FOREST) throw new Error(`ran into another scene (${after.scene})`);
+            // The pause screen is drawn in 3D too; check it in this layout
+            await pad.press('START', 3, 30);
+            await shot('pause-screen');
+            await pad.press('START', 3, 30);
+            const moved = Math.hypot(after.posX - before.posX, after.posZ - before.posZ);
+            if (moved < 100) throw new Error(`Link barely moved outside (${moved.toFixed(1)} units)`);
+            return { moved: Math.round(moved), path: [before.pos, after.pos] };
+        });
+
+        await step('prerendered backgrounds: a Kokiri house and the Market', async () => {
+            // Fixed-camera scenes drawn over a prerendered image; actors must line up with it
+            const scenes = {};
+            for (const [name, entrance] of [['know-it-all-house', 0x0c9], ['market', 0x0b5]]) {
+                const from = (await state()).scene;
+                await page.evaluate((e) => Module._web_debug_warp(e), entrance);
+                const s = await waitFor(name, (s) => s.scene !== from && s.gameState === GAME_STATE.Play, 30000);
+                await waitTicks(60);
+                await shot(name);
+                const now = await state();
+                scenes[name] = { scene: s.scene, camSetting: now.camSetting, roomType: now.roomType };
+            }
+            return scenes;
+        });
+
+        await measureFps('gameplay (default settings)');
+        if (EXTRA_FPS.length) {
+            await step('FPS setting changes frame rate', async () => {
+                const results = {};
+                const errors = [];
+                await setCVar('gSettings.MatchRefreshRate', 0);
+                for (const fps of EXTRA_FPS) {
+                    await setCVar('gSettings.InterpolationFPS', fps);
+                    await waitTicks(20);
+                    await pad.set([], 0, 70); // keep Link moving so interpolation has work to do
+                    const r = await measureFps(`gameplay InterpolationFPS=${fps}`);
+                    await shot(`fps-${fps}`);
+                    await pad.release();
+                    // 20 = original: one frame per 20 Hz tick. Otherwise the setting, capped at the display rate.
+                    const expected = fps === 20 ? r.ticksPerSec : Math.min(fps, r.rafPerSec);
+                    results[fps] = { presentsPerSec: r.presentsPerSec, expected, ticksPerSec: r.ticksPerSec };
+                    if (Math.abs(r.presentsPerSec - expected) > expected * 0.1 + 1) {
+                        errors.push(`InterpolationFPS=${fps}: ${r.presentsPerSec} frames/s, expected ~${expected}`);
+                    }
+                    if (Math.abs(r.ticksPerSec - 20) > 2) errors.push(`InterpolationFPS=${fps}: game ran at ${r.ticksPerSec} ticks/s`);
+                }
+                await setCVar('gSettings.MatchRefreshRate', 1);
+                if (errors.length) throw new Error(errors.join('; '));
+                return results;
+            });
+        }
     }
 } catch (e) {
     if (!report.steps.some((s) => !s.ok)) {

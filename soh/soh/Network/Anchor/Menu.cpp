@@ -244,6 +244,14 @@ void AnchorAdminMenu(WidgetInfo& info) {
                                 UIWidgets::CheckboxOptions().DefaultValue(true).Color(THEME_COLOR))) {
         anchor->SendPacket_UpdateRoomState();
     }
+    if (UIWidgets::CVarCheckbox("Sync Enemies & Push Blocks", CVAR_REMOTE_ANCHOR("RoomSettings.SyncActors"),
+                                UIWidgets::CheckboxOptions()
+                                    .DefaultValue(true)
+                                    .Tooltip("Players in the same room see the same enemies and push blocks. Only "
+                                             "works between players on the same build.")
+                                    .Color(THEME_COLOR))) {
+        anchor->SendPacket_UpdateRoomState();
+    }
 }
 
 void AnchorInstructionsMenu(WidgetInfo& info) {

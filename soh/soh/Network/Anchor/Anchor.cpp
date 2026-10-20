@@ -209,6 +209,16 @@ void Anchor::ProcessIncomingPacketQueue() {
                 HandlePacket_UpdateRoomState(payload);
             else if (packetType == UPDATE_DUNGEON_ITEMS)
                 HandlePacket_UpdateDungeonItems(payload);
+            else if (packetType == ACTOR_STATE)
+                AnchorActorSync::HandlePacket_ActorState(payload);
+            else if (packetType == ACTOR_HEALTH)
+                AnchorActorSync::HandlePacket_ActorHealth(payload);
+            else if (packetType == ACTOR_KILL)
+                AnchorActorSync::HandlePacket_ActorKill(payload);
+            else if (packetType == BLOCK_PUSH)
+                AnchorActorSync::HandlePacket_BlockPush(payload);
+            else if (packetType == BLOCK_POS)
+                AnchorActorSync::HandlePacket_BlockPos(payload);
         } catch (const std::exception& e) {
             SPDLOG_ERROR("[Anchor] Exception while processing incoming packet {}", e.what());
             SPDLOG_ERROR("[Anchor] Packet: {}", payload.dump());

@@ -111,7 +111,14 @@ void Anchor::RegisterHooks() {
         }
 
         SendPacket_PlayerUpdate();
+        AnchorActorSync::OnFrame();
     });
+
+    COND_HOOK(ShouldActorUpdate, isConnected,
+              [&](void* actor, bool* should) { AnchorActorSync::OnShouldActorUpdate((Actor*)actor, should); });
+    COND_HOOK(OnActorUpdate, isConnected, [&](void* actor) { AnchorActorSync::OnActorUpdate((Actor*)actor); });
+    COND_HOOK(OnActorInit, isConnected, [&](void* actor) { AnchorActorSync::OnActorInit((Actor*)actor); });
+    COND_HOOK(OnEnemyDefeat, isConnected, [&](void* actor) { AnchorActorSync::OnEnemyDefeat((Actor*)actor); });
 
     COND_HOOK(OnGameFrameUpdate, isConnected, [&]() { ProcessIncomingPacketQueue(); });
 

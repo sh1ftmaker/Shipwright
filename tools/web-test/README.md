@@ -10,6 +10,8 @@ cd tools/web-test && npm install && cd ../..
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --fps 20,30,60   # check the FPS setting
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --url https://sh1ftmaker.github.io/Shipwright/
+# two players in one Anchor room: enemies, damage, kills and push blocks must match
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/actor-sync-steps.mjs
 ```
 
 Screenshots and `report.json` (step results, FPS samples, console log) go to

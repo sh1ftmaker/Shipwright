@@ -56,8 +56,8 @@ All parameters are passed via the URL hash (`#key=value&key2=value2`):
 | `join` | `1`: connect, skip the menus, load a save and go to the room owner | — |
 | `slot` | Save slot (1-3) a join link loads, created if empty | `3` |
 
-`room`, `name`, `color` and `team` fill in Network > Anchor; press Enable there to join, or add `join=1` to
-connect straight away. A join link such as `#room=myroom&name=Navi&join=1` skips the title and file select, loads
+`room`, `name`, `color` and `team` fill in Network > Anchor, and a link with a `room` connects straight away
+(Anchor is on by default; without a link the game joins the public room). A join link such as `#room=myroom&name=Navi&join=1` skips the title and file select, loads
 (or creates) the save in `slot`, syncs the team's progress and teleports to the room owner. It also turns on
 Skip Intro, so a new file doesn't start with the opening cutscene. URLs in these
 parameters must be URL-encoded if they contain `&` or `#`.
@@ -69,6 +69,11 @@ team share items and flags. Desktop builds connect to the Anchor server (`anchor
 browsers can't do, so the web build connects to a Cloudflare Worker that relays its WebSocket to that server
 (`soh/soh/web/anchor-bridge/`). Web and desktop players therefore share rooms, though items and flags only sync
 between identical builds (Anchor compares git commit hashes).
+
+Players on the same web build also see the same enemies and push blocks (Room Settings > Sync Enemies & Push
+Blocks, on by default). In each room, the player with the lowest client ID runs the enemies, everyone else follows
+their positions, and damage, kills and block pushes from anyone reach everyone (`soh/soh/Network/Anchor/ActorSync.cpp`).
+Only actors from a room's spawn list are synced, not ones spawned during play, and bosses aren't synced yet.
 
 Builds use `wss://soh-anchor-bridge.sh1ftmaker.workers.dev` by default. To run your own, deploy the bridge to your
 Cloudflare account (free plan is fine) and build with its URL:

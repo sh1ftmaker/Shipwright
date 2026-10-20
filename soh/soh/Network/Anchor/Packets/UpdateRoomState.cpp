@@ -21,11 +21,13 @@ nlohmann::json Anchor::PrepRoomState() {
         payload["showLocationsMode"] = 0;
         payload["teleportMode"] = 0;
         payload["syncItemsAndFlags"] = 0;
+        payload["syncActors"] = 0;
     } else {
         payload["pvpMode"] = CVarGetInteger(CVAR_REMOTE_ANCHOR("RoomSettings.PvpMode"), 1);
         payload["showLocationsMode"] = CVarGetInteger(CVAR_REMOTE_ANCHOR("RoomSettings.ShowLocationsMode"), 1);
         payload["teleportMode"] = CVarGetInteger(CVAR_REMOTE_ANCHOR("RoomSettings.TeleportMode"), 1);
         payload["syncItemsAndFlags"] = CVarGetInteger(CVAR_REMOTE_ANCHOR("RoomSettings.SyncItemsAndFlags"), 1);
+        payload["syncActors"] = CVarGetInteger(CVAR_REMOTE_ANCHOR("RoomSettings.SyncActors"), 1);
     }
 
     return payload;
@@ -49,4 +51,6 @@ void Anchor::HandlePacket_UpdateRoomState(nlohmann::json payload) {
     roomState.showLocationsMode = payload["state"]["showLocationsMode"].get<u8>();
     roomState.teleportMode = payload["state"]["teleportMode"].get<u8>();
     roomState.syncItemsAndFlags = payload["state"]["syncItemsAndFlags"].get<u8>();
+    // Rooms made by builds without actor sync don't have it
+    roomState.syncActors = payload["state"].value("syncActors", (u8)0);
 }

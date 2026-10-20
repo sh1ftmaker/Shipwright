@@ -3,6 +3,7 @@
 #ifdef __cplusplus
 
 #include "soh/Network/Network.h"
+#include "ActorSync.h"
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <ship/window/gui/GuiWindow.h>
 #include <spdlog/spdlog.h>
@@ -65,6 +66,7 @@ typedef struct {
     u8 ocarinaNote;
     f32 ocarinaModulator;
     s8 ocarinaBend;
+    bool actorSync = false; // Sends its room in PLAYER_UPDATE and takes part in actor sync (ActorSync.h)
 
     // Ptr to the dummy player
     Player* player;
@@ -76,6 +78,7 @@ typedef struct {
     u8 showLocationsMode; // 0 = none, 1 = team, 2 = all
     u8 teleportMode;      // 0 = off, 1 = team, 2 = all
     u8 syncItemsAndFlags; // 0 = off, 1 = on
+    u8 syncActors;        // 0 = off, 1 = on (enemies and push blocks, see ActorSync.h)
 } RoomState;
 
 class Anchor : public Network {
@@ -148,6 +151,11 @@ class Anchor : public Network {
     inline static const std::string UPDATE_DUNGEON_ITEMS = "UPDATE_DUNGEON_ITEMS";
     inline static const std::string UPDATE_ROOM_STATE = "UPDATE_ROOM_STATE";
     inline static const std::string UPDATE_TEAM_STATE = "UPDATE_TEAM_STATE";
+    inline static const std::string ACTOR_STATE = "ACTOR_STATE";
+    inline static const std::string ACTOR_HEALTH = "ACTOR_HEALTH";
+    inline static const std::string ACTOR_KILL = "ACTOR_KILL";
+    inline static const std::string BLOCK_PUSH = "BLOCK_PUSH";
+    inline static const std::string BLOCK_POS = "BLOCK_POS";
 
     static Anchor* Instance;
     std::map<uint32_t, AnchorClient> clients;
