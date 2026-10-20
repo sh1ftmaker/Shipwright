@@ -5,7 +5,7 @@
 // Both players start a new file through a join link, so this needs the Anchor server (through the deployed bridge)
 // and the game files at OOT_URL. Player A joins first, so it runs the enemies; B follows.
 
-const OOT_URL = process.env.OOT_URL || 'https://share.selst.uk/oot.o2r';
+import { startPlayers, actors, synced, syncedHit, setCVar, dist, check } from './sync-test-lib.mjs';
 
 const ENTR_GANONS_TOWER = 0x41b; // room 7: Keese flying around
 const ENTR_DEKU_TREE = 0x0; // room 0: Deku Babas and Skulltulas
@@ -20,48 +20,16 @@ const DMG_DEKU_NUT = 0x1;
 const DMG_BIG_SWORD = 0x04000000; // 8 damage
 
 export default async ({ page, sleep, log }) => {
-    const room = 'soh-sync-test-' + Math.floor(Math.random() * 1e6);
-    const u = new URL(page.url());
-    const link = (name) => `${u.origin}${u.pathname}${u.search}#oot=${OOT_URL}&room=${room}&join=1&slot=3&name=${name}`;
-    const ctxB = await page.context().browser().newContext({ viewport: page.viewportSize() });
-    const A = page;
-    const B = await ctxB.newPage();
-
-    // Calling into the game before its runtime is up aborts it (ASSERTIONS), so check first
-    const gameState = (p) =>
-        p.evaluate(() => (typeof Module !== 'undefined' && Module.calledRun
-            ? { gameState: Module._web_debug_get(13), fileNum: Module._web_debug_get(10) } : {}));
-    const actors = async (p) => JSON.parse(await p.evaluate(() => UTF8ToString(Module._web_debug_actor_sync())));
+    const { A, B, close } = await startPlayers({ page, sleep }, 'soh-sync-test-');
     const warp = async (e) => {
         await A.evaluate((e) => Module._web_debug_warp(e), e);
         await B.evaluate((e) => Module._web_debug_warp(e), e);
         await sleep(8000);
     };
-    const waitInGame = async (p, name) => {
-        for (let i = 0; i < 90; i++) {
-            await sleep(1000);
-            try {
-                const s = await gameState(p);
-                if (s.gameState === 3 && s.fileNum === 2) return;
-            } catch (e) {}
-        }
-        throw new Error(`${name} never got into the game`);
-    };
     const key = (a) => `${a.room}:${a.index}`;
     const find = (list, k) => list.find((a) => key(a) === k);
-    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-    const check = (ok, message) => {
-        if (!ok) throw new Error(message);
-    };
 
     try {
-        await A.goto('about:blank');
-        await A.goto(link('alice'));
-        await waitInGame(A, 'A');
-        await sleep(2000);
-        await B.goto(link('bob'));
-        await waitInGame(B, 'B');
-        await sleep(4000);
         const results = {};
 
         // Keese fly a few hundred units in this time; B should stay a few frames behind A
@@ -146,18 +114,18 @@ export default async ({ page, sleep, log }) => {
         results.spawnedBlock = [Math.round(sa.x), Math.round(sa.y), Math.round(sa.z)];
 
         // Gohma: both fight the same boss, and B's hits change it for A
-        const gohma = async (p) => JSON.parse(await p.evaluate(() => UTF8ToString(Module._web_debug_gohma())));
+        const gohma = (p) => synced(p, 'Gohma');
         await warp(ENTR_GOHMA);
         for (const p of [A, B]) {
             await p.evaluate((f) => Module._web_debug_set_event_flag(f), EVENTCHKINF_BEGAN_GOHMA_BATTLE);
-            await p.evaluate(() => Module.ccall('web_cvar_set_int', null, ['string', 'number'], ['gCheats.InfiniteHealth', 1]));
+            await setCVar(p, 'gCheats.InfiniteHealth', 1);
             await p.evaluate(() => Module._web_debug_set_player_pos(150, -480, 350)); // the room entrance starts her intro
         }
         let fighting = 0, gohmaWorst = 0;
         for (let i = 0; i < 40 && fighting < 6; i++) {
             await sleep(1000);
             const [ga, gb] = [await gohma(A), await gohma(B)];
-            if (ga.action >= 0 && gb.action >= 0) {
+            if (ga?.action >= 0 && gb?.action >= 0) {
                 fighting++;
                 gohmaWorst = Math.max(gohmaWorst, dist(ga, gb));
             }
@@ -166,7 +134,7 @@ export default async ({ page, sleep, log }) => {
         check(gohmaWorst < 40, `Gohma positions differ by up to ${gohmaWorst.toFixed(1)}`);
         const hitUntil = async (flags, done, what) => {
             for (let i = 0; i < 60; i++) {
-                await B.evaluate((f) => Module._web_debug_gohma_hit(f), flags);
+                await syncedHit(B, 'Gohma', 0, 0, flags);
                 await sleep(500);
                 if (done(await gohma(B))) return;
             }
@@ -185,6 +153,6 @@ export default async ({ page, sleep, log }) => {
         results.gohma = { worstDistance: +gohmaWorst.toFixed(1) };
         return results;
     } finally {
-        await ctxB.close();
+        await close();
     }
 };

@@ -242,6 +242,11 @@ static Color_RGBA8 sBodyColor = { 255, 255, 255, 255 };
 static Color_RGBA8 sStaticColor = { 0, 0, 0, 255 };
 static s32 sHandState[] = { HAND_WAIT, HAND_WAIT };
 
+// SOH [Network] What each hand is up to, which the head and the hands share, for Anchor's actor sync
+s32* BossSst_GetHandStates(void) {
+    return sHandState;
+}
+
 #define BOSS_SST_SHIP_SAVESTATE_FIELDS(F) \
     F(sHead)                              \
     F(sHands)                             \

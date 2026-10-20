@@ -108,6 +108,11 @@ static s16 D_80B4A1B4 = 1;
 
 SHIP_SAVESTATE_DEFINE(EnZf, EN_ZF_SHIP_SAVESTATE_FIELDS)
 
+// SOH [Network] The miniboss pair's shared state (0: tag counter, 1: which one rests), for Anchor's actor sync
+s16* EnZf_GetPairState(s32 which) {
+    return which == 0 ? &D_80B4A1B0 : &D_80B4A1B4;
+}
+
 const ActorInit En_Zf_InitVars = {
     ACTOR_EN_ZF,
     ACTORCAT_ENEMY,
