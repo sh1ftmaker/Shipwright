@@ -4,6 +4,7 @@
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 
+#include <chrono>
 #include <climits>
 #include <deque>
 #include <unordered_set>
@@ -388,12 +389,35 @@ bool TakeBeanPlanted() {
 
 using namespace AnchorWorldSync;
 
+// The team state on the server is replaced (and its queue emptied) by every UPDATE_TEAM_STATE, so we send ours now
+// and then while playing. That keeps the queue short, so it never drops anything
+constexpr auto TEAM_STATE_PUSH_INTERVAL = std::chrono::seconds(60);
+// Frames to wait after a merge before pushing, so the queued packets that came with the state are applied first
+constexpr int TEAM_STATE_PUSH_DELAY = 20;
+
 void Anchor::RegisterWorldSyncHooks() {
-    COND_HOOK(OnSceneSpawnActors, isConnected, [&]() { RefreshSnapshot(); });
+    COND_HOOK(OnSceneSpawnActors, isConnected, [&]() {
+        RefreshSnapshot();
+
+        static auto lastPush = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (hasMergedTeamState && now - lastPush > TEAM_STATE_PUSH_INTERVAL) {
+            lastPush = now;
+            SendPacket_UpdateTeamState();
+        }
+    });
 
     COND_HOOK(OnPlayerUpdate, isConnected, [&]() {
         if (TakeBeanPlanted()) {
             SendPacket_UpdateBeansCount();
+        }
+
+        static int pushDelay = 0;
+        if (pendingTeamStatePush && ++pushDelay >= TEAM_STATE_PUSH_DELAY) {
+            pushDelay = 0;
+            pendingTeamStatePush = false;
+            SendPacket_UpdateTeamState();
+            SendPacket_MergeTeamState();
         }
     });
 }

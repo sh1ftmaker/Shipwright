@@ -129,11 +129,13 @@ void Anchor::RegisterHooks() {
 
     COND_HOOK(OnLoadGame, isConnected, [&](s16 fileNum) {
         justLoadedSave = true;
+        hasMergedTeamState = false;
         AnchorWorldSync::Reset();
     });
 
     COND_HOOK(OnSaveFile, isConnected, [&](s16 fileNum, int sectionID) {
-        if (sectionID == 0) {
+        // Not before the team state is merged in, or we would replace it with our older save
+        if (sectionID == 0 && hasMergedTeamState) {
             SendPacket_UpdateTeamState();
         }
     });
@@ -248,7 +250,7 @@ void Anchor::RegisterHooks() {
 
     // #endregion
 
-    // Bean planting (WorldSync.cpp)
+    // Team state pushes and bean planting (WorldSync.cpp)
     RegisterWorldSyncHooks();
 
     // #region Hooks that are purely to sync actor states across the clients, not super essential
