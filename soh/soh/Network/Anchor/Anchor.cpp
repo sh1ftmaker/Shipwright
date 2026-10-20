@@ -4,6 +4,10 @@
 #include "soh/Enhancements/nametag.h"
 #include "soh/ObjectExtension/ObjectExtension.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 extern "C" {
 #include "macros.h"
 #include "variables.h"
@@ -111,6 +115,23 @@ void Anchor::OnDisconnected() {
     RegisterHooks();
 }
 
+#ifdef __EMSCRIPTEN__
+// A keepalive goes out every few seconds and comes back from the server (PING), so a connection that hasn't
+// brought anything in for a while is dead, even if the browser still thinks it's open
+static const double KEEPALIVE_INTERVAL_MS = 3000;
+static const double LIVENESS_TIMEOUT_MS = 10000;
+
+void Anchor::OnTimerTick() {
+    if (!isEnabled || !CheckLiveness(LIVENESS_TIMEOUT_MS)) {
+        return;
+    }
+
+    if (isConnected && sessionReady && emscripten_get_now() - lastPingTime >= KEEPALIVE_INTERVAL_MS) {
+        SendPacket_Ping();
+    }
+}
+#endif
+
 void Anchor::ProcessOutgoingPackets() {
     if (!isConnected || !sessionReady) {
         return;
@@ -175,6 +196,12 @@ void Anchor::OnIncomingJson(nlohmann::json payload) {
     }
 
     std::string packetType = payload["type"].get<std::string>();
+
+    // Our own keepalive coming back: receiving it was the point (Network::CheckLiveness)
+    if (packetType == PING) {
+        HandlePacket_Ping(payload);
+        return;
+    }
 
     // Ignore packets from mismatched clients, except for ALL_CLIENT_STATE, UPDATE_CLIENT_STATE, and PLAYER_UPDATE
     if (packetType != ALL_CLIENT_STATE && packetType != UPDATE_CLIENT_STATE && packetType != PLAYER_UPDATE) {

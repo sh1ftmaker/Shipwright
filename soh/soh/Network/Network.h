@@ -21,6 +21,7 @@ class Network {
     int reconnectAttempts = 0;
     int reconnectTimer = 0;
     double reconnectTime = 0;
+    int tickTimer = 0;
     void ScheduleReconnect();
 #else
     IPaddress networkAddress;
@@ -59,6 +60,12 @@ class Network {
     int GetReconnectAttempts() const;
     // Milliseconds until the next scheduled attempt, 0 if none is scheduled
     double GetReconnectDelay() const;
+    // Drops the connection and reconnects if nothing has come in for timeoutMs (or the browser can't get our data
+    // out). Covers connections that died without closing: wifi drops, phones waking up, NAT timeouts.
+    bool CheckLiveness(double timeoutMs);
+    void ForceReconnect();
+    // Every second while enabled, from a browser timer: runs when no game frames do (game stalled, tab hidden)
+    virtual void OnTimerTick();
 #endif
 };
 

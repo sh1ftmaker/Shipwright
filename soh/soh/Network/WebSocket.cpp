@@ -1,5 +1,8 @@
 #include "WebSocket.h"
 #include <spdlog/spdlog.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 WebSocketClient::WebSocketClient() {
 }
@@ -14,6 +17,10 @@ bool WebSocketClient::IsConnected() const {
 
 bool WebSocketClient::IsConnecting() const {
     return mConnecting;
+}
+
+double WebSocketClient::GetLastActivityTime() const {
+    return mLastActivityTime;
 }
 
 bool WebSocketClient::Poll(std::string& outMessage) {
@@ -60,6 +67,7 @@ bool WebSocketClient::Connect(const std::string& url) {
     emscripten_websocket_set_onclose_callback(mSocket, this, OnClose);
     emscripten_websocket_set_onerror_callback(mSocket, this, OnError);
     mConnecting = true;
+    mLastActivityTime = emscripten_get_now();
 
     SPDLOG_INFO("[WebSocket] Connecting to {}", url);
     return true;
@@ -82,6 +90,14 @@ void WebSocketClient::Send(const std::string& data) {
     emscripten_websocket_send_utf8_text(mSocket, data.c_str());
 }
 
+size_t WebSocketClient::GetBufferedAmount() {
+    size_t amount = 0;
+    if (mSocket > 0) {
+        emscripten_websocket_get_buffered_amount(mSocket, &amount);
+    }
+    return amount;
+}
+
 EM_BOOL WebSocketClient::OnOpen(int eventType, const EmscriptenWebSocketOpenEvent* event, void* userData) {
     auto* self = static_cast<WebSocketClient*>(userData);
     if (event->socket != self->mSocket) {
@@ -101,6 +117,7 @@ EM_BOOL WebSocketClient::OnMessage(int eventType, const EmscriptenWebSocketMessa
     if (event->socket != self->mSocket) {
         return EM_TRUE;
     }
+    self->mLastActivityTime = emscripten_get_now();
     if (event->isText) {
         std::string msg((const char*)event->data, event->numBytes);
         std::lock_guard<std::mutex> lock(self->mQueueMutex);
@@ -133,6 +150,10 @@ EM_BOOL WebSocketClient::OnError(int eventType, const EmscriptenWebSocketErrorEv
 #else
 // Native WebSocket implementation using a simple TCP-based approach
 // For now, provide stub implementations that can be replaced with a real library
+
+size_t WebSocketClient::GetBufferedAmount() {
+    return 0;
+}
 
 bool WebSocketClient::Connect(const std::string& url) {
     SPDLOG_WARN("[WebSocket] Native WebSocket not yet implemented, using stub");

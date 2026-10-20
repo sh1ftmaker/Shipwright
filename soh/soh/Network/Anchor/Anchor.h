@@ -89,6 +89,7 @@ class Anchor : public Network {
     bool justLoadedSave = false;
     uint16_t framesSinceLoad = 0;
     bool pendingTeamStateRequest = false;
+    double lastPingTime = 0;
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
     std::queue<nlohmann::json> incomingPacketQueue;
@@ -110,6 +111,7 @@ class Anchor : public Network {
     void HandlePacket_GameComplete(nlohmann::json payload);
     void HandlePacket_GiveItem(nlohmann::json payload);
     void HandlePacket_OcarinaSfx(nlohmann::json payload);
+    void HandlePacket_Ping(nlohmann::json payload);
     void HandlePacket_PlayerSfx(nlohmann::json payload);
     void HandlePacket_PlayerUpdate(nlohmann::json payload);
     void HandlePacket_RequestTeamState(nlohmann::json payload);
@@ -129,6 +131,7 @@ class Anchor : public Network {
     uint32_t ownClientId;
     // The server has accepted this connection and given us our ID (first ALL_CLIENT_STATE). Packets wait for it.
     bool sessionReady = false;
+    int pingMs = -1; // Round trip of the last keepalive, through the bridge and the server
     bool teleportToOwnerOnLoad = false; // Set by web join links
     inline static const std::string clientVersion = (char*)gGitCommitHash;
 
@@ -142,6 +145,7 @@ class Anchor : public Network {
     inline static const std::string HANDSHAKE = "HANDSHAKE";
     inline static const std::string OCARINA_SFX = "OCARINA_SFX";
     inline static const std::string PLAYER_SFX = "PLAYER_SFX";
+    inline static const std::string PING = "PING";
     inline static const std::string PLAYER_UPDATE = "PLAYER_UPDATE";
     inline static const std::string REQUEST_TEAM_STATE = "REQUEST_TEAM_STATE";
     inline static const std::string REQUEST_TELEPORT = "REQUEST_TELEPORT";
@@ -173,6 +177,9 @@ class Anchor : public Network {
     void OnIncomingJson(nlohmann::json payload);
     void OnConnected();
     void OnDisconnected();
+#ifdef __EMSCRIPTEN__
+    void OnTimerTick();
+#endif
     void AutoEquipSwordAndShield();
     void ProcessOutgoingPackets();
     void DrawMenu();
@@ -192,6 +199,7 @@ class Anchor : public Network {
     void SendPacket_GiveItem(u16 modId, s16 getItemId);
     void SendPacket_Handshake();
     void SendPacket_OcarinaSfx(uint8_t note, float modulator, int8_t bend);
+    void SendPacket_Ping();
     void SendPacket_PlayerSfx(u16 sfxId);
     void SendPacket_PlayerUpdate();
     void SendPacket_RequestTeamState();

@@ -11,9 +11,16 @@
  * a Durable Object gets fresh CPU time with every incoming WebSocket message.
  *
  * Nothing is stored: each WebSocket gets its own TCP connection and both close together.
+ *
+ * Clients that send keepalives (PING, every 3 s) are closed after IDLE_TIMEOUT_MS without a message, so a browser
+ * that vanished without closing (wifi gone, phone asleep) shows up as offline to the others quickly; otherwise the
+ * server would keep it "online" until a write failed, which can take minutes. Older clients don't send keepalives,
+ * so this only starts once one has been seen.
  */
 import { connect } from "cloudflare:sockets";
 import { DurableObject } from "cloudflare:workers";
+
+const IDLE_TIMEOUT_MS = 30000;
 
 export default {
   async fetch(request, env) {
@@ -48,9 +55,11 @@ export class AnchorRelay extends DurableObject {
     const writer = socket.writable.getWriter();
     const encoder = new TextEncoder();
     let closed = false;
+    let idleTimer;
     const closeBoth = (code, reason) => {
       if (closed) return;
       closed = true;
+      clearInterval(idleTimer);
       try { server.close(code, reason); } catch {}
       try { writer.releaseLock(); } catch {}
       socket.close().catch(() => {});
@@ -58,8 +67,17 @@ export class AnchorRelay extends DurableObject {
 
     // Browser -> Anchor server: one JSON message per WebSocket message, NUL-terminated on the wire
     let writing = Promise.resolve();
+    let lastMessage = Date.now();
+    let sendsKeepalives = false;
     server.addEventListener("message", (event) => {
       const text = typeof event.data === "string" ? event.data : new TextDecoder().decode(event.data);
+      lastMessage = Date.now();
+      if (!sendsKeepalives && text.includes('"PING"')) {
+        sendsKeepalives = true;
+        idleTimer = setInterval(() => {
+          if (Date.now() - lastMessage > IDLE_TIMEOUT_MS) closeBoth(4000, "browser went quiet");
+        }, 5000);
+      }
       writing = writing.then(() => writer.write(encoder.encode(text + "\0"))).catch(() => closeBoth(1011, "server write failed"));
     });
     server.addEventListener("close", () => closeBoth(1000, "client closed"));

@@ -56,6 +56,10 @@ void Network::Disable() {
         emscripten_clear_timeout(reconnectTimer);
         reconnectTimer = 0;
     }
+    if (tickTimer != 0) {
+        emscripten_clear_interval(tickTimer);
+        tickTimer = 0;
+    }
     wsClient.Disconnect();
     isConnected = false;
     OnDisconnected();
@@ -119,7 +123,43 @@ void Network::EnableWebSocket(const std::string& url) {
         }
     });
 
+    if (tickTimer == 0) {
+        tickTimer = emscripten_set_interval([](void* userData) { static_cast<Network*>(userData)->OnTimerTick(); },
+                                            1000, this);
+    }
+
     wsClient.Connect(url);
+}
+
+void Network::OnTimerTick() {
+}
+
+bool Network::CheckLiveness(double timeoutMs) {
+    if (!isEnabled || (!isConnected && !wsClient.IsConnecting())) {
+        return true;
+    }
+
+    double quietMs = emscripten_get_now() - wsClient.GetLastActivityTime();
+    size_t buffered = wsClient.GetBufferedAmount();
+    if (quietMs < timeoutMs && buffered < 1024 * 1024) {
+        return true;
+    }
+
+    SPDLOG_WARN("[Network] Connection looks dead (nothing received for {}ms, {} bytes unsent), reconnecting",
+                (int)quietMs, buffered);
+    ForceReconnect();
+    return false;
+}
+
+void Network::ForceReconnect() {
+    bool wasConnected = isConnected;
+    // Deleting the socket means its close event never comes, so do what that would have done
+    wsClient.Disconnect();
+    isConnected = false;
+    if (wasConnected) {
+        OnDisconnected();
+    }
+    ScheduleReconnect();
 }
 
 void Network::ScheduleReconnect() {
