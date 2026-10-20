@@ -42,7 +42,11 @@ export const actors = async (p) => JSON.parse(await p.evaluate(() => UTF8ToStrin
 
 // State-synced fights in the current scene (see web_debug_synced in ActorSync.cpp)
 export const syncedList = async (p) => JSON.parse(await p.evaluate(() => UTF8ToString(Module._web_debug_synced())));
-export const synced = async (p, name) => (await syncedList(p)).find((s) => s.name === name) ?? null;
+// "name" for the first one, "name@index" for the one with that spawn list index
+export const synced = async (p, name) => {
+    const [defName, index] = name.split('@');
+    return (await syncedList(p)).find((s) => s.name === defName && (index === undefined || s.index === +index)) ?? null;
+};
 
 export const syncedHit = (p, name, member, part, dmgFlags) =>
     p.evaluate(
