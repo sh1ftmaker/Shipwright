@@ -4,6 +4,7 @@
 
 #include "soh/Network/Network.h"
 #include "ActorSync.h"
+#include "WorldSync.h"
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <ship/window/gui/GuiWindow.h>
 #include <spdlog/spdlog.h>
@@ -154,6 +155,14 @@ class Anchor : public Network {
     void HandlePacket_UpdateDungeonItems(nlohmann::json payload);
     void HandlePacket_UpdateRoomState(nlohmann::json payload);
     void HandlePacket_UpdateTeamState(nlohmann::json payload);
+    void HandlePacket_MergeTeamState(nlohmann::json payload);
+    void HandlePacket_WorldEvent(nlohmann::json payload);
+
+    // World, flag and key item sync (WorldSync.h)
+    bool pendingTeamStatePush = false;
+    bool hasMergedTeamState = false; // since the save was loaded
+    bool MergeTeamState(nlohmann::json& state);
+    void RegisterWorldSyncHooks();
 
   public:
     uint32_t ownClientId;
@@ -196,6 +205,8 @@ class Anchor : public Network {
     inline static const std::string BOSS_STATE = "BOSS_STATE";
     inline static const std::string BOSS_HIT = "BOSS_HIT";
     inline static const std::string BOSS_DEFEATED = "BOSS_DEFEATED";
+    inline static const std::string MERGE_TEAM_STATE = "MERGE_TEAM_STATE";
+    inline static const std::string WORLD_EVENT = "WORLD_EVENT";
 
     static Anchor* Instance;
     std::map<uint32_t, AnchorClient> clients;
@@ -233,7 +244,7 @@ class Anchor : public Network {
     void SendPacket_DamagePlayer(u32 clientId, u8 damageEffect, u8 damage);
     void SendPacket_EntranceDiscovered(u16 entranceIndex);
     void SendPacket_GameComplete();
-    void SendPacket_GiveItem(u16 modId, s16 getItemId);
+    void SendPacket_GiveItem(u16 modId, s16 getItemId, AnchorWorldSync::FlagRef source = {});
     void SendPacket_Handshake();
     void SendPacket_OcarinaSfx(uint8_t note, float modulator, int8_t bend);
     void SendPacket_Ping();
@@ -247,9 +258,11 @@ class Anchor : public Network {
     void SendPacket_UnsetFlag(s16 sceneNum, s16 flagType, s16 flag);
     void SendPacket_UpdateBeansCount();
     void SendPacket_UpdateClientState();
-    void SendPacket_UpdateDungeonItems();
+    void SendPacket_UpdateDungeonItems(s8 keyDelta = 0, AnchorWorldSync::FlagRef source = {});
     void SendPacket_UpdateRoomState();
     void SendPacket_UpdateTeamState();
+    void SendPacket_MergeTeamState();
+    void SendPacket_WorldEvent(u8 kind, uint64_t actorKey);
 };
 
 typedef enum {

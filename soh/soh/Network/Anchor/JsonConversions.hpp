@@ -147,7 +147,6 @@ inline void from_json(const json& j, ShipRandomizerSaveContextData& shipRandomiz
 #undef SILVER_FROM_JSON
 }
 
-#undef SILVER_RUPEE_FIELDS
 
 inline void to_json(json& j, const ShipQuestSpecificSaveContextData& shipQuestSpecificSaveContextData) {
     j = json{

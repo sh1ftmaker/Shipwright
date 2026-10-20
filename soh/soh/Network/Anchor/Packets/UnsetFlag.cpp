@@ -16,17 +16,20 @@ extern PlayState* gPlayState;
  */
 
 void Anchor::SendPacket_UnsetFlag(s16 sceneNum, s16 flagType, s16 flag) {
-    if (!IsSaveLoaded() || !roomState.syncItemsAndFlags) {
+    if (!IsSaveLoaded() || isProcessingIncomingPacket || !roomState.syncItemsAndFlags ||
+        AnchorWorldSync::IsPerPlayerFlag(sceneNum, flagType, flag)) {
         return;
     }
 
     nlohmann::json payload;
     payload["type"] = UNSET_FLAG;
     payload["targetTeamId"] = CVarGetString(CVAR_REMOTE_ANCHOR("TeamId"), "default");
-    payload["addToQueue"] = true;
+    // Temp flags are gone by the time anyone replays the queue
+    payload["addToQueue"] = !AnchorWorldSync::IsTempFlag(sceneNum, flagType, flag);
     payload["sceneNum"] = sceneNum;
     payload["flagType"] = flagType;
     payload["flag"] = flag;
+    payload["roomNum"] = gPlayState->roomCtx.curRoom.num;
 
     SendJsonToRemote(payload);
 }
@@ -44,6 +47,17 @@ void Anchor::HandlePacket_UnsetFlag(nlohmann::json payload) {
     // values would index gSaveContext.sceneFlags out of bounds.
     if (sceneNum < 0 || sceneNum > SCENE_ID_MAX) {
         SPDLOG_ERROR("[Anchor] UNSET_FLAG: sceneNum {} out of range", sceneNum);
+        return;
+    }
+
+    if (AnchorWorldSync::IsPerPlayerFlag(sceneNum, flagType, flag)) {
+        return;
+    }
+
+    // Room-local temp flags only mean something in the room that set them
+    if (AnchorWorldSync::IsRoomLocalFlag(flagType, flag) &&
+        (sceneNum != gPlayState->sceneNum ||
+         payload.value("roomNum", (s16)gPlayState->roomCtx.curRoom.num) != gPlayState->roomCtx.curRoom.num)) {
         return;
     }
 
@@ -95,17 +109,6 @@ void Anchor::HandlePacket_UnsetFlag(nlohmann::json payload) {
             Inventory_ReplaceItem(gPlayState, itemToReplace, Randomizer_GetNextAdultTradeItem());
         }
     } else {
-        // Special case: Ignore water temple water level flags, stored at 0x1C, 0x1D, 0x1E.
-        if (sceneNum == SCENE_WATER_TEMPLE && flagType == FLAG_SCENE_SWITCH &&
-            (flag == 0x1C || flag == 0x1D || flag == 0x1E)) {
-            return;
-        }
-
-        // Special case: Ignore forest temple elevator flag, stored at 0x1B.
-        if (sceneNum == SCENE_FOREST_TEMPLE && flagType == FLAG_SCENE_SWITCH && flag == 0x1B) {
-            return;
-        }
-
         auto effect = new GameInteractionEffect::UnsetSceneFlag();
         effect->parameters[0] = sceneNum;
         effect->parameters[1] = flagType;

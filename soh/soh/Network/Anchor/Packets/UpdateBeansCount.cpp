@@ -9,7 +9,7 @@ extern "C" {
 /**
  * UPDATE_BEANS_COUNT
  *
- * Keeps the client's bean count in sync as they buy/use them
+ * Keeps the client's bean count in sync as they plant them (buying goes through GIVE_ITEM)
  */
 
 void Anchor::SendPacket_UpdateBeansCount() {
@@ -32,6 +32,11 @@ void Anchor::HandlePacket_UpdateBeansCount(nlohmann::json payload) {
         return;
     }
 
+    // Planted by a teammate; beans are one pool for the team (see WorldSync.h)
+    if (INV_CONTENT(ITEM_BEAN) != ITEM_BEAN) {
+        INV_CONTENT(ITEM_BEAN) = ITEM_BEAN;
+    }
     AMMO(ITEM_BEAN) = payload.at("amount").get<s8>();
-    BEANS_BOUGHT = payload.at("amountBought").get<s8>();
+    BEANS_BOUGHT = MAX(BEANS_BOUGHT, payload.at("amountBought").get<s8>());
+    AnchorWorldSync::RefreshSnapshot();
 }

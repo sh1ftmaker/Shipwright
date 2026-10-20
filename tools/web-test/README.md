@@ -14,6 +14,8 @@ node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --url https://sh1ftm
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/actor-sync-steps.mjs
 # Anchor connection drops, offline save changes, room ownership, reloads and hidden tabs
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/reconnect-steps.mjs
+# two players: switches, temp flags, keys, chest races and the team state merge
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/world-sync-steps.mjs
 ```
 
 Screenshots and `report.json` (step results, FPS samples, console log) go to

@@ -549,6 +549,10 @@ void Anchor::ProcessIncomingPacketQueue() {
                 AnchorActorSync::HandlePacket_BossHit(payload);
             else if (packetType == BOSS_DEFEATED)
                 AnchorActorSync::HandlePacket_BossDefeated(payload);
+            else if (packetType == MERGE_TEAM_STATE)
+                HandlePacket_MergeTeamState(payload);
+            else if (packetType == WORLD_EVENT)
+                HandlePacket_WorldEvent(payload);
         } catch (const std::exception& e) {
             SPDLOG_ERROR("[Anchor] Exception while processing incoming packet {}", e.what());
             SPDLOG_ERROR("[Anchor] Packet: {}", payload.dump());

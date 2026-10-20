@@ -709,6 +709,163 @@ EMSCRIPTEN_KEEPALIVE void web_debug_set_event_flag(int flag) {
     Flags_SetEventChkInf(flag);
 }
 
+void GameInteractor_ExecuteOnDungeonKeyUsedHooks(uint16_t mapIndex);
+
+// Read or change a flag (tools/web-test). op: 0 get, 1 set, 2 unset (both through Flags_*, like the game does),
+// 3 set without any hooks (like progress made while offline). scene: -1 for the current scene, SCENE_ID_MAX for
+// global flags (FLAG_EVENT_CHECK_INF, ...). Scene flags of other scenes only support get and op 3.
+EMSCRIPTEN_KEEPALIVE int web_debug_flag(int op, int scene, int type, int flag) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return -1;
+    }
+    if (scene == SCENE_ID_MAX) {
+        u16* table = type == FLAG_EVENT_CHECK_INF ? gSaveContext.eventChkInf
+                     : type == FLAG_ITEM_GET_INF  ? gSaveContext.itemGetInf
+                     : type == FLAG_INF_TABLE     ? gSaveContext.infTable
+                     : type == FLAG_EVENT_INF     ? gSaveContext.eventInf
+                                                  : NULL;
+        if (table == NULL) {
+            return -1;
+        }
+        switch (op) {
+            case 1:
+                type == FLAG_EVENT_CHECK_INF ? Flags_SetEventChkInf(flag)
+                : type == FLAG_ITEM_GET_INF  ? Flags_SetItemGetInf(flag)
+                : type == FLAG_INF_TABLE     ? Flags_SetInfTable(flag)
+                                             : Flags_SetEventInf(flag);
+                break;
+            case 2:
+                type == FLAG_EVENT_CHECK_INF ? Flags_UnsetEventChkInf(flag)
+                : type == FLAG_ITEM_GET_INF  ? Flags_UnsetItemGetInf(flag)
+                : type == FLAG_INF_TABLE     ? Flags_UnsetInfTable(flag)
+                                             : Flags_UnsetEventInf(flag);
+                break;
+            case 3:
+                table[flag >> 4] |= 1 << (flag & 0xF);
+                break;
+        }
+        return (table[flag >> 4] >> (flag & 0xF)) & 1;
+    }
+
+    bool current = scene < 0 || scene == gPlayState->sceneNum;
+    if (current) {
+        scene = gPlayState->sceneNum;
+    }
+    u32* saved = type == FLAG_SCENE_SWITCH     ? &gSaveContext.sceneFlags[scene].swch
+                 : type == FLAG_SCENE_TREASURE ? &gSaveContext.sceneFlags[scene].chest
+                 : type == FLAG_SCENE_CLEAR    ? &gSaveContext.sceneFlags[scene].clear
+                                               : &gSaveContext.sceneFlags[scene].collect;
+    if (!current) {
+        if (op == 3 && flag < 0x20) {
+            *saved |= 1u << flag;
+        }
+        return flag < 0x20 ? (*saved >> flag) & 1 : 0;
+    }
+    switch (op) {
+        case 1:
+            type == FLAG_SCENE_SWITCH     ? Flags_SetSwitch(gPlayState, flag)
+            : type == FLAG_SCENE_TREASURE ? Flags_SetTreasure(gPlayState, flag)
+            : type == FLAG_SCENE_CLEAR    ? Flags_SetClear(gPlayState, flag)
+                                          : Flags_SetCollectible(gPlayState, flag);
+            break;
+        case 2:
+            if (type == FLAG_SCENE_SWITCH) {
+                Flags_UnsetSwitch(gPlayState, flag);
+            } else if (type == FLAG_SCENE_CLEAR) {
+                Flags_UnsetClear(gPlayState, flag);
+            }
+            break;
+        case 3:
+            if (type == FLAG_SCENE_SWITCH && flag < 0x20) {
+                gPlayState->actorCtx.flags.swch |= 1u << flag;
+            } else if (type == FLAG_SCENE_TREASURE) {
+                gPlayState->actorCtx.flags.chest |= 1u << flag;
+            } else if (type == FLAG_SCENE_COLLECTIBLE && flag < 0x20) {
+                gPlayState->actorCtx.flags.collect |= 1u << flag;
+            }
+            break;
+    }
+    switch (type) {
+        case FLAG_SCENE_SWITCH:
+            return Flags_GetSwitch(gPlayState, flag) != 0;
+        case FLAG_SCENE_TREASURE:
+            return Flags_GetTreasure(gPlayState, flag) != 0;
+        case FLAG_SCENE_CLEAR:
+            return Flags_GetClear(gPlayState, flag) != 0;
+        default:
+            return Flags_GetCollectible(gPlayState, flag) != 0;
+    }
+}
+
+// Give an item like a pickup does (tools/web-test). With a chest flag (0-31), open that chest of the current scene
+// first, like taking the item out of it
+EMSCRIPTEN_KEEPALIVE int web_debug_give_item(int item, int chestFlag) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return 0;
+    }
+    if (chestFlag >= 0) {
+        Flags_SetTreasure(gPlayState, chestFlag);
+    }
+    Item_Give(gPlayState, item);
+    return 1;
+}
+
+// Unlock a locked door of the current dungeon with a small key, like Door_Shutter does (tools/web-test)
+EMSCRIPTEN_KEEPALIVE int web_debug_use_key(int doorFlag) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL ||
+        gSaveContext.inventory.dungeonKeys[gSaveContext.mapIndex] <= 0) {
+        return 0;
+    }
+    Flags_SetSwitch(gPlayState, doorFlag);
+    gSaveContext.inventory.dungeonKeys[gSaveContext.mapIndex]--;
+    GameInteractor_ExecuteOnDungeonKeyUsedHooks(gSaveContext.mapIndex);
+    return 1;
+}
+
+// Inventory values (tools/web-test): 0 small keys of dungeon index, 1 heart pieces, 2 health capacity, 3 map index,
+// 4 skulltula tokens, 5 item in slot index, 6 dungeon items of dungeon index, 7 ammo in slot index, 8 rupees
+EMSCRIPTEN_KEEPALIVE int web_debug_inventory(int field, int index) {
+    switch (field) {
+        case 0: return gSaveContext.inventory.dungeonKeys[index];
+        case 1: return (gSaveContext.inventory.questItems & 0xF0000000) >> 28;
+        case 2: return gSaveContext.healthCapacity;
+        case 3: return gSaveContext.mapIndex;
+        case 4: return gSaveContext.inventory.gsTokens;
+        case 5: return gSaveContext.inventory.items[index];
+        case 6: return gSaveContext.inventory.dungeonItems[index];
+        case 7: return gSaveContext.inventory.ammo[index];
+        case 8: return gSaveContext.rupees;
+        default: return 0;
+    }
+}
+
+// Spawn an actor at a position in the current room (tools/web-test)
+EMSCRIPTEN_KEEPALIVE int web_debug_spawn_actor(int id, int params, float x, float y, float z) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return 0;
+    }
+    return Actor_Spawn(&gPlayState->actorCtx, gPlayState, id, x, y, z, 0, 0, 0, params) != NULL;
+}
+
+// The first actor with this ID: "params room x y z scaleY" (tools/web-test), or "" if there is none
+EMSCRIPTEN_KEEPALIVE const char* web_debug_find_actor(int id) {
+    static char buf[128];
+    buf[0] = '\0';
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return buf;
+    }
+    for (int category = 0; category < ACTORCAT_MAX; category++) {
+        for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor != NULL; actor = actor->next) {
+            if (actor->id == id && actor->update != NULL) {
+                snprintf(buf, sizeof(buf), "%d %d %.1f %.1f %.1f %.4f", actor->params, actor->room, actor->world.pos.x,
+                         actor->world.pos.y, actor->world.pos.z, actor->scale.y);
+                return buf;
+            }
+        }
+    }
+    return buf;
+}
+
 // Put Link somewhere in the current room (tools/web-test)
 EMSCRIPTEN_KEEPALIVE int web_debug_set_player_pos(float x, float y, float z) {
     if (WebDebug_GameState() != 3 || gPlayState == NULL) {
