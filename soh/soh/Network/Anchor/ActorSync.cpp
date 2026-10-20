@@ -7,18 +7,40 @@
 #include <deque>
 #include <cmath>
 #include <climits>
+#include <algorithm>
 
 extern "C" {
 #include "macros.h"
 #include "variables.h"
 #include "functions.h"
 #include "src/overlays/actors/ovl_Obj_Oshihiki/z_obj_oshihiki.h"
+#include "src/overlays/actors/ovl_Boss_Goma/z_boss_goma.h"
+#include "soh/ResourceManagerHelpers.h"
+void SkelAnime_SetUpdate(SkelAnime* skelAnime);
 extern PlayState* gPlayState;
 void ObjOshihiki_OnScene(ObjOshihiki* block, PlayState* play);
 void ObjOshihiki_OnActor(ObjOshihiki* block, PlayState* play);
 void ObjOshihiki_Push(ObjOshihiki* block, PlayState* play);
 void ObjOshihiki_SetupPush(ObjOshihiki* block, PlayState* play);
 void ObjOshihiki_SetupFall(ObjOshihiki* block, PlayState* play);
+void BossGoma_Defeated(BossGoma* goma, PlayState* play);
+void BossGoma_SetupDefeated(BossGoma* goma, PlayState* play);
+void BossGoma_FloorAttackPosture(BossGoma* goma, PlayState* play);
+void BossGoma_FloorPrepareAttack(BossGoma* goma, PlayState* play);
+void BossGoma_FloorAttack(BossGoma* goma, PlayState* play);
+void BossGoma_FloorDamaged(BossGoma* goma, PlayState* play);
+void BossGoma_FloorLandStruckDown(BossGoma* goma, PlayState* play);
+void BossGoma_FloorLand(BossGoma* goma, PlayState* play);
+void BossGoma_FloorStunned(BossGoma* goma, PlayState* play);
+void BossGoma_FallJump(BossGoma* goma, PlayState* play);
+void BossGoma_FallStruckDown(BossGoma* goma, PlayState* play);
+void BossGoma_CeilingSpawnGohmas(BossGoma* goma, PlayState* play);
+void BossGoma_CeilingPrepareSpawnGohmas(BossGoma* goma, PlayState* play);
+void BossGoma_FloorIdle(BossGoma* goma, PlayState* play);
+void BossGoma_CeilingIdle(BossGoma* goma, PlayState* play);
+void BossGoma_FloorMain(BossGoma* goma, PlayState* play);
+void BossGoma_WallClimb(BossGoma* goma, PlayState* play);
+void BossGoma_CeilingMoveToCenter(BossGoma* goma, PlayState* play);
 }
 
 namespace AnchorActorSync {
@@ -28,6 +50,9 @@ static const std::string ACTOR_HEALTH = "ACTOR_HEALTH";
 static const std::string ACTOR_KILL = "ACTOR_KILL";
 static const std::string BLOCK_PUSH = "BLOCK_PUSH";
 static const std::string BLOCK_POS = "BLOCK_POS";
+static const std::string BOSS_STATE = "BOSS_STATE";
+static const std::string BOSS_HIT = "BOSS_HIT";
+static const std::string BOSS_DEFEATED = "BOSS_DEFEATED";
 
 namespace {
 
@@ -75,6 +100,8 @@ std::unordered_map<Key, s16> sLastHealth;
 std::unordered_map<Key, uint32_t> sHealthSentFrame;
 std::unordered_set<Key> sDead;
 std::unordered_map<Key, Block> sBlocks;
+// IDs for actors that aren't in a spawn list but are made by one that is, worked out when they spawn
+std::unordered_map<Actor*, Key> sDerivedKeys;
 
 Key MakeKey(s8 room, s16 index) {
     return ((uint32_t)(u8)room << 16) | (u16)index;
@@ -95,10 +122,28 @@ bool GetKey(Actor* actor, Key* key) {
     }
     s16 index = GetActorListIndex(actor);
     if (index < 0) {
-        return false;
+        auto derived = sDerivedKeys.find(actor);
+        if (derived == sDerivedKeys.end()) {
+            return false;
+        }
+        *key = derived->second;
+        return true;
     }
     *key = MakeKey(actor->room, index);
     return true;
+}
+
+// A push block made by a spawner (Obj_Makeoshihiki, one block each) takes its ID from the spawner. Called on the
+// block's first update: its init runs inside the spawn call, before the spawner is set as its parent.
+void DeriveKey(Actor* actor) {
+    if (actor->id != ACTOR_OBJ_OSHIHIKI || actor->room < 0 || GetActorListIndex(actor) >= 0 ||
+        sDerivedKeys.contains(actor) || actor->parent == nullptr || actor->parent->id != ACTOR_OBJ_MAKEOSHIHIKI) {
+        return;
+    }
+    s16 parentIndex = GetActorListIndex(actor->parent);
+    if (parentIndex >= 0) {
+        sDerivedKeys[actor] = MakeKey(actor->room, parentIndex | 0x4000);
+    }
 }
 
 bool IsEnabled() {
@@ -174,7 +219,8 @@ bool IsForThisScene(nlohmann::json& payload) {
 Actor* FindActor(Key key) {
     for (int category = 0; category < ACTORCAT_MAX; category++) {
         for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor != nullptr; actor = actor->next) {
-            if (actor->room == KeyRoom(key) && GetActorListIndex(actor) == KeyIndex(key)) {
+            Key actorKey;
+            if (actor->room == KeyRoom(key) && GetKey(actor, &actorKey) && actorKey == key) {
                 return actor;
             }
         }
@@ -487,6 +533,243 @@ void SendBlockPositions() {
     }
 }
 
+// MARK: - Bosses
+
+/**
+ * Bosses run a state machine that following a position can't keep in step, so the room owner sends the boss's
+ * actual state instead: its action, timers, animation and transform. Everyone runs the boss from that state, so
+ * hits land the same way for everyone; a hit that changes the boss's state on another player's game (a stun, eye
+ * damage) is sent back to the room owner, who carries on from it. Intros and deaths use a camera that belongs to
+ * each player's own game, so those play locally: only the fight states are shared, and a defeat starts everyone's
+ * own death cutscene (with its blue warp and heart container).
+ *
+ * This relies on both players running the same build, which Anchor already requires: function and animation
+ * pointers are the same in both.
+ */
+typedef void (*BossActionFunc)(void*, PlayState*);
+
+struct BossField {
+    size_t offset;
+    bool isFloat; // f32, otherwise s16
+};
+
+struct BossDef {
+    s16 actorId;
+    size_t actionFuncOffset;
+    size_t skelAnimeOffset;
+    std::vector<BossActionFunc> fightActions;  // Sent as an index into this list
+    std::vector<BossActionFunc> hitReactions; // States a hit puts the boss in
+    BossActionFunc defeatedAction;
+    void (*defeat)(Actor* actor);
+    std::vector<BossField> fields;
+};
+
+#define BOSS_ACTION(func) ((BossActionFunc)(func))
+#define BOSS_S16(type, field) BossField{ offsetof(type, field), false }
+#define BOSS_F32(type, field) BossField{ offsetof(type, field), true }
+
+const std::vector<BossDef>& BossDefs() {
+    static const std::vector<BossDef> defs = {
+        { ACTOR_BOSS_GOMA,
+          offsetof(BossGoma, actionFunc),
+          offsetof(BossGoma, skelanime),
+          { BOSS_ACTION(BossGoma_FloorAttackPosture), BOSS_ACTION(BossGoma_FloorPrepareAttack),
+            BOSS_ACTION(BossGoma_FloorAttack), BOSS_ACTION(BossGoma_FloorDamaged),
+            BOSS_ACTION(BossGoma_FloorLandStruckDown), BOSS_ACTION(BossGoma_FloorLand),
+            BOSS_ACTION(BossGoma_FloorStunned), BOSS_ACTION(BossGoma_FallJump), BOSS_ACTION(BossGoma_FallStruckDown),
+            BOSS_ACTION(BossGoma_CeilingSpawnGohmas), BOSS_ACTION(BossGoma_CeilingPrepareSpawnGohmas),
+            BOSS_ACTION(BossGoma_FloorIdle), BOSS_ACTION(BossGoma_CeilingIdle), BOSS_ACTION(BossGoma_FloorMain),
+            BOSS_ACTION(BossGoma_WallClimb), BOSS_ACTION(BossGoma_CeilingMoveToCenter) },
+          { BOSS_ACTION(BossGoma_FloorStunned), BOSS_ACTION(BossGoma_FloorDamaged),
+            BOSS_ACTION(BossGoma_FallStruckDown) },
+          BOSS_ACTION(BossGoma_Defeated),
+          [](Actor* actor) {
+              BossGoma_SetupDefeated((BossGoma*)actor, gPlayState);
+              Enemy_StartFinishingBlow(gPlayState, actor);
+              GameInteractor_ExecuteOnBossDefeat(actor);
+          },
+          // Not the sub camera or anything only the intro and death use; not the children's states, since each
+          // player has their own baby Gohmas
+          { BOSS_S16(BossGoma, frameCount), BOSS_S16(BossGoma, patienceTimer), BOSS_S16(BossGoma, eyeLidBottomRotX),
+            BOSS_S16(BossGoma, eyeLidTopRotX), BOSS_S16(BossGoma, eyeClosedTimer), BOSS_S16(BossGoma, eyeIrisRotX),
+            BOSS_S16(BossGoma, eyeIrisRotY), BOSS_S16(BossGoma, tailLimbsScaleTimers[0]),
+            BOSS_S16(BossGoma, tailLimbsScaleTimers[1]), BOSS_S16(BossGoma, tailLimbsScaleTimers[2]),
+            BOSS_S16(BossGoma, tailLimbsScaleTimers[3]), BOSS_S16(BossGoma, spawnGohmasActionTimer),
+            BOSS_S16(BossGoma, eyeState), BOSS_S16(BossGoma, doNotMoveThisFrame), BOSS_S16(BossGoma, visualState),
+            BOSS_S16(BossGoma, invincibilityFrames), BOSS_S16(BossGoma, blinkTimer),
+            BOSS_S16(BossGoma, lookedAtFrames), BOSS_S16(BossGoma, actionState),
+            BOSS_S16(BossGoma, framesUntilNextAction), BOSS_S16(BossGoma, timer), BOSS_S16(BossGoma, sfxFaintTimer),
+            BOSS_F32(BossGoma, tailLimbsScale[0]), BOSS_F32(BossGoma, tailLimbsScale[1]),
+            BOSS_F32(BossGoma, tailLimbsScale[2]), BOSS_F32(BossGoma, tailLimbsScale[3]),
+            BOSS_F32(BossGoma, eyeIrisScaleX), BOSS_F32(BossGoma, eyeIrisScaleY),
+            BOSS_F32(BossGoma, currentAnimFrameCount), BOSS_F32(BossGoma, mainEnvColor[0]),
+            BOSS_F32(BossGoma, mainEnvColor[1]), BOSS_F32(BossGoma, mainEnvColor[2]),
+            BOSS_F32(BossGoma, eyeEnvColor[0]), BOSS_F32(BossGoma, eyeEnvColor[1]),
+            BOSS_F32(BossGoma, eyeEnvColor[2]) } },
+    };
+    return defs;
+}
+
+const BossDef* GetBossDef(Actor* actor) {
+    if (actor->category != ACTORCAT_BOSS) {
+        return nullptr;
+    }
+    for (const BossDef& def : BossDefs()) {
+        if (def.actorId == actor->id) {
+            return &def;
+        }
+    }
+    return nullptr;
+}
+
+struct Boss {
+    nlohmann::json state; // Latest from the room owner
+    uint32_t stateFrame = 0;
+    uint32_t ignoreStateUntil = 0; // After sending a hit, until the room owner's state includes it
+    bool pendingDefeat = false;    // Defeated elsewhere while this game was still in the intro
+    BossActionFunc preAction = nullptr;
+    s16 preHealth = 0;
+};
+
+std::unordered_map<Key, Boss> sBosses;
+
+constexpr uint32_t BOSS_STATE_TIMEOUT = 10;
+constexpr uint32_t BOSS_HIT_HOLD = 10;
+
+BossActionFunc& ActionOf(Actor* actor, const BossDef& def) {
+    return *(BossActionFunc*)((u8*)actor + def.actionFuncOffset);
+}
+
+SkelAnime* SkelAnimeOf(Actor* actor, const BossDef& def) {
+    return (SkelAnime*)((u8*)actor + def.skelAnimeOffset);
+}
+
+int FightActionIndex(Actor* actor, const BossDef& def) {
+    BossActionFunc action = ActionOf(actor, def);
+    for (size_t i = 0; i < def.fightActions.size(); i++) {
+        if (def.fightActions[i] == action) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+bool IsIn(const std::vector<BossActionFunc>& list, BossActionFunc action) {
+    return std::find(list.begin(), list.end(), action) != list.end();
+}
+
+nlohmann::json BossSnapshot(Actor* actor, const BossDef& def) {
+    SkelAnime* skel = SkelAnimeOf(actor, def);
+    nlohmann::json fields = nlohmann::json::array();
+    for (const BossField& field : def.fields) {
+        if (field.isFloat) {
+            fields.push_back(*(f32*)((u8*)actor + field.offset));
+        } else {
+            fields.push_back(*(s16*)((u8*)actor + field.offset));
+        }
+    }
+    return { { "action", FightActionIndex(actor, def) },
+             { "pos", { actor->world.pos.x, actor->world.pos.y, actor->world.pos.z } },
+             { "rot", { actor->world.rot.x, actor->world.rot.y, actor->world.rot.z } },
+             { "shapeRot", { actor->shape.rot.x, actor->shape.rot.y, actor->shape.rot.z } },
+             { "velocity", { actor->velocity.x, actor->velocity.y, actor->velocity.z } },
+             { "speedXZ", actor->speedXZ },
+             { "gravity", actor->gravity },
+             { "health", actor->colChkInfo.health },
+             { "anim", (uint32_t)(uintptr_t)skel->animation },
+             { "animMode", skel->mode },
+             { "animFrames", { skel->startFrame, skel->endFrame, skel->animLength, skel->curFrame, skel->playSpeed } },
+             { "fields", fields } };
+}
+
+void ApplyBossSnapshot(Actor* actor, const BossDef& def, const nlohmann::json& state) {
+    int action = state["action"].get<int>();
+    if (action < 0 || action >= (int)def.fightActions.size() || state["fields"].size() != def.fields.size()) {
+        return;
+    }
+    ActionOf(actor, def) = def.fightActions[action];
+
+    auto pos = state["pos"], rot = state["rot"], shapeRot = state["shapeRot"], velocity = state["velocity"];
+    actor->world.pos = { pos[0].get<f32>(), pos[1].get<f32>(), pos[2].get<f32>() };
+    actor->world.rot = { rot[0].get<s16>(), rot[1].get<s16>(), rot[2].get<s16>() };
+    actor->shape.rot = { shapeRot[0].get<s16>(), shapeRot[1].get<s16>(), shapeRot[2].get<s16>() };
+    actor->velocity = { velocity[0].get<f32>(), velocity[1].get<f32>(), velocity[2].get<f32>() };
+    actor->speedXZ = state["speedXZ"].get<f32>();
+    actor->gravity = state["gravity"].get<f32>();
+    actor->colChkInfo.health = MIN(actor->colChkInfo.health, state["health"].get<u8>());
+
+    for (size_t i = 0; i < def.fields.size(); i++) {
+        if (def.fields[i].isFloat) {
+            *(f32*)((u8*)actor + def.fields[i].offset) = state["fields"][i].get<f32>();
+        } else {
+            *(s16*)((u8*)actor + def.fields[i].offset) = state["fields"][i].get<s16>();
+        }
+    }
+
+    // A different animation blends in from the current pose, like a local animation change would
+    SkelAnime* skel = SkelAnimeOf(actor, def);
+    char* anim = (char*)(uintptr_t)state["anim"].get<uint32_t>();
+    u8 mode = state["animMode"].get<u8>();
+    if ((anim != skel->animation || mode != skel->mode) && ResourceMgr_OTRSigCheck(anim)) {
+        skel->animation = anim;
+        skel->mode = mode;
+        SkelAnime_SetUpdate(skel);
+    }
+    auto frames = state["animFrames"];
+    skel->startFrame = frames[0].get<f32>();
+    skel->endFrame = frames[1].get<f32>();
+    skel->animLength = frames[2].get<f32>();
+    skel->curFrame = frames[3].get<f32>();
+    skel->playSpeed = frames[4].get<f32>();
+}
+
+void SendBossPacket(const std::string& type, Key key, nlohmann::json state) {
+    nlohmann::json payload;
+    payload["type"] = type;
+    payload["room"] = KeyRoom(key);
+    payload["index"] = KeyIndex(key);
+    payload["state"] = std::move(state);
+    SendToPeers(payload);
+}
+
+void BossPreUpdate(Actor* actor, Key key, const BossDef& def) {
+    Boss& boss = sBosses[key];
+    bool fighting = FightActionIndex(actor, def) >= 0;
+
+    if (boss.pendingDefeat && fighting) {
+        boss.pendingDefeat = false;
+        def.defeat(actor);
+    } else if (fighting && !OwnsRoom(actor->room) && !boss.state.is_null() &&
+               sFrame - boss.stateFrame <= BOSS_STATE_TIMEOUT && sFrame >= boss.ignoreStateUntil) {
+        ApplyBossSnapshot(actor, def, boss.state);
+    }
+    boss.preAction = ActionOf(actor, def);
+    boss.preHealth = actor->colChkInfo.health;
+}
+
+void BossPostUpdate(Actor* actor, Key key, const BossDef& def) {
+    Boss& boss = sBosses[key];
+    BossActionFunc action = ActionOf(actor, def);
+
+    if (action == def.defeatedAction) {
+        if (boss.preAction != def.defeatedAction) {
+            SendBossPacket(BOSS_DEFEATED, key, nullptr);
+        }
+        return;
+    }
+    if (FightActionIndex(actor, def) < 0) {
+        return; // Intro
+    }
+    if (OwnsRoom(actor->room)) {
+        SendBossPacket(BOSS_STATE, key, BossSnapshot(actor, def));
+    } else if ((action != boss.preAction && IsIn(def.hitReactions, action)) ||
+               actor->colChkInfo.health < boss.preHealth) {
+        // This player hit it: the room owner takes it from here
+        SendBossPacket(BOSS_HIT, key, BossSnapshot(actor, def));
+        boss.ignoreStateUntil = sFrame + BOSS_HIT_HOLD;
+    }
+}
+
 } // namespace
 
 // MARK: - Hooks
@@ -499,20 +782,26 @@ void Reset() {
     sHealthSentFrame.clear();
     sDead.clear();
     sBlocks.clear();
+    sBosses.clear();
+    sDerivedKeys.clear();
 }
 
 void OnShouldActorUpdate(Actor* actor, bool* should) {
     bool isEnemy = IsSyncedEnemy(actor);
-    if ((!isEnemy && actor->id != ACTOR_OBJ_OSHIHIKI) || !IsEnabled()) {
+    const BossDef* boss = isEnemy ? nullptr : GetBossDef(actor);
+    if ((!isEnemy && boss == nullptr && actor->id != ACTOR_OBJ_OSHIHIKI) || !IsEnabled()) {
         return;
     }
     CheckScene();
+    DeriveKey(actor);
     Key key;
     if (!HasPeers() || !GetKey(actor, &key)) {
         return;
     }
     if (isEnemy) {
         EnemyPreUpdate(actor, key, should);
+    } else if (boss != nullptr) {
+        BossPreUpdate(actor, key, *boss);
     } else {
         BlockPreUpdate(actor, key);
     }
@@ -520,7 +809,8 @@ void OnShouldActorUpdate(Actor* actor, bool* should) {
 
 void OnActorUpdate(Actor* actor) {
     bool isEnemy = IsSyncedEnemy(actor);
-    if ((!isEnemy && actor->id != ACTOR_OBJ_OSHIHIKI) || !IsEnabled()) {
+    const BossDef* boss = isEnemy ? nullptr : GetBossDef(actor);
+    if ((!isEnemy && boss == nullptr && actor->id != ACTOR_OBJ_OSHIHIKI) || !IsEnabled()) {
         return;
     }
     Key key;
@@ -529,6 +819,8 @@ void OnActorUpdate(Actor* actor) {
     }
     if (isEnemy) {
         EnemyPostUpdate(actor, key);
+    } else if (boss != nullptr) {
+        BossPostUpdate(actor, key, *boss);
     } else {
         BlockPostUpdate(actor, key);
     }
@@ -552,6 +844,10 @@ void OnEnemyDefeat(Actor* actor) {
 
 // A room that loads again spawns new copies of its actors
 void OnActorInit(Actor* actor) {
+    if (gPlayState == nullptr) {
+        return;
+    }
+    CheckScene();
     Key key;
     if (!IsEnabled() || !GetKey(actor, &key)) {
         return;
@@ -560,6 +856,15 @@ void OnActorInit(Actor* actor) {
     sLastHealth.erase(key);
     sSent.erase(key);
     sBlocks.erase(key);
+    sBosses.erase(key);
+}
+
+void OnActorDestroy(Actor* actor) {
+    sDerivedKeys.erase(actor);
+}
+
+bool GetActorKey(Actor* actor, uint32_t* key) {
+    return GetKey(actor, key);
 }
 
 void OnFrame() {
@@ -654,6 +959,57 @@ void HandlePacket_BlockPush(nlohmann::json& payload) {
     }
 }
 
+// Finds the boss a packet is about, if this game has it
+static Actor* FindBoss(nlohmann::json& payload, Key* key, const BossDef** def) {
+    if (!IsForThisScene(payload)) {
+        return nullptr;
+    }
+    CheckScene();
+    *key = MakeKey(payload["room"].get<s8>(), payload["index"].get<s16>());
+    Actor* actor = FindActor(*key);
+    if (actor == nullptr || actor->update == nullptr || (*def = GetBossDef(actor)) == nullptr) {
+        return nullptr;
+    }
+    return actor;
+}
+
+void HandlePacket_BossState(nlohmann::json& payload) {
+    Key key;
+    const BossDef* def;
+    Actor* actor = FindBoss(payload, &key, &def);
+    if (actor == nullptr || RoomOwner(KeyRoom(key)) != payload.value("clientId", (uint32_t)0)) {
+        return;
+    }
+    Boss& boss = sBosses[key];
+    boss.state = payload["state"];
+    boss.stateFrame = sFrame;
+}
+
+void HandlePacket_BossHit(nlohmann::json& payload) {
+    Key key;
+    const BossDef* def;
+    Actor* actor = FindBoss(payload, &key, &def);
+    // The room owner carries on from the state the hit left the boss in
+    if (actor != nullptr && OwnsRoom(KeyRoom(key)) && FightActionIndex(actor, *def) >= 0) {
+        ApplyBossSnapshot(actor, *def, payload["state"]);
+    }
+}
+
+void HandlePacket_BossDefeated(nlohmann::json& payload) {
+    Key key;
+    const BossDef* def;
+    Actor* actor = FindBoss(payload, &key, &def);
+    if (actor == nullptr || ActionOf(actor, *def) == def->defeatedAction) {
+        return;
+    }
+    if (FightActionIndex(actor, *def) >= 0) {
+        sBosses[key].preAction = def->defeatedAction; // Don't send it back
+        def->defeat(actor);
+    } else {
+        sBosses[key].pendingDefeat = true;
+    }
+}
+
 void HandlePacket_BlockPos(nlohmann::json& payload) {
     if (!IsForThisScene(payload)) {
         return;
@@ -698,14 +1054,15 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
     static std::string out;
     nlohmann::json list = nlohmann::json::array();
     if (gPlayState != nullptr && Anchor::Instance != nullptr) {
-        for (int category : { ACTORCAT_ENEMY, ACTORCAT_PROP }) {
+        for (int category : { ACTORCAT_ENEMY, ACTORCAT_PROP, ACTORCAT_BOSS }) {
             for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor != nullptr;
                  actor = actor->next) {
-                s16 index = GetActorListIndex(actor);
-                if (actor->room < 0 || index < 0 ||
+                uint32_t key;
+                if (!AnchorActorSync::GetActorKey(actor, &key) ||
                     (category == ACTORCAT_PROP && actor->id != ACTOR_OBJ_OSHIHIKI)) {
                     continue;
                 }
+                s16 index = (s16)(key & 0xFFFF);
                 list.push_back({ { "room", actor->room },
                                  { "index", index },
                                  { "id", actor->id },
@@ -728,12 +1085,68 @@ static Actor* WebDebug_FindActor(int room, int index) {
     }
     for (int category = 0; category < ACTORCAT_MAX; category++) {
         for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor != nullptr; actor = actor->next) {
-            if (actor->room == room && GetActorListIndex(actor) == index) {
+            uint32_t key;
+            if (actor->room == room && AnchorActorSync::GetActorKey(actor, &key) && (s16)(key & 0xFFFF) == index) {
                 return actor;
             }
         }
     }
     return nullptr;
+}
+
+static BossGoma* WebDebug_FindGohma() {
+    if (gPlayState == nullptr) {
+        return nullptr;
+    }
+    for (Actor* actor = gPlayState->actorCtx.actorLists[ACTORCAT_BOSS].head; actor != nullptr; actor = actor->next) {
+        if (actor->id == ACTOR_BOSS_GOMA && actor->update != nullptr) {
+            return (BossGoma*)actor;
+        }
+    }
+    return nullptr;
+}
+
+// Gohma's action (index into the synced fight actions, -1 for the intro, -2 when defeated), position and health
+EMSCRIPTEN_KEEPALIVE const char* web_debug_gohma(void) {
+    static std::string out;
+    BossGoma* goma = WebDebug_FindGohma();
+    if (goma == nullptr) {
+        return "null";
+    }
+    static const void* actions[] = { (void*)BossGoma_FloorAttackPosture, (void*)BossGoma_FloorPrepareAttack,
+        (void*)BossGoma_FloorAttack, (void*)BossGoma_FloorDamaged, (void*)BossGoma_FloorLandStruckDown,
+        (void*)BossGoma_FloorLand, (void*)BossGoma_FloorStunned, (void*)BossGoma_FallJump,
+        (void*)BossGoma_FallStruckDown, (void*)BossGoma_CeilingSpawnGohmas,
+        (void*)BossGoma_CeilingPrepareSpawnGohmas, (void*)BossGoma_FloorIdle, (void*)BossGoma_CeilingIdle,
+        (void*)BossGoma_FloorMain, (void*)BossGoma_WallClimb, (void*)BossGoma_CeilingMoveToCenter };
+    int action = goma->actionFunc == BossGoma_Defeated ? -2 : -1;
+    for (int i = 0; i < (int)ARRAY_COUNT(actions); i++) {
+        if ((void*)goma->actionFunc == actions[i]) {
+            action = i;
+        }
+    }
+    out = nlohmann::json({ { "action", action },
+                           { "x", goma->actor.world.pos.x },
+                           { "y", goma->actor.world.pos.y },
+                           { "z", goma->actor.world.pos.z },
+                           { "frame", goma->skelanime.curFrame },
+                           { "health", goma->actor.colChkInfo.health } })
+              .dump();
+    return out.c_str();
+}
+
+// Hit Gohma's eye on the next frame, as if with an attack with these damage flags (1: Deku Nut, 0x100: Kokiri Sword
+// slash). Whether it stuns or hurts her is up to her own code, as for a real hit.
+EMSCRIPTEN_KEEPALIVE int web_debug_gohma_hit(int dmgFlags) {
+    static ColliderInfo attack;
+    BossGoma* goma = WebDebug_FindGohma();
+    if (goma == nullptr) {
+        return 0;
+    }
+    attack.toucher.dmgFlags = dmgFlags;
+    goma->collider.elements[0].info.acHitInfo = &attack;
+    goma->collider.elements[0].info.bumperFlags |= BUMP_HIT;
+    return 1;
 }
 
 // Defeat an enemy the way its own death code does

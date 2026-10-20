@@ -156,6 +156,9 @@ class Anchor : public Network {
     inline static const std::string ACTOR_KILL = "ACTOR_KILL";
     inline static const std::string BLOCK_PUSH = "BLOCK_PUSH";
     inline static const std::string BLOCK_POS = "BLOCK_POS";
+    inline static const std::string BOSS_STATE = "BOSS_STATE";
+    inline static const std::string BOSS_HIT = "BOSS_HIT";
+    inline static const std::string BOSS_DEFEATED = "BOSS_DEFEATED";
 
     static Anchor* Instance;
     std::map<uint32_t, AnchorClient> clients;

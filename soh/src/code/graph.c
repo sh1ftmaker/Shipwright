@@ -696,6 +696,31 @@ EMSCRIPTEN_KEEPALIVE double web_debug_get(int field) {
     }
 }
 
+// Load another room of the current scene next to the current one (tools/web-test)
+EMSCRIPTEN_KEEPALIVE int web_debug_load_room(int room) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return 0;
+    }
+    return Room_RequestNewRoom(gPlayState, &gPlayState->roomCtx, room);
+}
+
+// Set an event flag (EVENTCHKINF_*), e.g. to skip a cutscene's trigger (tools/web-test)
+EMSCRIPTEN_KEEPALIVE void web_debug_set_event_flag(int flag) {
+    Flags_SetEventChkInf(flag);
+}
+
+// Put Link somewhere in the current room (tools/web-test)
+EMSCRIPTEN_KEEPALIVE int web_debug_set_player_pos(float x, float y, float z) {
+    if (WebDebug_GameState() != 3 || gPlayState == NULL) {
+        return 0;
+    }
+    Player* player = GET_PLAYER(gPlayState);
+    player->actor.world.pos.x = player->actor.home.pos.x = x;
+    player->actor.world.pos.y = player->actor.home.pos.y = y;
+    player->actor.world.pos.z = player->actor.home.pos.z = z;
+    return 1;
+}
+
 // Warp to an entrance during gameplay, like the "warp" console command (tools/web-test).
 EMSCRIPTEN_KEEPALIVE int web_debug_warp(int entrance) {
     if (WebDebug_GameState() != 3 || gPlayState == NULL) {

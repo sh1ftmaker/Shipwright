@@ -230,6 +230,12 @@ void Anchor::ProcessIncomingPacketQueue() {
                 AnchorActorSync::HandlePacket_BlockPush(payload);
             else if (packetType == BLOCK_POS)
                 AnchorActorSync::HandlePacket_BlockPos(payload);
+            else if (packetType == BOSS_STATE)
+                AnchorActorSync::HandlePacket_BossState(payload);
+            else if (packetType == BOSS_HIT)
+                AnchorActorSync::HandlePacket_BossHit(payload);
+            else if (packetType == BOSS_DEFEATED)
+                AnchorActorSync::HandlePacket_BossDefeated(payload);
         } catch (const std::exception& e) {
             SPDLOG_ERROR("[Anchor] Exception while processing incoming packet {}", e.what());
             SPDLOG_ERROR("[Anchor] Packet: {}", payload.dump());

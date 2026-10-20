@@ -67,13 +67,16 @@ parameters must be URL-encoded if they contain `&` or `#`.
 Anchor (Network > Anchor) works as on desktop: players in the same room see each other, and players on the same
 team share items and flags. Desktop builds connect to the Anchor server (`anchor.hm64.org:43383`) over TCP, which
 browsers can't do, so the web build connects to a Cloudflare Worker that relays its WebSocket to that server
-(`soh/soh/web/anchor-bridge/`). Web and desktop players therefore share rooms, though items and flags only sync
+(`soh/soh/web/anchor-bridge/`; each connection runs in its own Durable Object, which the free plan allows). Web and desktop players therefore share rooms, though items and flags only sync
 between identical builds (Anchor compares git commit hashes).
 
 Players on the same web build also see the same enemies and push blocks (Room Settings > Sync Enemies & Push
 Blocks, on by default). In each room, the player with the lowest client ID runs the enemies, everyone else follows
 their positions, and damage, kills and block pushes from anyone reach everyone (`soh/soh/Network/Anchor/ActorSync.cpp`).
-Only actors from a room's spawn list are synced, not ones spawned during play, and bosses aren't synced yet.
+Gohma is synced as a boss: the room owner sends her whole fight state, so she's on the ceiling, stunned or showing her
+eye at the same moments for everyone, and anyone's hits count; intros and the death cutscene play for each player.
+Only actors from a room's spawn list are synced (plus push blocks a spawner makes), not ones spawned during play, and
+the other bosses aren't synced yet.
 
 Builds use `wss://soh-anchor-bridge.sh1ftmaker.workers.dev` by default. To run your own, deploy the bridge to your
 Cloudflare account (free plan is fine) and build with its URL:
