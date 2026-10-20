@@ -1751,6 +1751,16 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     if (CVarGet(CVAR_SETTING("MatchRefreshRate")) == nullptr) {
         CVarSetInteger(CVAR_SETTING("MatchRefreshRate"), 1);
     }
+    // Online play is on by default on the web, in the public room unless a link or the menu picks another
+    if (CVarGet(CVAR_REMOTE_ANCHOR("Enabled")) == nullptr) {
+        CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
+        if (CVarGetString(CVAR_REMOTE_ANCHOR("RoomId"), "")[0] == '\0') {
+            CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), "soh-global");
+        }
+        if (CVarGetString(CVAR_REMOTE_ANCHOR("Name"), "")[0] == '\0') {
+            CVarSetString(CVAR_REMOTE_ANCHOR("Name"), "Player");
+        }
+    }
 #endif
     if (CVarGetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 0)) {
         Anchor::Instance->Enable();

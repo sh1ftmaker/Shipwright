@@ -133,7 +133,11 @@ void AnchorMainMenu(WidgetInfo& info) {
                                                  : UIWidgets::ColorValues.at(UIWidgets::Colors::Green));
     if (ImGui::Button(buttonLabel, ImVec2(-1.0f, 0.0f))) {
         if (anchor->isEnabled) {
+#ifdef __EMSCRIPTEN__
+            CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 0); // Clearing would bring back the web default of on
+#else
             CVarClear(CVAR_REMOTE_ANCHOR("Enabled"));
+#endif
             Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
             anchor->Disable();
         } else {

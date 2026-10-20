@@ -130,13 +130,17 @@ void web_apply_anchor_config() {
         CVarSetString(CVAR_REMOTE_ANCHOR("TeamId"), team);
     }
 
-    // URL params are just defaults, except on a join link: connect, load straight into a save and
-    // go to the room owner
-    if (join && strcmp(join, "1") == 0) {
+    bool isJoin = join && strcmp(join, "1") == 0;
+    // A room link connects straight away, for the host as well as joiners
+    if (room && room[0]) {
         if (CVarGetString(CVAR_REMOTE_ANCHOR("Name"), "")[0] == '\0') {
-            CVarSetString(CVAR_REMOTE_ANCHOR("Name"), "Guest");
+            CVarSetString(CVAR_REMOTE_ANCHOR("Name"), isJoin ? "Guest" : "Player");
         }
         CVarSetInteger(CVAR_REMOTE_ANCHOR("Enabled"), 1);
+    }
+
+    // A join link also loads straight into a save and goes to the room owner
+    if (isJoin) {
         Anchor::Instance->teleportToOwnerOnLoad = true;
         // A new join file would otherwise start with the minute-long intro
         CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Intro"), 1);
