@@ -4,6 +4,7 @@
 
 #include "soh/Network/Network.h"
 #include "ActorSync.h"
+#include "WorldSync.h"
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <ship/window/gui/GuiWindow.h>
 #include <spdlog/spdlog.h>
@@ -124,6 +125,9 @@ class Anchor : public Network {
     void HandlePacket_UpdateRoomState(nlohmann::json payload);
     void HandlePacket_UpdateTeamState(nlohmann::json payload);
 
+    // World, flag and key item sync (WorldSync.h)
+    void RegisterWorldSyncHooks();
+
   public:
     uint32_t ownClientId;
     bool teleportToOwnerOnLoad = false; // Set by web join links
@@ -183,7 +187,7 @@ class Anchor : public Network {
     void SendPacket_DamagePlayer(u32 clientId, u8 damageEffect, u8 damage);
     void SendPacket_EntranceDiscovered(u16 entranceIndex);
     void SendPacket_GameComplete();
-    void SendPacket_GiveItem(u16 modId, s16 getItemId);
+    void SendPacket_GiveItem(u16 modId, s16 getItemId, AnchorWorldSync::FlagRef source = {});
     void SendPacket_Handshake();
     void SendPacket_OcarinaSfx(uint8_t note, float modulator, int8_t bend);
     void SendPacket_PlayerSfx(u16 sfxId);
@@ -196,7 +200,7 @@ class Anchor : public Network {
     void SendPacket_UnsetFlag(s16 sceneNum, s16 flagType, s16 flag);
     void SendPacket_UpdateBeansCount();
     void SendPacket_UpdateClientState();
-    void SendPacket_UpdateDungeonItems();
+    void SendPacket_UpdateDungeonItems(s8 keyDelta = 0, AnchorWorldSync::FlagRef source = {});
     void SendPacket_UpdateRoomState();
     void SendPacket_UpdateTeamState();
 };

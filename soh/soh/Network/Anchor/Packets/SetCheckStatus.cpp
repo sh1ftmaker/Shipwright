@@ -15,7 +15,7 @@ static bool isResultOfHandling = false;
  */
 
 void Anchor::SendPacket_SetCheckStatus(RandomizerCheck rc) {
-    if (!IsSaveLoaded() || isResultOfHandling) {
+    if (!IsSaveLoaded() || isResultOfHandling || !roomState.syncItemsAndFlags) {
         return;
     }
 

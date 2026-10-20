@@ -127,7 +127,10 @@ void Anchor::RegisterHooks() {
     COND_HOOK(OnOcarinaNote, isConnected,
               [&](uint8_t note, float modulator, int8_t bend) { SendPacket_OcarinaSfx(note, modulator, bend); });
 
-    COND_HOOK(OnLoadGame, isConnected, [&](s16 fileNum) { justLoadedSave = true; });
+    COND_HOOK(OnLoadGame, isConnected, [&](s16 fileNum) {
+        justLoadedSave = true;
+        AnchorWorldSync::Reset();
+    });
 
     COND_HOOK(OnSaveFile, isConnected, [&](s16 fileNum, int sectionID) {
         if (sectionID == 0) {
@@ -136,6 +139,7 @@ void Anchor::RegisterHooks() {
     });
 
     COND_HOOK(OnFlagSet, isConnected, [&](s16 flagType, s16 flag) {
+        AnchorWorldSync::OnLocalFlagSet(SCENE_ID_MAX, flagType, flag);
         SendPacket_SetFlag(SCENE_ID_MAX, flagType, flag);
 
         // If we're not in rando, we have to sync some of the great fairy rewards manually
@@ -159,8 +163,10 @@ void Anchor::RegisterHooks() {
     COND_HOOK(OnFlagUnset, isConnected,
               [&](s16 flagType, s16 flag) { SendPacket_UnsetFlag(SCENE_ID_MAX, flagType, flag); });
 
-    COND_HOOK(OnSceneFlagSet, isConnected,
-              [&](s16 sceneNum, s16 flagType, s16 flag) { SendPacket_SetFlag(sceneNum, flagType, flag); });
+    COND_HOOK(OnSceneFlagSet, isConnected, [&](s16 sceneNum, s16 flagType, s16 flag) {
+        AnchorWorldSync::OnLocalFlagSet(sceneNum, flagType, flag);
+        SendPacket_SetFlag(sceneNum, flagType, flag);
+    });
 
     COND_HOOK(OnSceneFlagUnset, isConnected,
               [&](s16 sceneNum, s16 flagType, s16 flag) { SendPacket_UnsetFlag(sceneNum, flagType, flag); });
@@ -183,19 +189,36 @@ void Anchor::RegisterHooks() {
     COND_ID_HOOK(OnBossDefeat, ACTOR_BOSS_GANON2, isConnected, [&](void* refActor) { SendPacket_GameComplete(); });
 
     COND_HOOK(OnItemReceive, isConnected, [&](GetItemEntry itemEntry) {
+        // Items from teammates' packets, and consumables (see WorldSync.h), stay here
+        if (isProcessingIncomingPacket || AnchorWorldSync::IsConsumable(itemEntry)) {
+            AnchorWorldSync::RefreshSnapshot();
+            return;
+        }
+        AnchorWorldSync::FlagRef source = AnchorWorldSync::TakeItemSource(itemEntry);
+        AnchorWorldSync::RefreshSnapshot();
+
         // Handle vanilla dungeon items a bit differently
         if (itemEntry.modIndex == MOD_NONE &&
             (itemEntry.itemId >= ITEM_KEY_BOSS && itemEntry.itemId <= ITEM_KEY_SMALL)) {
-            SendPacket_UpdateDungeonItems();
+            SendPacket_UpdateDungeonItems(itemEntry.itemId == ITEM_KEY_SMALL ? 1 : 0, source);
             return;
         }
 
-        SendPacket_GiveItem(itemEntry.tableId, itemEntry.getItemId);
+        if (itemEntry.itemId == ITEM_SOLD_OUT) {
+            SendPacket_GiveItem(MOD_NONE, 0);
+            return;
+        }
+
+        SendPacket_GiveItem(itemEntry.tableId, itemEntry.getItemId, source);
     });
 
     COND_HOOK(OnDungeonKeyUsed, isConnected, [&](uint16_t mapIndex) {
-        // Handle vanilla dungeon items a bit differently
-        SendPacket_UpdateDungeonItems();
+        // Doors call this even when a rando setting kept the key
+        s8 spent = AnchorWorldSync::TakeKeysSpent(mapIndex);
+        AnchorWorldSync::FlagRef door = AnchorWorldSync::TakeDoorSource();
+        if (spent > 0) {
+            SendPacket_UpdateDungeonItems(-spent, door);
+        }
     });
 
     COND_VB_SHOULD(VB_APPLY_TUNIC_COLOR, isConnected, {
@@ -224,6 +247,9 @@ void Anchor::RegisterHooks() {
     });
 
     // #endregion
+
+    // Bean planting (WorldSync.cpp)
+    RegisterWorldSyncHooks();
 
     // #region Hooks that are purely to sync actor states across the clients, not super essential
 

@@ -8,6 +8,7 @@
 
 extern "C" {
 #include "functions.h"
+#include "macros.h"
 extern PlayState* gPlayState;
 }
 
@@ -17,7 +18,7 @@ extern PlayState* gPlayState;
 
 uint8_t incomingIceTrapsFromAnchor = 0;
 
-void Anchor::SendPacket_GiveItem(u16 modId, s16 getItemId) {
+void Anchor::SendPacket_GiveItem(u16 modId, s16 getItemId, AnchorWorldSync::FlagRef source) {
     if (!IsSaveLoaded() || isProcessingIncomingPacket || !roomState.syncItemsAndFlags) {
         return;
     }
@@ -38,6 +39,11 @@ void Anchor::SendPacket_GiveItem(u16 modId, s16 getItemId) {
     payload["addToQueue"] = true;
     payload["modId"] = modId;
     payload["getItemId"] = getItemId;
+    // ITEM_SOLD_OUT (a mask sold at the Happy Mask Shop) has no get item ID
+    if (modId == MOD_NONE && getItemId == 0) {
+        payload["soldOut"] = true;
+    }
+    AnchorWorldSync::WriteSource(payload, source);
 
     SendJsonToRemote(payload);
 }
@@ -51,6 +57,25 @@ void Anchor::HandlePacket_GiveItem(nlohmann::json payload) {
     AnchorClient& client = clients[clientId];
     u16 modId = payload.at("modId").get<u16>();
     u16 getItemId = payload.at("getItemId").get<u16>();
+
+    // The teammate sold the mask we both hold
+    if (payload.value("soldOut", false)) {
+        u8 mask = INV_CONTENT(ITEM_TRADE_CHILD);
+        if (mask >= ITEM_MASK_KEATON && mask <= ITEM_MASK_BUNNY) {
+            Inventory_ReplaceItem(gPlayState, mask, ITEM_SOLD_OUT);
+        }
+        return;
+    }
+
+    // We both opened the same chest (or took the same heart piece, key, token...) before hearing of the other, so
+    // we already have our own copy
+    AnchorWorldSync::FlagRef source = AnchorWorldSync::ReadSource(payload);
+    if (AnchorWorldSync::ClaimedLocally(source)) {
+        SPDLOG_INFO("[Anchor] GIVE_ITEM {} {}: we took it from {} {} {} ourselves", modId, getItemId,
+                    source.sceneNum, source.flagType, source.flag);
+        return;
+    }
+    AnchorWorldSync::SetFlagFromTeammate(source);
 
     GetItemEntry getItemEntry;
     if (modId == MOD_NONE) {
@@ -86,6 +111,8 @@ void Anchor::HandlePacket_GiveItem(nlohmann::json payload) {
         gSaveContext.healthCapacity += 0x10 * (heartPieces / 4);
         gSaveContext.health += 0x10 * (heartPieces / 4);
     }
+
+    AnchorWorldSync::RefreshSnapshot();
 
     if (getItemEntry.getItemCategory != ITEM_CATEGORY_JUNK) {
         if (getItemEntry.modIndex == MOD_NONE) {
