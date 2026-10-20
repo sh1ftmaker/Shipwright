@@ -1,7 +1,15 @@
 #ifdef __EMSCRIPTEN__
 
 #include "Anchor.h"
+#include "soh/Enhancements/item-tables/ItemTableManager.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include <emscripten.h>
+
+extern "C" {
+#include "functions.h"
+#include "macros.h"
+extern PlayState* gPlayState;
+}
 
 // MARK: - Client ID kept per tab
 
@@ -114,5 +122,56 @@ uint32_t AnchorWeb::GetStoredClientId() {
 void AnchorWeb::StoreClientId(uint32_t clientId) {
     anchor_web_store_client_id((int)clientId);
 }
+
+// MARK: - Automated browser tests (tools/web-test)
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE const char* web_debug_anchor(void) {
+    static std::string out;
+    Anchor* anchor = Anchor::Instance;
+    nlohmann::json state;
+    state["enabled"] = anchor->isEnabled;
+    state["connected"] = anchor->isConnected;
+    state["sessionReady"] = anchor->sessionReady;
+    state["clientId"] = anchor->ownClientId;
+    state["ownerClientId"] = anchor->roomState.ownerClientId;
+    state["paused"] = anchor->isPaused;
+    state["pingMs"] = anchor->pingMs;
+    state["reconnectAttempts"] = anchor->GetReconnectAttempts();
+    state["status"] = anchor->GetConnectionStatus();
+    state["clients"] = nlohmann::json::array();
+    for (auto& [clientId, client] : anchor->clients) {
+        state["clients"].push_back({ { "clientId", clientId },
+                                     { "name", client.name },
+                                     { "self", client.self },
+                                     { "online", client.online },
+                                     { "paused", client.paused },
+                                     { "isSaveLoaded", client.isSaveLoaded } });
+    }
+    out = state.dump();
+    return out.c_str();
+}
+
+// Gives a vanilla item (GI_*) the way picking it up does, so Anchor sends it to the team
+EMSCRIPTEN_KEEPALIVE int web_debug_give_item(int getItemId) {
+    if (gPlayState == nullptr) {
+        return 0;
+    }
+    GetItemEntry entry = ItemTableManager::Instance->RetrieveItemEntry(MOD_NONE, getItemId);
+    Item_Give(gPlayState, entry.itemId);
+    GameInteractor_ExecuteOnItemReceiveHooks(entry);
+    return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE int web_debug_has_item(int itemId) {
+    return INV_CONTENT(itemId) == itemId;
+}
+
+EMSCRIPTEN_KEEPALIVE int web_debug_get_event_flag(int flag) {
+    return Flags_GetEventChkInf(flag) ? 1 : 0;
+}
+
+} // extern "C"
 
 #endif
