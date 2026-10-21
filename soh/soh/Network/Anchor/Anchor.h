@@ -80,6 +80,7 @@ typedef struct {
     s8 ocarinaBend;
     s32 sceneLayer = -1;    // Child/adult/night versions of a scene load different actors
     bool actorSync = false; // Sends its room in PLAYER_UPDATE and takes part in actor sync (ActorSync.h)
+    uint32_t roomFrames = 0; // How long it has been in that room (AnchorActorSync::RoomOwner)
 
     // Ptr to the dummy player
     Player* player;

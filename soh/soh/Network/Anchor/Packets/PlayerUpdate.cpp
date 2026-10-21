@@ -1,5 +1,6 @@
 #include "soh/Network/Anchor/Anchor.h"
 #include "soh/Network/Anchor/JsonConversions.hpp"
+#include "soh/Network/Anchor/ActorSync.h"
 #include <nlohmann/json.hpp>
 
 extern "C" {
@@ -40,6 +41,7 @@ void Anchor::SendPacket_PlayerUpdate() {
     payload["sceneNum"] = gPlayState->sceneNum;
     payload["roomNum"] = gPlayState->roomCtx.curRoom.num;
     payload["sceneLayer"] = gSaveContext.sceneLayer;
+    payload["roomFrames"] = AnchorActorSync::RoomFrames();
     payload["entranceIndex"] = gSaveContext.entranceIndex;
     payload["linkAge"] = gSaveContext.linkAge;
     payload["posRot"]["pos"] = player->actor.world.pos;
@@ -92,6 +94,7 @@ void Anchor::HandlePacket_PlayerUpdate(nlohmann::json payload) {
         if (payload.contains("roomNum")) {
             client.curRoomNum = payload["roomNum"].get<s8>();
             client.sceneLayer = payload.value("sceneLayer", (s32)-1);
+            client.roomFrames = payload.value("roomFrames", (uint32_t)0);
             client.actorSync = true;
         }
         client.entranceIndex = payload.value("entranceIndex", (s32)0);

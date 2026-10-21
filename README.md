@@ -48,7 +48,7 @@ All parameters are passed via the URL hash (`#key=value&key2=value2`):
 | `rom` | URL to a ROM (`.z64`/`.n64`/`.v64`), converted in the browser | — |
 | `soh` | URL to `soh.o2r` archive | — |
 | `oot` | URL to `oot.o2r` archive | — |
-| `room` | Multiplayer room name | `default` |
+| `room` | Multiplayer room name | the last one used (the public room at first) |
 | `name` | Player display name | — |
 | `color` | Player color (hex RGB) | `64FF64` |
 | `team` | Team ID for item/flag sync | `default` |
@@ -62,6 +62,11 @@ All parameters are passed via the URL hash (`#key=value&key2=value2`):
 Skip Intro, so a new file doesn't start with the opening cutscene. URLs in these
 parameters must be URL-encoded if they contain `&` or `#`.
 
+A link without a `name` or `room`, such as the quick invite `#oot=<url>&room=myroom&join=1`, opens a profile
+dialog before the game starts: name, Link's color (unless the link sets `color`), room and save file, filled in with
+what that browser used last. It also shows the invite link for the room, which leaves the name out so each friend
+picks their own. A reload of the same link, or a plain visit by someone who has picked a profile before, skips it.
+
 ## Multiplayer
 
 Anchor (Network > Anchor) works as on desktop: players in the same room see each other, and players on the same
@@ -71,12 +76,16 @@ browsers can't do, so the web build connects to a Cloudflare Worker that relays 
 between identical builds (Anchor compares git commit hashes).
 
 Players on the same web build also see the same enemies and push blocks (Room Settings > Sync Enemies & Push
-Blocks, on by default). In each room, the player with the lowest client ID runs the enemies, everyone else follows
-their positions, and damage, kills and block pushes from anyone reach everyone (`soh/soh/Network/Anchor/ActorSync.cpp`).
-Gohma is synced as a boss: the room owner sends her whole fight state, so she's on the ceiling, stunned or showing her
-eye at the same moments for everyone, and anyone's hits count; intros and the death cutscene play for each player.
-Only actors from a room's spawn list are synced (plus push blocks a spawner makes), not ones spawned during play, and
-the other bosses aren't synced yet.
+Blocks, on by default). In each map room, the player who has been there longest runs the enemies, everyone else
+follows their positions, and damage, kills and block pushes from anyone reach everyone
+(`soh/soh/Network/Anchor/ActorSync.cpp`). Someone who walks in, or comes back after leaving or reloading, follows the
+fight already going on; when the player running it leaves, whoever has been there longest after them takes over.
+The Anchor room itself works the same way: when its owner has been gone for 5 seconds a remaining player takes it
+over, and the old owner comes back as a regular player.
+Bosses and mini-bosses are synced as state machines: the room owner sends the whole fight state, so the boss does the
+same things at the same moments for everyone, and anyone's hits count; intros and the death cutscene play for each
+player. Only actors from a room's spawn list are synced (plus a few that a spawner makes), not ones spawned during
+play.
 
 Builds use `wss://soh-anchor-bridge.sh1ftmaker.workers.dev` by default. To run your own, deploy the bridge to your
 Cloudflare account (free plan is fine) and build with its URL:

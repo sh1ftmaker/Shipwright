@@ -320,6 +320,8 @@ struct Block {
 
 uint32_t sFrame = 0;
 s16 sScene = -1;
+s8 sRoom = -1;
+uint32_t sRoomSince = 0; // The frame this player walked into the room it's in
 uint32_t sPeersFrame = UINT32_MAX;
 bool sHasPeers = false;
 std::unordered_map<Key, RemoteEnemy> sRemote;
@@ -433,15 +435,30 @@ bool IsRoomOccupied(s8 room) {
     return false;
 }
 
-// The player with the lowest client ID in a room runs its enemies. When nobody is in it, everyone runs their own.
+constexpr uint32_t ROOM_TIME_SLACK = 60; // Players who walked in this close together count as arriving at once
+
+// The player who has been in a room the longest runs its enemies, so someone who walks in (or comes back after
+// leaving or reloading) follows the fight that's going on instead of restarting it from their fresh copy. When that
+// player leaves, whoever has been there longest after them carries on. Players who arrived together (a warp) go by
+// lowest client ID. When nobody is in it, everyone runs their own.
 uint32_t RoomOwner(s8 room) {
     Anchor* anchor = Anchor::Instance;
-    uint32_t owner = UINT32_MAX;
+    std::vector<std::pair<uint32_t, uint32_t>> present; // Client ID, frames in the room
     if (gPlayState->roomCtx.curRoom.num == room) {
-        owner = anchor->ownClientId;
+        present.emplace_back(anchor->ownClientId, sFrame - sRoomSince);
     }
     for (auto& [clientId, client] : anchor->clients) {
-        if (IsPeer(client) && client.curRoomNum == room && clientId < owner) {
+        if (IsPeer(client) && client.curRoomNum == room) {
+            present.emplace_back(clientId, client.roomFrames);
+        }
+    }
+    uint32_t longest = 0;
+    for (auto& [clientId, frames] : present) {
+        longest = std::max(longest, frames);
+    }
+    uint32_t owner = UINT32_MAX;
+    for (auto& [clientId, frames] : present) {
+        if (frames + ROOM_TIME_SLACK >= longest && clientId < owner) {
             owner = clientId;
         }
     }
@@ -1847,6 +1864,7 @@ const std::vector<const StateSyncDef*>& StateSyncDefs() {
 
 void Reset() {
     sScene = -1;
+    sRoom = -1;
     sRemote.clear();
     sSent.clear();
     sLastHealth.clear();
@@ -1956,12 +1974,20 @@ bool GetActorKey(Actor* actor, uint64_t* key) {
     return GetKey(actor, key);
 }
 
+uint32_t RoomFrames() {
+    return sFrame - sRoomSince;
+}
+
 void OnFrame() {
     if (!IsEnabled()) {
         return;
     }
     sFrame++;
     CheckScene();
+    if (gPlayState->roomCtx.curRoom.num != sRoom) {
+        sRoom = gPlayState->roomCtx.curRoom.num;
+        sRoomSince = sFrame;
+    }
     if (sFrame % SLOW_TICK == 0) {
         ForgetDeadInEmptyRooms();
         ForgetSyncedInEmptyRooms();
@@ -2361,6 +2387,14 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
     }
     out = list.dump();
     return out.c_str();
+}
+
+// Who runs the enemies of a room of this scene (0 without a game)
+EMSCRIPTEN_KEEPALIVE int web_debug_room_owner(int room) {
+    if (gPlayState == nullptr || Anchor::Instance == nullptr) {
+        return 0;
+    }
+    return (int)RoomOwner((s8)room);
 }
 
 static Actor* WebDebug_FindActor(int room, int index) {

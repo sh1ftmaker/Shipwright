@@ -37,7 +37,7 @@ export async function startPlayers({ page, sleep }, roomPrefix) {
     await B.goto(link('bob'));
     await waitInGame(B, 'B');
     await sleep(4000);
-    return { A, B, close: () => ctxB.close() };
+    return { A, B, link, close: () => ctxB.close() };
 }
 
 export const actors = async (p) => JSON.parse(await p.evaluate(() => UTF8ToString(Module._web_debug_actor_sync())));

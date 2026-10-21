@@ -15,7 +15,7 @@ extern "C" {
  * loads identically. Actors spawned at runtime (projectiles, children of other actors, ...) aren't synced, except
  * a few made by a spawner in the list (push blocks, Big Octo, Anubis), and the parts of a state-synced boss.
  *
- * Enemies: the player with the lowest client ID in a room runs the AI for that room's enemies and sends their
+ * Enemies: the player who has been in a room the longest runs the AI for that room's enemies and sends their
  * position, rotation and health every frame. Everyone else still runs the enemies locally, so hits and attacks keep
  * working, but follows those positions. Damage and kills from anyone are sent to everyone.
  *
@@ -49,6 +49,9 @@ void HandlePacket_BossDefeated(nlohmann::json& payload);
 
 // The ID an actor is synced by (actor ID, room and spawn list index), if it has one
 bool GetActorKey(Actor* actor, uint64_t* key);
+// How long this player has been in its current room, in frames (sent in PLAYER_UPDATE: whoever has been in a room
+// longest runs it)
+uint32_t RoomFrames();
 
 } // namespace AnchorActorSync
 

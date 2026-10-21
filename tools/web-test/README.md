@@ -16,6 +16,10 @@ node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --st
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/reconnect-steps.mjs
 # two players: switches, temp flags, keys, chest races and the team state merge
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/world-sync-steps.mjs
+# players leaving and coming back: room and enemy ownership moves to whoever stays
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/handover-steps.mjs
+# the profile dialog a quick invite link opens
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/profile-steps.mjs
 ```
 
 Screenshots and `report.json` (step results, FPS samples, console log) go to
