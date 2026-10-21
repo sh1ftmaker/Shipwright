@@ -1405,6 +1405,7 @@
       },
 
       onRuntimeInitialized: function() {
+        try { sessionStorage.removeItem('soh-load-retries'); } catch (e) {}
         setStatus('Runtime initialized. Loading game files...');
         // Install soh.o2r (prefetched during page load) before any other file logic
         installSohO2r().then(function(installed) {
@@ -1426,6 +1427,20 @@
     };
 
     window.onerror = function(msg) {
+      // A dropped connection while the game's own files download (soh.data, soh.wasm) leaves the page waiting
+      // forever, so start over, at most twice in a row (a reload keeps the link, its profile and the saves)
+      if (msg && /NetworkError for: |Network error/.test(msg)) {
+        var tries = 0;
+        try { tries = +(sessionStorage.getItem('soh-load-retries') || 0); } catch (e) {}
+        if (tries < 2) {
+          try { sessionStorage.setItem('soh-load-retries', tries + 1); } catch (e) {}
+          showError('The download was interrupted. Retrying...');
+          setTimeout(function() { location.reload(); }, 2000);
+        } else {
+          showError('The game files could not be downloaded. Check your connection and reload the page.');
+        }
+        return;
+      }
       if (msg && msg.indexOf('abort') !== -1) {
         showError('An error occurred. Check the browser console for details.');
       }
