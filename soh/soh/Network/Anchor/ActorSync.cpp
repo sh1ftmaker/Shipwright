@@ -3429,6 +3429,11 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
                     continue;
                 }
                 s16 index = (s16)(key & 0xFFFF);
+                // Frames since the room owner's last state for it arrived, and since this game last sent one
+                auto remote = sRemote.find(key);
+                auto sent = sSent.find(key);
+                int remoteAge = remote == sRemote.end() ? -1 : (int)(sFrame - remote->second.frame);
+                int sentAge = sent == sSent.end() ? -1 : (int)(sFrame - sent->second.frame);
                 list.push_back({ { "room", actor->room },
                                  { "index", index },
                                  { "id", actor->id },
@@ -3438,7 +3443,10 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
                                  { "rotY", actor->shape.rot.y },
                                  { "health", actor->colChkInfo.health },
                                  { "alive", actor->update != nullptr },
-                                 { "cut", IsBreakable(actor) && IsCut(actor) } });
+                                 { "cut", IsBreakable(actor) && IsCut(actor) },
+                                 { "remoteAge", remoteAge },
+                                 { "sentAge", sentAge },
+                                 { "dead", sDead.contains(key) } });
             }
         }
     }

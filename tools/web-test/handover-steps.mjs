@@ -41,7 +41,10 @@ export default async ({ page, sleep, log }) => {
             const [la, lb] = [await actors(A), await actors(B)];
             for (const a of la) {
                 const b = lb.find((x) => x.room === a.room && x.index === a.index);
-                if (b && a.alive && b.alive) worst = Math.max(worst, dist(a, b));
+                if (b && a.alive && b.alive && dist(a, b) > worst) {
+                    worst = dist(a, b);
+                    if (worst >= 60) log('apart', worst.toFixed(1), JSON.stringify({ a, b, owners: await owners(a.room) }));
+                }
             }
         }
         return +worst.toFixed(1);
