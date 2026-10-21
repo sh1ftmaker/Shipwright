@@ -401,6 +401,38 @@
       html.touch-device.menu-open #tb-esc { bottom: var(--pad-bottom); right: 16px; width: 64px; height: 48px;
         background: rgba(10,10,26,0.85); }
     }
+    /* Profile dialog: name, Link color, room and save file for links that don't give them */
+    #profile {
+      position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center;
+      background: rgba(10,10,26,0.92); padding: 16px; overflow-y: auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;
+    }
+    #profile.open { display: flex; }
+    #profile form {
+      width: 100%; max-width: 380px; background: #111128; border: 1px solid #2a2a5a; border-radius: 12px;
+      padding: 20px; display: flex; flex-direction: column; gap: 14px; margin: auto;
+    }
+    #profile h2 { font-size: 1.25rem; color: #fff; margin: 0; }
+    #profile .lead { font-size: 0.85rem; color: #888; margin: -8px 0 0; }
+    #profile label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: #aab; }
+    #profile input[type=text], #profile select {
+      font-size: 16px; padding: 9px 10px; border-radius: 8px; border: 1px solid #2a2a5a; background: #0a0a1a;
+      color: #fff; width: 100%; min-width: 0;
+    }
+    #profile input[readonly] { color: #99a; }
+    #profile .row { display: flex; gap: 8px; align-items: center; }
+    #profile button {
+      font-size: 15px; padding: 9px 14px; border-radius: 8px; border: 1px solid #2a2a5a; background: #1a1a40;
+      color: #dde; cursor: pointer; white-space: nowrap;
+    }
+    #profile button.play { background: #2c55d8; border-color: #2c55d8; color: #fff; font-size: 17px; padding: 12px; }
+    #profile .swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    #profile .swatch {
+      width: 32px; height: 32px; border-radius: 50%; border: 2px solid #2a2a5a; padding: 0; cursor: pointer;
+    }
+    #profile .swatch.on { border-color: #fff; box-shadow: 0 0 0 2px #5588ff; }
+    #profile input[type=color] { width: 40px; height: 34px; border: none; background: none; padding: 0; cursor: pointer; }
+    #profile .hint { font-size: 0.78rem; color: #667; }
   </style>
 </head>
 <body>
@@ -422,6 +454,43 @@
     </div>
 
     <div id="error-msg"></div>
+  </div>
+
+  <div id="profile">
+    <form>
+      <h2>Your profile</h2>
+      <p class="lead">How your teammates see you. You can change this later in the Anchor menu.</p>
+      <label id="profile-name-row">Name
+        <input type="text" id="profile-name" maxlength="24" placeholder="Player" autocomplete="nickname">
+      </label>
+      <div id="profile-color-row">
+        <label>Link's color</label>
+        <div class="swatches" id="profile-swatches" style="margin-top:6px"></div>
+      </div>
+      <label id="profile-room-row">Room
+        <div class="row">
+          <input type="text" id="profile-room" maxlength="48" placeholder="Public lobby" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <button type="button" id="profile-new-room">New</button>
+        </div>
+        <span class="hint">Friends in the same room play together. Leave it empty for the public lobby.</span>
+      </label>
+      <label id="profile-slot-row">Save file
+        <select id="profile-slot">
+          <option value="">Choose on the file select screen</option>
+          <option value="1">File 1</option>
+          <option value="2">File 2</option>
+          <option value="3">File 3</option>
+        </select>
+      </label>
+      <div id="profile-invite-row">
+        <label>Invite link</label>
+        <div class="row" style="margin-top:6px">
+          <input type="text" id="profile-invite" readonly>
+          <button type="button" id="profile-copy">Copy</button>
+        </div>
+      </div>
+      <button type="submit" class="play">Play</button>
+    </form>
   </div>
 
   <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
@@ -602,18 +671,21 @@
       }
 
       otrFilesReady = true;
-      setStatus('Game files loaded. Starting...');
+      setStatus(Profile.isOpen() ? 'Game files loaded. Pick your profile to start.' : 'Game files loaded. Starting...');
       setProgress(100);
 
-      // Configure Anchor networking from URL hash before starting the game
-      configureAnchorFromHash();
+      Profile.ready.then(function() {
+        setStatus('Starting...');
+        // Configure Anchor networking from URL hash before starting the game
+        configureAnchorFromHash();
 
-      // Tell the C side that OTR files are ready
-      if (typeof Module._web_otr_loaded === 'function') {
-        Module._web_otr_loaded();
-      }
+        // Tell the C side that OTR files are ready
+        if (typeof Module._web_otr_loaded === 'function') {
+          Module._web_otr_loaded();
+        }
 
-      waitForGameRender();
+        waitForGameRender();
+      });
     }
 
     // ---- Eager prefetch of soh.o2r ----
@@ -1101,13 +1173,146 @@
     // Example: #room=myroom&name=Player1&color=FF0000&team=red
     // Join link: #room=myroom&name=Player2&join=1
 
+    // ---- Profile dialog ----
+    // A link that leaves out the player's name or room (a quick invite: #oot=...&room=abc&join=1) asks for them, and
+    // for Link's color and the save file unless the link gives those, before the game starts. It's filled in with
+    // what this device used last. A link that names the player is already set up, so it only asks for a missing
+    // room. Someone who has picked a profile before skips it on a plain visit (the game kept their settings), and so
+    // does a reload of the same link in this tab.
+    var Profile = (function() {
+      var STORE = 'soh-profile', DONE = 'soh-profile-done';
+      var COLORS = ['64ff64', '1e691b', 'ff4040', '641400', '4080ff', '003c64', 'ffd040', 'c060ff', 'ffffff'];
+      function load(store, key) {
+        try { return JSON.parse(store.getItem(key) || 'null'); } catch (e) { return null; }
+      }
+      function keep(store, key, value) {
+        try { store.setItem(key, JSON.stringify(value)); } catch (e) {}
+      }
+      var params = getHashParams();
+      var saved = load(window.localStorage, STORE) || {};
+      var done = load(window.sessionStorage, DONE);
+      var chosen = {};
+      var plainVisit = !params.room && !params.name && !params.color && !params.join;
+      var ask = !params.name || !params.room;
+      if (plainVisit && saved.name) ask = false;
+      if (done && done.hash === location.hash) {
+        chosen = done.chosen;
+        ask = false;
+      }
+
+      var resolveReady;
+      var ready = new Promise(function(resolve) { resolveReady = resolve; });
+      if (!ask) {
+        resolveReady();
+        return { ready: ready, chosen: function() { return chosen; }, isOpen: function() { return false; } };
+      }
+
+      var $ = function(id) { return document.getElementById(id); };
+      var dialog = $('profile');
+      var color = (params.color || saved.color || COLORS[0]).toLowerCase();
+
+      $('profile-name').value = saved.name || '';
+      $('profile-name-row').style.display = params.name ? 'none' : '';
+      $('profile-color-row').style.display = params.color ? 'none' : '';
+      $('profile-room').value = params.room || saved.room || '';
+      $('profile-room').readOnly = !!params.room;
+      $('profile-new-room').style.display = params.room ? 'none' : '';
+      // A join link loads straight into a save; it says which one, or the player picks
+      var slot = params.join === '1' ? (params.slot || saved.slot || '3') : (params.room ? (saved.slot || '3') : (saved.slot || ''));
+      $('profile-slot').value = slot;
+      $('profile-slot-row').style.display = params.slot ? 'none' : '';
+
+      // Link colors: a few tunics and bright picks, plus any color
+      var swatches = $('profile-swatches');
+      var picker = document.createElement('input');
+      picker.type = 'color';
+      picker.title = 'Any color';
+      function showColor() {
+        Array.prototype.forEach.call(swatches.querySelectorAll('.swatch'), function(b) {
+          b.classList.toggle('on', b.dataset.color === color);
+        });
+        picker.value = '#' + color;
+      }
+      COLORS.forEach(function(c) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.dataset.color = c;
+        b.style.background = '#' + c;
+        b.onclick = function() { color = c; showColor(); };
+        swatches.appendChild(b);
+      });
+      picker.oninput = function() { color = picker.value.substring(1).toLowerCase(); showColor(); };
+      swatches.appendChild(picker);
+      showColor();
+
+      // The link friends open to join this room: the same game files, and they pick their own profile
+      function inviteLink() {
+        var room = $('profile-room').value.trim();
+        if (!room) return '';
+        var parts = [];
+        if (params.soh) parts.push('soh=' + params.soh);
+        if (params.oot) parts.push('oot=' + params.oot);
+        parts.push('room=' + encodeURIComponent(room), 'join=1');
+        return location.origin + location.pathname + location.search + '#' + parts.join('&');
+      }
+      function showInvite() {
+        var link = inviteLink();
+        $('profile-invite').value = link;
+        $('profile-invite-row').style.display = link ? '' : 'none';
+      }
+      $('profile-room').oninput = showInvite;
+      $('profile-new-room').onclick = function() {
+        $('profile-room').value = 'room-' + Math.random().toString(36).substring(2, 8);
+        if ($('profile-slot').value === '') $('profile-slot').value = '3';
+        showInvite();
+      };
+      $('profile-copy').onclick = function() {
+        var input = $('profile-invite');
+        var copied = function() { $('profile-copy').textContent = 'Copied'; };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(input.value).then(copied, function() {});
+        } else {
+          input.select();
+          try { if (document.execCommand('copy')) copied(); } catch (e) {}
+        }
+      };
+      showInvite();
+
+      dialog.querySelector('form').onsubmit = function(e) {
+        e.preventDefault();
+        var name = $('profile-name').value.trim() || 'Player';
+        var room = $('profile-room').value.trim();
+        slot = $('profile-slot').value;
+        if (!params.name) chosen.name = name;
+        if (!params.color) chosen.color = color;
+        if (!params.room && room) chosen.room = room;
+        if (!params.slot) {
+          chosen.join = slot ? '1' : '';
+          chosen.slot = slot;
+        }
+        keep(window.localStorage, STORE, {
+          name: params.name ? saved.name : name, color: color, room: params.room ? saved.room : room, slot: slot
+        });
+        keep(window.sessionStorage, DONE, { hash: location.hash, chosen: chosen });
+        dialog.classList.remove('open');
+        resolveReady();
+      };
+      dialog.classList.add('open');
+      if (!$('profile-name').value && !params.name) setTimeout(function() { $('profile-name').focus(); }, 0);
+
+      return { ready: ready, chosen: function() { return chosen; }, isOpen: function() { return dialog.classList.contains('open'); } };
+    })();
+
     function configureAnchorFromHash() {
       var params = getHashParams();
+      var chosen = Profile.chosen();
+      Object.keys(chosen).forEach(function(k) { params[k] = chosen[k]; });
       if (!params.room && !params.name && !params.color && !params.team && !params.anchor && !params.join) return false;
 
       // Store config as globals for C++ to read via EM_JS during game init
       window._anchorConfig = {
-        room:  params.room  || 'default',
+        room:  params.room  || '',     // empty: the room the game used last (the public lobby at first)
         name:  params.name  || '',
         color: params.color || '',
         team:  params.team  || 'default',

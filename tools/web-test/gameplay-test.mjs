@@ -334,6 +334,12 @@ try {
     log(`page ${url} (display: ${report.display})`);
 
     const ctx = await browser.newContext(DEVICES[DEVICE]);
+    // A first visit without a room asks for a profile (shell.html); the test's own page plays as a returning player
+    await ctx.addInitScript(() => {
+        try {
+            if (!localStorage.getItem('soh-profile')) localStorage.setItem('soh-profile', JSON.stringify({ name: 'Tester' }));
+        } catch (e) {}
+    });
     page = await ctx.newPage();
     if (TOUCH) cdp = await ctx.newCDPSession(page);
     report.device = DEVICE;

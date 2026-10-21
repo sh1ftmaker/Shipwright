@@ -109,9 +109,12 @@ void web_apply_anchor_config() {
     printf("[Web] Applying Anchor config: room=%s name=%s color=%s team=%s\n",
            room ? room : "", name ? name : "", color ? color : "", team ? team : "");
 
-    // The room travels in the HANDSHAKE packet; the WebSocket URL stays the Anchor bridge
-    std::string roomId = (room && room[0]) ? room : "default";
-    CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), roomId.c_str());
+    // The room travels in the HANDSHAKE packet; the WebSocket URL stays the Anchor bridge. Without one (a profile
+    // picked for the public lobby) the game keeps the room it had.
+    if (room && room[0]) {
+        CVarSetString(CVAR_REMOTE_ANCHOR("RoomId"), room);
+    }
+    std::string roomId = CVarGetString(CVAR_REMOTE_ANCHOR("RoomId"), "");
     if (anchor && anchor[0]) {
         CVarSetString(CVAR_REMOTE_ANCHOR("WebSocketURL"), anchor);
     }
