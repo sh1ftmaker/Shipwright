@@ -43,7 +43,11 @@ export default async ({ page, sleep, log }) => {
                 const b = lb.find((x) => x.room === a.room && x.index === a.index);
                 if (b && a.alive && b.alive && dist(a, b) > worst) {
                     worst = dist(a, b);
-                    if (worst >= 60) log('apart', worst.toFixed(1), JSON.stringify({ a, b, owners: await owners(a.room) }));
+                    if (worst >= 60) {
+                        log('apart', worst.toFixed(1), JSON.stringify({ a, b, owners: await owners(a.room) }));
+                        log('anchor A', JSON.stringify(await anchor(A)));
+                        log('anchor B', JSON.stringify(await anchor(B)));
+                    }
                 }
             }
         }

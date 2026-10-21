@@ -150,7 +150,13 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_anchor(void) {
                                      { "online", client.online },
                                      { "paused", client.paused },
                                      { "isSaveLoaded", client.isSaveLoaded },
-                                     { "questId", client.questId } });
+                                     { "questId", client.questId },
+                                     { "sceneNum", client.sceneNum },
+                                     { "roomNum", client.curRoomNum },
+                                     { "sceneLayer", client.sceneLayer },
+                                     { "roomFrames", client.roomFrames },
+                                     { "actorSync", client.actorSync },
+                                     { "sameVersion", client.clientVersion == Anchor::clientVersion } });
     }
     out = state.dump();
     return out.c_str();
