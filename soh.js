@@ -39,7 +39,7 @@ if (ENVIRONMENT_IS_NODE) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /tmp/tmp6_xy4x2k.js
+// include: /tmp/tmp26z9uomf.js
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
@@ -360,21 +360,21 @@ Module['FS_createPath']("/assets/pal_mq_dbg", "textures", true, true);
 
   })();
 
-// end include: /tmp/tmp6_xy4x2k.js
-// include: /tmp/tmpptfl_g9j.js
+// end include: /tmp/tmp26z9uomf.js
+// include: /tmp/tmpzy1vj5ho.js
 
     // All the pre-js content up to here must remain later on, we need to run
     // it.
     if (Module['$ww'] || (typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD)) Module['preRun'] = [];
     var necessaryPreJSTasks = Module['preRun'].slice();
-  // end include: /tmp/tmpptfl_g9j.js
-// include: /tmp/tmp3jnvh_pe.js
+  // end include: /tmp/tmpzy1vj5ho.js
+// include: /tmp/tmpny39k4vx.js
 
     if (!Module['preRun']) throw 'Module.preRun should exist because file support used it; did a pre-js delete it?';
     necessaryPreJSTasks.forEach((task) => {
       if (Module['preRun'].indexOf(task) < 0) throw 'All preRun tasks that exist before user pre-js code should remain after; did you replace Module or modify Module.preRun?';
     });
-  // end include: /tmp/tmp3jnvh_pe.js
+  // end include: /tmp/tmpny39k4vx.js
 
 
 // Sometimes an existing Module object exists with properties
@@ -14741,6 +14741,7 @@ var _web_debug_block_push = Module['_web_debug_block_push'] = createExportWrappe
 var _anchor_web_set_hidden = Module['_anchor_web_set_hidden'] = createExportWrapper('anchor_web_set_hidden', 1);
 var _anchor_web_online = Module['_anchor_web_online'] = createExportWrapper('anchor_web_online', 0);
 var _web_debug_anchor = Module['_web_debug_anchor'] = createExportWrapper('web_debug_anchor', 0);
+var _web_debug_give_gi = Module['_web_debug_give_gi'] = createExportWrapper('web_debug_give_gi', 1);
 var _web_debug_has_item = Module['_web_debug_has_item'] = createExportWrapper('web_debug_has_item', 1);
 var _web_debug_get_event_flag = Module['_web_debug_get_event_flag'] = createExportWrapper('web_debug_get_event_flag', 1);
 var _web_debug_anchor_request_team_state = Module['_web_debug_anchor_request_team_state'] = createExportWrapper('web_debug_anchor_request_team_state', 0);
@@ -14761,6 +14762,7 @@ var _web_debug_get = Module['_web_debug_get'] = createExportWrapper('web_debug_g
 var _web_debug_load_room = Module['_web_debug_load_room'] = createExportWrapper('web_debug_load_room', 1);
 var _web_debug_set_event_flag = Module['_web_debug_set_event_flag'] = createExportWrapper('web_debug_set_event_flag', 1);
 var _web_debug_flag = Module['_web_debug_flag'] = createExportWrapper('web_debug_flag', 4);
+var _web_debug_give_item = Module['_web_debug_give_item'] = createExportWrapper('web_debug_give_item', 2);
 var _web_debug_use_key = Module['_web_debug_use_key'] = createExportWrapper('web_debug_use_key', 1);
 var _web_debug_inventory = Module['_web_debug_inventory'] = createExportWrapper('web_debug_inventory', 2);
 var _web_debug_spawn_actor = Module['_web_debug_spawn_actor'] = createExportWrapper('web_debug_spawn_actor', 5);
