@@ -105,6 +105,7 @@ void web_apply_anchor_config() {
     char* anchor = (char*)web_anchor_config_get("anchor");
     char* join = (char*)web_anchor_config_get("join");
     char* slot = (char*)web_anchor_config_get("slot");
+    char* bossRush = (char*)web_anchor_config_get("bossrush");
 
     printf("[Web] Applying Anchor config: room=%s name=%s color=%s team=%s\n",
            room ? room : "", name ? name : "", color ? color : "", team ? team : "");
@@ -148,15 +149,21 @@ void web_apply_anchor_config() {
         // A new join file would otherwise start with the minute-long intro
         CVarSetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Intro"), 1);
 
-        int slotNum = (slot && slot[0]) ? atoi(slot) : 3;
-        if (slotNum < 1 || slotNum > 3) {
-            slotNum = 3;
+        // Boss Rush isn't kept in a slot: everyone in the room starts a new run with the default options
+        if (bossRush && strcmp(bossRush, "1") == 0) {
+            WebJoin_RequestBootToBossRush();
+            printf("[Web] Join link: starting Boss Rush\n");
+        } else {
+            int slotNum = (slot && slot[0]) ? atoi(slot) : 3;
+            if (slotNum < 1 || slotNum > 3) {
+                slotNum = 3;
+            }
+            WebJoin_RequestBootToSlot(slotNum - 1, CVarGetString(CVAR_REMOTE_ANCHOR("Name"), ""));
+            printf("[Web] Join link: loading slot %d\n", slotNum);
         }
-        WebJoin_RequestBootToSlot(slotNum - 1, CVarGetString(CVAR_REMOTE_ANCHOR("Name"), ""));
-        printf("[Web] Join link: loading slot %d\n", slotNum);
     }
 
-    free(room); free(name); free(color); free(team); free(anchor); free(join); free(slot);
+    free(room); free(name); free(color); free(team); free(anchor); free(join); free(slot); free(bossRush);
     printf("[Web] Anchor configured. Room: %s\n", roomId.c_str());
 }
 

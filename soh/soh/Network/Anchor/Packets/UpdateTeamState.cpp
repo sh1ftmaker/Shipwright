@@ -192,6 +192,24 @@ static bool IsBottleContent(u8 item) {
  * Returns true if we have progress the state lacks, so teammates should get ours.
  */
 bool Anchor::MergeTeamState(nlohmann::json& state) {
+    // Only from a file of the same kind: a Boss Rush file's flags and items would wreck a normal file, and the other
+    // way round
+    s32 theirQuest = state.contains("ship") && state["ship"].contains("quest")
+                         ? state["ship"]["quest"].value("id", (s32)-1)
+                         : (s32)-1;
+    if (theirQuest >= 0 && QuestKind(theirQuest) != QuestKind(gSaveContext.ship.quest.id)) {
+        questMismatches++;
+        SPDLOG_WARN("[Anchor] The team's save is another kind of file (quest {}, ours {}): not merged", theirQuest,
+                    gSaveContext.ship.quest.id);
+        Notification::Emit({
+            .message = theirQuest == QUEST_BOSSRUSH || IS_BOSS_RUSH
+                           ? "The team's save and yours aren't both Boss Rush: not merged"
+                           : "The team's save is another kind of file than yours: not merged",
+            .remainingTime = 10.0f,
+        });
+        return false;
+    }
+
     SaveContext loadedData = state.get<SaveContext>();
     bool loaded = IsSaveLoaded();
     bool ownExtra = false;

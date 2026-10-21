@@ -5462,3 +5462,13 @@ void BossTw_Reset(void) {
     sTwInitialized = false;
     memset(sEffects, 0, sizeof(sEffects));
 }
+
+// SOH [Network] For Anchor's actor sync: the sisters (TW_KOTAKE, TW_KOUME), and which blast Twinrova throws next
+// (0: the next type, 1: the fixed type, 2: where the fixed sequence is)
+BossTw* BossTw_GetSister(s32 which) {
+    return which == TW_KOTAKE ? sKotakePtr : sKoumePtr;
+}
+
+u8* BossTw_GetBlastState(s32 which) {
+    return which == 0 ? &sTwinrovaBlastType : which == 1 ? &sFixedBlastType : &sFixedBlatSeq;
+}

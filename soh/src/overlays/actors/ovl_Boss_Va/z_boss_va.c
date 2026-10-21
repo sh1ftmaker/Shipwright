@@ -4068,3 +4068,32 @@ void BossVa_Reset(void) {
         sBodyBari[i] = 0;
     }
 }
+
+// SOH [Network] For Anchor's actor sync: the fight's shared statics (0: phase, 1: body state, 2: phase 2 timer,
+// 3: phase 3 stop, 4: phase 4 health), and spawning a part where the fight spawns it
+void* BossVa_GetSyncStatic(s32 which) {
+    switch (which) {
+        case 0:
+            return &sFightPhase;
+        case 1:
+            return &sBodyState;
+        case 2:
+            return &sPhase2Timer;
+        case 3:
+            return &sPhase3StopMoving;
+        case 4:
+            return &sPhase4HP;
+        default:
+            return NULL;
+    }
+}
+
+Actor* BossVa_SpawnPart(BossVa* body, PlayState* play, s16 params) {
+    return Actor_SpawnAsChild(&play->actorCtx, &body->actor, play, ACTOR_BOSS_VA,
+                              sInitPosOffsets[params].x + body->actor.world.pos.x,
+                              sInitPosOffsets[params].y + body->actor.world.pos.y,
+                              sInitPosOffsets[params].z + body->actor.world.pos.z,
+                              sInitRot[params].x + body->actor.world.rot.x,
+                              sInitRot[params].y + body->actor.world.rot.y,
+                              sInitRot[params].z + body->actor.world.rot.z, params);
+}

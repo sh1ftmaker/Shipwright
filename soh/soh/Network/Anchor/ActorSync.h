@@ -46,6 +46,7 @@ void HandlePacket_BlockPos(nlohmann::json& payload);
 void HandlePacket_BossState(nlohmann::json& payload);
 void HandlePacket_BossHit(nlohmann::json& payload);
 void HandlePacket_BossDefeated(nlohmann::json& payload);
+void HandlePacket_PropBreak(nlohmann::json& payload);
 
 // The ID an actor is synced by (actor ID, room and spawn list index), if it has one
 bool GetActorKey(Actor* actor, uint64_t* key);

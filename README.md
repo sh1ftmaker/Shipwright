@@ -85,7 +85,12 @@ over, and the old owner comes back as a regular player.
 Bosses and mini-bosses are synced as state machines: the room owner sends the whole fight state, so the boss does the
 same things at the same moments for everyone, and anyone's hits count; intros and the death cutscene play for each
 player. Only actors from a room's spawn list are synced (plus a few that a spawner makes), not ones spawned during
-play.
+play. Townspeople and animals (market walkers, Kakariko carpenters, the graveyard boy, Running Man, dogs, ranch horses)
+walk the same paths for everyone, and broken pots and cut bushes are gone for everyone.
+
+Boss Rush works in co-op: a join link with `bossrush=1` starts everyone on a new run with the default options, and
+bosses beaten by anyone count for the whole room. A Boss Rush file never merges with a normal save; the room window
+shows a warning when players on different kinds of file meet.
 
 Builds use `wss://soh-anchor-bridge.sh1ftmaker.workers.dev` by default. To run your own, deploy the bridge to your
 Cloudflare account (free plan is fine) and build with its URL:

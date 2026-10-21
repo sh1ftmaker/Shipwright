@@ -692,14 +692,19 @@ EMSCRIPTEN_KEEPALIVE double web_debug_get(int field) {
         case 15: return Graph_GetInterpolationFPS();
         case 16: return inPlay ? Play_GetCamera(gPlayState, CAM_ID_MAIN)->setting : -1;
         case 17: return inPlay ? gPlayState->roomCtx.curRoom.meshHeader->base.type : -1;
+        case 18: return inPlay ? Player_InCsMode(gPlayState) : -1; // In a cutscene (or a textbox)
         default: return 0;
     }
 }
 
-// Load another room of the current scene next to the current one (tools/web-test)
+// Load another room of the current scene next to the current one (tools/web-test). One that's loaded already isn't
+// loaded again: that would spawn a second copy of its actors.
 EMSCRIPTEN_KEEPALIVE int web_debug_load_room(int room) {
     if (WebDebug_GameState() != 3 || gPlayState == NULL) {
         return 0;
+    }
+    if (gPlayState->roomCtx.curRoom.num == room || gPlayState->roomCtx.prevRoom.num == room) {
+        return 1;
     }
     return Room_RequestNewRoom(gPlayState, &gPlayState->roomCtx, room);
 }

@@ -403,6 +403,9 @@ void Anchor::SendJsonToRemote(nlohmann::json payload) {
     if (durable) {
         payload["pid"] = packetIdPrefix + std::to_string(++packetIdCount);
     }
+    if (IsSaveLoaded()) {
+        payload["questId"] = gSaveContext.ship.quest.id;
+    }
 
     if (!payload.contains("quiet")) {
         SPDLOG_DEBUG("[Anchor] Queuing payload:\n{}", payload.dump());
@@ -487,6 +490,19 @@ void Anchor::ProcessIncomingPacketQueue() {
             continue;
         }
 
+        uint32_t sender = payload.value("clientId", 0u);
+        if (payload.contains("questId") && clients.contains(sender)) {
+            clients[sender].questId = payload["questId"].get<s32>();
+        }
+        bool savePacket = packetType == GIVE_ITEM || packetType == SET_FLAG || packetType == UNSET_FLAG ||
+                          packetType == SET_CHECK_STATUS || packetType == ENTRANCE_DISCOVERED ||
+                          packetType == UPDATE_BEANS_COUNT || packetType == UPDATE_DUNGEON_ITEMS ||
+                          packetType == MERGE_TEAM_STATE || packetType == WORLD_EVENT;
+        if (savePacket && IsOtherQuest(payload)) {
+            WarnOtherQuest(sender, payload["questId"].get<s32>());
+            continue;
+        }
+
         isProcessingIncomingPacket = true;
 
         try {
@@ -549,6 +565,8 @@ void Anchor::ProcessIncomingPacketQueue() {
                 AnchorActorSync::HandlePacket_BossHit(payload);
             else if (packetType == BOSS_DEFEATED)
                 AnchorActorSync::HandlePacket_BossDefeated(payload);
+            else if (packetType == PROP_BREAK)
+                AnchorActorSync::HandlePacket_PropBreak(payload);
             else if (packetType == MERGE_TEAM_STATE)
                 HandlePacket_MergeTeamState(payload);
             else if (packetType == WORLD_EVENT)
@@ -637,6 +655,57 @@ bool Anchor::IsRealtimePacket(const std::string& type) {
            type == BLOCK_POS || type == BOSS_STATE;
 }
 
+int Anchor::QuestKind(int questId) {
+    switch (questId) {
+        case QUEST_SPEEDRUN:
+            return QUEST_NORMAL;
+        case QUEST_SPEEDRUN_MASTER:
+            return QUEST_MASTER;
+        default:
+            return questId;
+    }
+}
+
+static const char* QuestKindName(int questId) {
+    switch (Anchor::QuestKind(questId)) {
+        case QUEST_NORMAL:
+            return "a normal file";
+        case QUEST_MASTER:
+            return "a Master Quest file";
+        case QUEST_RANDOMIZER:
+            return "a randomizer file";
+        case QUEST_BOSSRUSH:
+            return "Boss Rush";
+        default:
+            return "another kind of file";
+    }
+}
+
+bool Anchor::IsOtherQuest(const nlohmann::json& payload) {
+    return payload.contains("questId") && payload["questId"].is_number_integer() && IsSaveLoaded() &&
+           QuestKind(payload["questId"].get<s32>()) != QuestKind(gSaveContext.ship.quest.id);
+}
+
+void Anchor::WarnOtherQuest(uint32_t clientId, int questId) {
+    questMismatches++;
+    auto client = clients.find(clientId);
+    if (client != clients.end() && client->second.warnedQuest) {
+        return;
+    }
+    if (client != clients.end()) {
+        client->second.warnedQuest = true;
+    }
+    SPDLOG_WARN("[Anchor] {} plays {}, we play {}: their items and flags aren't shared",
+                client != clients.end() ? client->second.name : std::string("A teammate"), QuestKindName(questId),
+                QuestKindName(gSaveContext.ship.quest.id));
+    Notification::Emit({
+        .prefix = client != clients.end() ? client->second.name : "A teammate",
+        .message = std::string("plays ") + QuestKindName(questId) + ", you play " +
+                   QuestKindName(gSaveContext.ship.quest.id) + ": items and flags aren't shared",
+        .remainingTime = 10.0f,
+    });
+}
+
 bool Anchor::IsSaveLoaded() {
     if (gPlayState == nullptr) {
         return false;
@@ -646,7 +715,8 @@ bool Anchor::IsSaveLoaded() {
         return false;
     }
 
-    if (gSaveContext.fileNum < 0 || gSaveContext.fileNum > 2) {
+    // Boss Rush plays from no save slot
+    if ((gSaveContext.fileNum < 0 || gSaveContext.fileNum > 2) && !(gSaveContext.fileNum == 0xFE && IS_BOSS_RUSH)) {
         return false;
     }
 

@@ -20,6 +20,12 @@ node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --st
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/handover-steps.mjs
 # the profile dialog a quick invite link opens
 node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/profile-steps.mjs
+# two players: every boss and mini-boss fight (BOSSES=name,name for some of them)
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/boss-sync-steps.mjs
+# two players on Boss Rush (bossrush=1 join links), and a third on a normal file that mustn't mix with them
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/bossrush-sync-steps.mjs
+# two players: townspeople and animals walking about, pots and bushes broken
+node tools/web-test/gameplay-test.mjs --rom path/to/oot.z64 --included-save --steps tools/web-test/npc-sync-steps.mjs
 ```
 
 Screenshots and `report.json` (step results, FPS samples, console log) go to

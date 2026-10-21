@@ -140,6 +140,8 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_anchor(void) {
     state["pingMs"] = anchor->pingMs;
     state["reconnectAttempts"] = anchor->GetReconnectAttempts();
     state["status"] = anchor->GetConnectionStatus();
+    state["questId"] = anchor->IsSaveLoaded() ? (int)gSaveContext.ship.quest.id : -1;
+    state["questMismatches"] = anchor->questMismatches;
     state["clients"] = nlohmann::json::array();
     for (auto& [clientId, client] : anchor->clients) {
         state["clients"].push_back({ { "clientId", clientId },
@@ -147,7 +149,8 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_anchor(void) {
                                      { "self", client.self },
                                      { "online", client.online },
                                      { "paused", client.paused },
-                                     { "isSaveLoaded", client.isSaveLoaded } });
+                                     { "isSaveLoaded", client.isSaveLoaded },
+                                     { "questId", client.questId } });
     }
     out = state.dump();
     return out.c_str();

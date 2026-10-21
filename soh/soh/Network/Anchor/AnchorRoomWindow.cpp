@@ -146,6 +146,18 @@ void AnchorRoomWindow::DrawElement() {
                     ImGui::EndTooltip();
                 }
             }
+            if (client.isSaveLoaded && Anchor::Instance->IsSaveLoaded() && client.questId >= 0 && client.online &&
+                !client.self &&
+                Anchor::QuestKind(client.questId) != Anchor::QuestKind(gSaveContext.ship.quest.id)) {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(1, 0.6f, 0, 1), ICON_FA_EXCLAMATION_TRIANGLE);
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("Different kind of file (Boss Rush, Master Quest, ...)!");
+                    ImGui::Text("Items and flags aren't shared with them.");
+                    ImGui::EndTooltip();
+                }
+            }
             ImGui::PopID();
         }
 

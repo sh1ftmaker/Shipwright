@@ -29,6 +29,21 @@ extern "C" {
 #include "src/overlays/actors/ovl_En_Wf/z_en_wf.h"
 #include "src/overlays/actors/ovl_En_Rd/z_en_rd.h"
 #include "src/overlays/actors/ovl_En_Fz/z_en_fz.h"
+#include "src/overlays/actors/ovl_Boss_Va/z_boss_va.h"
+#include "src/overlays/actors/ovl_Boss_Mo/z_boss_mo.h"
+#include "src/overlays/actors/ovl_Boss_Tw/z_boss_tw.h"
+#include "src/overlays/actors/ovl_Boss_Ganon/z_boss_ganon.h"
+#include "src/overlays/actors/ovl_Boss_Ganon2/z_boss_ganon2.h"
+#include "src/overlays/actors/ovl_En_Hy/z_en_hy.h"
+#include "src/overlays/actors/ovl_En_Daiku_Kakariko/z_en_daiku_kakariko.h"
+#include "src/overlays/actors/ovl_En_Cs/z_en_cs.h"
+#include "src/overlays/actors/ovl_En_Mm/z_en_mm.h"
+#include "src/overlays/actors/ovl_En_Dog/z_en_dog.h"
+#include "src/overlays/actors/ovl_En_Horse_Normal/z_en_horse_normal.h"
+#include "src/overlays/actors/ovl_Obj_Tsubo/z_obj_tsubo.h"
+#include "src/overlays/actors/ovl_En_Kusa/z_en_kusa.h"
+#include "src/overlays/actors/ovl_En_Ishi/z_en_ishi.h"
+#include "src/overlays/actors/ovl_Bg_Ganon_Otyuka/z_bg_ganon_otyuka.h"
 #include "soh/ResourceManagerHelpers.h"
 void SkelAnime_SetUpdate(SkelAnime* skelAnime);
 extern PlayState* gPlayState;
@@ -265,6 +280,93 @@ void EnFz_BlowSmokeStationary(EnFz* freezard, PlayState* play);
 void EnFz_Melt(EnFz* freezard, PlayState* play);
 void EnFz_Despawn(EnFz* freezard, PlayState* play);
 void EnFz_SetupDespawn(EnFz* freezard, PlayState* play);
+void BossVa_BodyPhase1(BossVa* va, PlayState* play);
+void BossVa_BodyPhase2(BossVa* va, PlayState* play);
+void BossVa_BodyPhase3(BossVa* va, PlayState* play);
+void BossVa_BodyPhase4(BossVa* va, PlayState* play);
+void BossVa_BodyDeath(BossVa* va, PlayState* play);
+void BossVa_SetupBodyDeath(BossVa* va, PlayState* play);
+void BossVa_SupportAttached(BossVa* va, PlayState* play);
+void BossVa_SupportCut(BossVa* va, PlayState* play);
+void BossVa_SetupSupportCut(BossVa* va, PlayState* play);
+void BossVa_BariPhase2Attack(BossVa* va, PlayState* play);
+void BossVa_BariPhase3Attack(BossVa* va, PlayState* play);
+void BossVa_BariPhase3Stunned(BossVa* va, PlayState* play);
+void BossVa_BariDeath(BossVa* va, PlayState* play);
+void BossVa_KillBari(BossVa* va, PlayState* play);
+void* BossVa_GetSyncStatic(s32 which);
+Actor* BossVa_SpawnPart(BossVa* body, PlayState* play, s16 params);
+BossMo* BossMo_GetTentacle(s32 which);
+void BossTw_FlyTo(BossTw* tw, PlayState* play);
+void BossTw_TurnToPlayer(BossTw* tw, PlayState* play);
+void BossTw_ShootBeam(BossTw* tw, PlayState* play);
+void BossTw_FinishBeamShoot(BossTw* tw, PlayState* play);
+void BossTw_HitByBeam(BossTw* tw, PlayState* play);
+void BossTw_Laugh(BossTw* tw, PlayState* play);
+void BossTw_Spin(BossTw* tw, PlayState* play);
+void BossTw_Wait(BossTw* tw, PlayState* play);
+void BossTw_MergeCS(BossTw* tw, PlayState* play);
+void BossTw_DeathCS(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaMergeCS(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaFly(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaArriveAtTarget(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaChargeBlast(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaShootBlast(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaDoneBlastShoot(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaStun(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaGetUp(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaSpin(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaLaugh(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaDeathCS(BossTw* tw, PlayState* play);
+void BossTw_TwinrovaSetupDeathCS(BossTw* tw, PlayState* play);
+void BossTw_SetupShootBeam(BossTw* tw, PlayState* play);
+void BossTw_SetupHitByBeam(BossTw* tw, PlayState* play);
+BossTw* BossTw_GetSister(s32 which);
+u8* BossTw_GetBlastState(s32 which);
+void BossGanon_Wait(BossGanon* gdf, PlayState* play);
+void BossGanon_ChargeLightBall(BossGanon* gdf, PlayState* play);
+void BossGanon_PlayTennis(BossGanon* gdf, PlayState* play);
+void BossGanon_PoundFloor(BossGanon* gdf, PlayState* play);
+void BossGanon_ChargeBigMagic(BossGanon* gdf, PlayState* play);
+void BossGanon_Block(BossGanon* gdf, PlayState* play);
+void BossGanon_HitByLightBall(BossGanon* gdf, PlayState* play);
+void BossGanon_Vulnerable(BossGanon* gdf, PlayState* play);
+void BossGanon_Damaged(BossGanon* gdf, PlayState* play);
+void BossGanon_DeathAndTowerCutscene(BossGanon* gdf, PlayState* play);
+void BossGanon_SetupDeathCutscene(BossGanon* gdf, PlayState* play);
+void BossGanon_SetupHitByLightBall(BossGanon* gdf, PlayState* play);
+void func_808FFDB0(BossGanon2* ganon, PlayState* play); // Back to guarding (waits for its object)
+void func_808FFEBC(BossGanon2* ganon, PlayState* play); // Guard
+void func_808FFFE0(BossGanon2* ganon, PlayState* play); // Reflected a hit
+void func_80900104(BossGanon2* ganon, PlayState* play); // Stunned by a light arrow
+void func_8090026C(BossGanon2* ganon, PlayState* play); // Damaged
+void func_80900344(BossGanon2* ganon, PlayState* play); // Walk or run
+void func_80900650(BossGanon2* ganon, PlayState* play); // Sword swing
+void func_80900890(BossGanon2* ganon, PlayState* play); // Downed (local: each player picks up their own sword)
+void func_8090120C(BossGanon2* ganon, PlayState* play); // Defeated
+void func_80900818(BossGanon2* ganon, PlayState* play); // Setup downed
+void func_80901020(BossGanon2* ganon, PlayState* play); // Setup defeated
+void func_809000A0(BossGanon2* ganon, PlayState* play); // Setup stunned
+void EnHy_Walk(EnHy* hy, PlayState* play);
+void EnHy_Pace(EnHy* hy, PlayState* play);
+void EnDaikuKakariko_Wait(EnDaikuKakariko* daiku, PlayState* play);
+void EnDaikuKakariko_Run(EnDaikuKakariko* daiku, PlayState* play);
+void EnDaikuKakariko_StopRunning(EnDaikuKakariko* daiku, PlayState* play);
+void EnCs_Walk(EnCs* cs, PlayState* play);
+void EnCs_Wait(EnCs* cs, PlayState* play);
+void func_80AAE294(EnMm* mm, PlayState* play); // Running Man: run
+void func_80AAE224(EnMm* mm, PlayState* play); // Sit down
+void func_80AAE50C(EnMm* mm, PlayState* play); // Get up
+void func_80AAE598(EnMm* mm, PlayState* play); // Wait
+void EnDog_FollowPath(EnDog* dog, PlayState* play);
+void EnDog_ChooseMovement(EnDog* dog, PlayState* play);
+void EnDog_Wait(EnDog* dog, PlayState* play);
+void ObjTsubo_AirBreak(ObjTsubo* pot, PlayState* play);
+void EnKusa_SpawnFragments(EnKusa* bush, PlayState* play);
+void EnKusa_SetupCut(EnKusa* bush);
+void EnIshi_SpawnFragmentsSmall(EnIshi* rock, PlayState* play);
+void EnIshi_SpawnFragmentsLarge(EnIshi* rock, PlayState* play);
+void BgGanonOtyuka_WaitToFall(BgGanonOtyuka* tile, PlayState* play);
 void CollisionCheck_ApplyDamage(PlayState* play, CollisionCheckContext* colChkCtx, Collider* collider,
                                 ColliderInfo* info);
 }
@@ -279,6 +381,7 @@ static const std::string BLOCK_POS = "BLOCK_POS";
 static const std::string BOSS_STATE = "BOSS_STATE";
 static const std::string BOSS_HIT = "BOSS_HIT";
 static const std::string BOSS_DEFEATED = "BOSS_DEFEATED";
+static const std::string PROP_BREAK = "PROP_BREAK";
 
 namespace {
 
@@ -336,6 +439,7 @@ std::unordered_map<Key, uint32_t> sRemoteZero;
 std::unordered_map<Key, Block> sBlocks;
 // IDs for actors that aren't in a spawn list but are made by one that is, worked out when they spawn
 std::unordered_map<Actor*, Key> sDerivedKeys;
+std::unordered_set<Actor*> sSeenActors; // Updated with their key at least once (see CheckNewActor)
 
 bool HasStateSyncDef(Actor* actor);
 
@@ -807,6 +911,134 @@ void SendBlockPositions() {
     }
 }
 
+// MARK: - Pots, bushes and rocks
+
+/**
+ * One player breaking a pot, cutting a bush or picking either (or a rock) up takes it away on everyone's game, with
+ * its effect but without its drop, which is the breaker's. Like a dead enemy it stays gone while anyone is in its
+ * room. A bush that grows back is only cut, so it grows back on everyone's game. The floor tiles in Ganondorf's
+ * room fall on everyone's game when they fall on one (his pound, a light ball or a bomb), instead of each game
+ * dropping its own.
+ */
+std::unordered_map<Actor*, Key> sBreakableKeys;    // From before the frame's update: picking one up takes it out of
+std::unordered_map<Actor*, bool> sBreakableWasCut; // its room, which its key needs
+std::unordered_set<Key> sGone;                     // Broken or taken by anyone this visit
+std::unordered_set<Actor*> sTakenHere;             // ...the ones this game's Link is carrying or threw
+
+bool IsBreakable(Actor* actor) {
+    return actor->id == ACTOR_OBJ_TSUBO || actor->id == ACTOR_EN_KUSA || actor->id == ACTOR_EN_ISHI ||
+           actor->id == ACTOR_BG_GANON_OTYUKA;
+}
+
+// Cut (a bush that grows back) or falling (a floor tile): broken, but still there for a while
+bool IsCut(Actor* actor) {
+    return (actor->id == ACTOR_EN_KUSA && (actor->flags & ACTOR_FLAG_GRASS_DESTROYED)) ||
+           (actor->id == ACTOR_BG_GANON_OTYUKA && ((BgGanonOtyuka*)actor)->isFalling);
+}
+
+void SendBreak(Key key, bool cut, bool effect) {
+    nlohmann::json payload;
+    payload["type"] = PROP_BREAK;
+    payload["props"] = nlohmann::json::array({ key });
+    payload["cut"] = cut;
+    payload["effect"] = effect;
+    SendToPeers(payload);
+}
+
+// What breaking it does on the breaker's game, less the drop
+void BreakHere(Actor* actor, bool cut, bool effect) {
+    if (effect) {
+        switch (actor->id) {
+            case ACTOR_OBJ_TSUBO:
+                ObjTsubo_AirBreak((ObjTsubo*)actor, gPlayState);
+                SoundSource_PlaySfxAtFixedWorldPos(gPlayState, &actor->world.pos, 20, NA_SE_EV_POT_BROKEN);
+                break;
+            case ACTOR_EN_KUSA:
+                EnKusa_SpawnFragments((EnKusa*)actor, gPlayState);
+                SoundSource_PlaySfxAtFixedWorldPos(gPlayState, &actor->world.pos, 20, NA_SE_EV_PLANT_BROKEN);
+                break;
+            case ACTOR_EN_ISHI:
+                if ((actor->params & 1) == ROCK_LARGE) {
+                    EnIshi_SpawnFragmentsLarge((EnIshi*)actor, gPlayState);
+                } else {
+                    EnIshi_SpawnFragmentsSmall((EnIshi*)actor, gPlayState);
+                }
+                SoundSource_PlaySfxAtFixedWorldPos(gPlayState, &actor->world.pos, 20, NA_SE_EV_ROCK_BROKEN);
+                break;
+        }
+    }
+    if (actor->id == ACTOR_BG_GANON_OTYUKA) {
+        // Its own code makes it fall (with the flash that warns of it) once it's told to
+        BgGanonOtyuka* tile = (BgGanonOtyuka*)actor;
+        if (cut && tile->actionFunc == BgGanonOtyuka_WaitToFall) {
+            tile->isFalling = true;
+        }
+    } else if (cut) {
+        // A bush that grows back: cut, the way its own code cuts it
+        EnKusa_SetupCut((EnKusa*)actor);
+        actor->flags |= ACTOR_FLAG_GRASS_DESTROYED;
+    } else {
+        Actor_Kill(actor);
+    }
+}
+
+void BreakablePreUpdate(Actor* actor, Key key, bool* should) {
+    if (sGone.contains(key) && !sTakenHere.contains(actor)) {
+        // Someone else broke or took it this visit
+        Actor_Kill(actor);
+        *should = false;
+        return;
+    }
+    sBreakableKeys[actor] = key;
+    // As it was after its last update: something else can break it in between (Ganondorf drops floor tiles)
+    sBreakableWasCut.emplace(actor, IsCut(actor));
+}
+
+void BreakablePostUpdate(Actor* actor) {
+    auto it = sBreakableKeys.find(actor);
+    if (it == sBreakableKeys.end()) {
+        return;
+    }
+    Key key = it->second;
+    bool gone = actor->update == nullptr || actor->room == -1; // Broken, or picked up
+    if (gone && actor->id == ACTOR_BG_GANON_OTYUKA) {
+        // A floor tile that has fallen, which it does on everyone's game
+        sBreakableKeys.erase(it);
+    } else if (gone) {
+        sBreakableKeys.erase(it);
+        if (actor->update != nullptr) {
+            sTakenHere.insert(actor);
+        }
+        if (sGone.insert(key).second) {
+            SendBreak(key, false, true);
+        }
+    } else if (IsCut(actor) && !sBreakableWasCut[actor]) {
+        SendBreak(key, true, true);
+    }
+    sBreakableWasCut[actor] = IsCut(actor);
+}
+
+// They come back when their room loads again, once nobody is left in it
+void ForgetGoneInEmptyRooms() {
+    std::erase_if(sGone, [](Key key) { return !IsRoomOccupied(KeyRoom(key)); });
+}
+
+void SendGoneList() {
+    if (sGone.empty()) {
+        return;
+    }
+    nlohmann::json list = nlohmann::json::array();
+    for (Key key : sGone) {
+        list.push_back(key);
+    }
+    nlohmann::json payload;
+    payload["type"] = PROP_BREAK;
+    payload["props"] = list;
+    payload["cut"] = false;
+    payload["effect"] = false;
+    SendToPeers(payload);
+}
+
 // MARK: - State-synced actors
 
 /**
@@ -844,6 +1076,7 @@ struct SyncField {
 struct SyncStatic {
     void* (*get)();
     u16 size;
+    bool onlyUp = false; // A count that only goes up (one byte): never set back to a lower value
 };
 
 constexpr size_t NO_ACTION = SIZE_MAX;
@@ -858,6 +1091,10 @@ struct StateSyncDef;
 struct GroupMember {
     const StateSyncDef* def;
     Actor* (*find)(Actor* leader); // nullptr while it isn't there
+    // Parts that come and go during the fight: made when the room owner has one this game doesn't (a transition the
+    // room owner's state skipped here), and taken away when the room owner's is gone but this game's still fights
+    void (*spawn)(Actor* leader) = nullptr;
+    void (*remove)(Actor* member, Actor* leader) = nullptr;
 };
 
 struct StateSyncDef {
@@ -869,6 +1106,10 @@ struct StateSyncDef {
     std::vector<ActionFunc> fightActions = {};    // Sent as an index into this list
     std::vector<ActionFunc> hitReactions = {};    // Actions a hit puts it in
     std::vector<ActionFunc> localActions = {};    // Fight actions each game plays out by itself (grabbing its own Link)
+    bool (*isLocal)(Actor* actor) = nullptr;      // The same, for actors that don't keep their state in an action
+    // Starts a local action here when the room owner starts one (a beam each game aims at its own Link); without
+    // it, the room owner's local actions are just skipped
+    void (*enterLocal)(Actor* actor) = nullptr;
     std::vector<ActionFunc> deathActions = {};
     bool (*isFighting)(Actor* actor) = nullptr;   // Default: in one of the fight actions
     bool (*isDefeated)(Actor* actor) = nullptr;   // Default: in one of the death actions
@@ -883,6 +1124,12 @@ struct StateSyncDef {
     std::vector<GroupMember> members = {};        // Other actors in the same fight, sent along with this one
     bool isMember = false;                        // Only synced as part of another actor's group
     bool targetsOwnLink = false;                  // Skip TargetNearestLink
+    nlohmann::json (*debug)(Actor* actor) = nullptr; // For tests: more about its state
+    // A townsperson, animal and the like: left alone while this game's Link talks to it, holds it or is in a
+    // cutscene (they're all this game's own), goes after nobody else's Link, and is sent less often
+    bool npc = false;
+    u8 sendEvery = 1; // Frames between states the room owner sends
+    void (*beforeSnapshot)(Actor* actor) = nullptr; // Room owner: before its state goes out (to note what it's doing)
 };
 
 // Each actor as its def describes it, plus a copy of its struct from before the frame's updates
@@ -901,6 +1148,7 @@ struct Synced {
     uint32_t applied = 0;                // For tests: member states applied, and why the last one wasn't
     const char* skipped = "";
     std::unordered_map<std::string, uint32_t> dropped; // For tests: room owner states not applied, by reason
+    uint32_t updates = 0;                              // For tests: frames the leader was updated
 };
 
 constexpr uint32_t SYNC_HIT_HOLD = 40;
@@ -949,7 +1197,20 @@ int ActionIndex(Actor* actor, const StateSyncDef& def) {
     return it == def.fightActions.end() ? -1 : (int)(it - def.fightActions.begin());
 }
 
+Actor* sDebugBusy = nullptr; // For tests: as if this game's Link were talking to it
+
+// This game's Link is talking to it, holding it or in a cutscene with it (or any cutscene)
+bool IsBusyHere(Actor* actor) {
+    Player* player = GET_PLAYER(gPlayState);
+    return actor == sDebugBusy || (player->talkActor == actor && (player->stateFlags1 & PLAYER_STATE1_TALKING)) ||
+           player->heldActor == actor || actor->parent == &player->actor || player->csActor == actor ||
+           Player_InCsMode(gPlayState);
+}
+
 bool IsFighting(Actor* actor, const StateSyncDef& def) {
+    if (def.npc && IsBusyHere(actor)) {
+        return false;
+    }
     return def.isFighting != nullptr ? def.isFighting(actor) : ActionIndex(actor, def) >= 0;
 }
 
@@ -1078,7 +1339,31 @@ void ApplySnapshot(Actor* actor, const StateSyncDef& def, int action, const std:
     }
 
     for (const SyncStatic& field : def.statics) {
-        get(field.get(), field.size);
+        u8* at = (u8*)field.get();
+        if (field.onlyUp) {
+            *at = MAX(*at, *in);
+            in += field.size;
+        } else {
+            get(at, field.size);
+        }
+    }
+}
+
+// What a def's statics hold right now, to put back after calling the overlay's own code for a transition the room
+// owner's state skipped here (which changes them as well)
+std::vector<u8> SaveStatics(const StateSyncDef& def) {
+    std::vector<u8> out;
+    for (const SyncStatic& field : def.statics) {
+        out.insert(out.end(), (u8*)field.get(), (u8*)field.get() + field.size);
+    }
+    return out;
+}
+
+void RestoreStatics(const StateSyncDef& def, const std::vector<u8>& saved) {
+    const u8* in = saved.data();
+    for (const SyncStatic& field : def.statics) {
+        memcpy(field.get(), in, field.size);
+        in += field.size;
     }
 }
 
@@ -1160,9 +1445,12 @@ nlohmann::json GroupSnapshot(Synced& synced) {
     for (size_t i = 0; i < synced.actors.size(); i++) {
         Actor* actor = synced.actors[i];
         const StateSyncDef& def = MemberDef(synced, i);
-        if (actor == nullptr || actor->update == nullptr || ActionIndex(actor, def) < 0) {
+        if (actor == nullptr || actor->update == nullptr || ActionIndex(actor, def) < 0 || !IsFighting(actor, def)) {
             members.push_back(nullptr);
         } else {
+            if (def.beforeSnapshot != nullptr) {
+                def.beforeSnapshot(actor);
+            }
             members.push_back({ ActionIndex(actor, def), Base64(Snapshot(actor, def)) });
         }
     }
@@ -1177,7 +1465,18 @@ void ApplyGroupSnapshot(Synced& synced, const nlohmann::json& members) {
     for (size_t i = 0; i < synced.actors.size(); i++) {
         Actor* actor = synced.actors[i];
         const StateSyncDef& def = MemberDef(synced, i);
-        if (actor == nullptr || actor->update == nullptr || !members[i].is_array()) {
+        bool alive = actor != nullptr && actor->update != nullptr;
+        if (i > 0 && Leader(synced) != nullptr) {
+            const GroupMember& member = synced.def->members[i - 1];
+            // (Found again first: a packet that came in the same frame may have made it already)
+            if (!alive && members[i].is_array() && member.spawn != nullptr && member.find(synced.actors[0]) == nullptr) {
+                member.spawn(synced.actors[0]);
+            } else if (alive && members[i].is_null() && member.remove != nullptr && IsFighting(actor, def)) {
+                member.remove(actor, synced.actors[0]);
+                continue;
+            }
+        }
+        if (!alive || !members[i].is_array()) {
             synced.skipped = actor == nullptr ? "no actor" : "no state";
             continue;
         }
@@ -1189,8 +1488,17 @@ void ApplyGroupSnapshot(Synced& synced, const nlohmann::json& members) {
             continue;
         }
         // Each game grabs its own Link
-        if (IsIn(def.localActions, ActionOf(actor, def)) ||
-            (def.actionOffset != NO_ACTION && IsIn(def.localActions, def.fightActions[action]))) {
+        bool localHere = IsIn(def.localActions, ActionOf(actor, def)) || (def.isLocal != nullptr && def.isLocal(actor)) ||
+                         (def.npc && IsBusyHere(actor));
+        if (localHere || (def.actionOffset != NO_ACTION && IsIn(def.localActions, def.fightActions[action]))) {
+            // Its health is still everyone's
+            s32 remoteHealth = ReadHealthAt(data.data() + sizeof(ActorBase), def);
+            if (def.healthFollowsOwner || remoteHealth < ReadHealth(actor, def)) {
+                WriteHealth(actor, def, remoteHealth);
+            }
+            if (!localHere && def.enterLocal != nullptr) {
+                def.enterLocal(actor);
+            }
             synced.skipped = "local action";
             continue;
         }
@@ -1200,6 +1508,7 @@ void ApplyGroupSnapshot(Synced& synced, const nlohmann::json& members) {
         if (def.onApply != nullptr) {
             def.onApply(actor, before.data());
         }
+
     }
 }
 
@@ -1249,13 +1558,26 @@ void CheckSynced(Key key, Synced& synced) {
     Remember(synced);
 }
 
-void SendSyncedState(Key key, Synced& synced) {
+// A peer is in this room, so someone needs its state
+bool RoomHasPeer(s8 room) {
+    for (auto& [clientId, client] : Anchor::Instance->clients) {
+        if (IsPeer(client) && client.curRoomNum == room) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The room owner's state for one fight, added to the frame's BOSS_STATE (one packet for all of them)
+void AddSyncedState(Key key, Synced& synced, nlohmann::json& states) {
     Actor* leader = Leader(synced);
-    if (leader == nullptr || !OwnsRoom(leader->room) || !IsFighting(leader, *synced.def) ||
-        IsDefeated(leader, *synced.def)) {
+    if (leader == nullptr || !OwnsRoom(leader->room) || !RoomHasPeer(leader->room) ||
+        !IsFighting(leader, *synced.def) || IsDefeated(leader, *synced.def) ||
+        sFrame % synced.def->sendEvery != 0) {
         return;
     }
     nlohmann::json payload;
+    payload["key"] = key;
     payload["seq"] = ++synced.sentSeq;
     payload["members"] = GroupSnapshot(synced);
     if (!synced.hitsTaken.empty()) {
@@ -1265,7 +1587,7 @@ void SendSyncedState(Key key, Synced& synced) {
         }
         payload["acks"] = acks;
     }
-    SendSyncedPacket(BOSS_STATE, key, std::move(payload));
+    states.push_back(std::move(payload));
 }
 
 void StartDefeat(Synced& synced, Actor* leader) {
@@ -1274,6 +1596,7 @@ void StartDefeat(Synced& synced, Actor* leader) {
 
 void SyncedPreUpdate(Actor* actor, Key key, const StateSyncDef& def) {
     Synced& synced = sSynced[key];
+    synced.updates++;
     synced.def = &def;
     FindMembers(synced, actor);
     if (synced.pendingDefeat && IsFighting(actor, def)) {
@@ -1365,8 +1688,13 @@ const StateSyncDef sKingDodongo = {
     },
 };
 
-// Phantom Ganon's horse, which carries him through the paintings. The decoy that rides out of another painting is
-// each game's own. Not registered yet (see StateSyncDefs).
+// Phantom Ganon's horse, which carries him through the paintings. Which painting comes next is random, so only the
+// room owner picks it: elsewhere the horse waits in the painting it went into until the room owner's state brings it
+// out of the next one. The decoy that rides out of another painting at the same time is spawned on every game from
+// the room owner's choice, noted in a few bytes the horse doesn't use (0xFF: none).
+constexpr u8 PG_NO_DECOY = 0xFF;
+constexpr u8 PG_PAINTINGS = 6;
+
 const StateSyncDef sPhantomGanonHorse = {
     .name = "Phantom Ganon's horse",
     .actorId = ACTOR_EN_FHG,
@@ -1381,8 +1709,40 @@ const StateSyncDef sPhantomGanonHorse = {
     .fields = { FIELD(EnfHG, bossGndInPainting), FIELD(EnfHG, fhgFireKillWarp),
                 FIELDS(EnfHG, inPaintingPos, approachRate), FIELDS(EnfHG, gallopTimer, spawnedWarp),
                 FIELDS(EnfHG, timers, turnRot), FIELDS(EnfHG, warpColorFilterR, warpColorFilterUnk2),
-                FIELD(Actor, scale) },
+                FIELD(Actor, scale), FIELD(EnfHG, unk_1E2) },
+    .onApply = [](Actor* actor, const void* before) {
+        EnfHG* horse = (EnfHG*)actor;
+        if (OwnsRoom(actor->room)) {
+            return; // A hit from someone else
+        }
+        if (horse->actionFunc == EnfHG_Retreat && horse->timers[0] < 10) {
+            // Not picking a painting of its own: the room owner's next state says which
+            horse->timers[0] = 10;
+        }
+        if (horse->actionFunc == EnfHG_Approach && ((const EnfHG*)before)->actionFunc != EnfHG_Approach &&
+            (u8)horse->unk_1E2[0] < PG_PAINTINGS) {
+            Actor_SpawnAsChild(&gPlayState->actorCtx, actor, gPlayState, ACTOR_BOSS_GANONDROF, actor->world.pos.x,
+                               actor->world.pos.y, actor->world.pos.z, 0, 0, 0,
+                               (u8)horse->unk_1E2[0] + GND_FAKE_BOSS);
+        }
+    },
     .isMember = true,
+    .debug = [](Actor* actor) {
+        EnfHG* horse = (EnfHG*)actor;
+        return nlohmann::json{ { "painting", horse->curPainting }, { "target", horse->targetPainting },
+                               { "timer", horse->timers[0] }, { "hitTimer", horse->hitTimer },
+                               { "decoy", (u8)horse->unk_1E2[0] } };
+    },
+    // The decoy riding out with it, if any
+    .beforeSnapshot = [](Actor* actor) {
+        ((EnfHG*)actor)->unk_1E2[0] = (char)PG_NO_DECOY;
+        for (Actor* it = gPlayState->actorCtx.actorLists[ACTORCAT_BOSS].head; it != nullptr; it = it->next) {
+            if (it->id == ACTOR_BOSS_GANONDROF && it->params >= GND_FAKE_BOSS && it->parent == actor &&
+                it->update != nullptr) {
+                ((EnfHG*)actor)->unk_1E2[0] = (char)(it->params - GND_FAKE_BOSS);
+            }
+        }
+    },
 };
 
 const StateSyncDef sPhantomGanon = {
@@ -1419,9 +1779,17 @@ const StateSyncDef sPhantomGanon = {
         GameInteractor_ExecuteOnBossDefeat(actor);
         return true;
     },
+    // His own horse, by what it is rather than his child pointer, which in the middle of a frame can be the decoy's
     .members = { { &sPhantomGanonHorse,
                    [](Actor* pg) {
-                       return pg->child != nullptr && pg->child->id == ACTOR_EN_FHG ? pg->child : nullptr;
+                       for (Actor* actor = gPlayState->actorCtx.actorLists[ACTORCAT_BG].head; actor != nullptr;
+                            actor = actor->next) {
+                           if (actor->id == ACTOR_EN_FHG && actor->params < GND_FAKE_BOSS && actor->parent == pg &&
+                               actor->update != nullptr) {
+                               return actor;
+                           }
+                       }
+                       return (Actor*)nullptr;
                    } } },
 };
 
@@ -1760,6 +2128,17 @@ const StateSyncDef sBari = {
         EnVali_SetupDivideAndDie((EnVali*)actor, gPlayState);
         return true;
     },
+    .debug = [](Actor* actor) {
+        Player* player = GET_PLAYER(gPlayState);
+        return nlohmann::json{ { "vy", actor->velocity.y },
+                               { "link1", player->stateFlags1 },
+                               { "link2", player->stateFlags2 },
+                               { "floor", actor->floorHeight },
+                               { "flags", actor->flags },
+                               { "drawn", actor->isDrawn },
+                               { "freeze", actor->freezeTimer },
+                               { "dist", actor->xzDistToPlayer } };
+    },
 };
 
 const StateSyncDef sWolfos = {
@@ -1834,18 +2213,561 @@ const StateSyncDef sFreezard = {
         return true;
     },
 };
+// Barinade: the body (in the spawn list), the three tethers holding it to the ceiling and the ten Bari that circle it,
+// which the body spawns as the fight goes on. Where the fight is (a count of what's been cut and killed), the body's
+// stun and phase 4's health are statics of the overlay. The zappers aim at each game's own Link, so they're local.
+constexpr u8 BOSSVA_PHASE_DEATH = 18;
+
+Actor* FindBarinadePart(Actor* body, s16 params) {
+    for (Actor* actor = gPlayState->actorCtx.actorLists[ACTORCAT_BOSS].head; actor != nullptr; actor = actor->next) {
+        if (actor->id == ACTOR_BOSS_VA && actor->params == params && actor->parent == body && actor->update != nullptr) {
+            return actor;
+        }
+    }
+    return nullptr;
+}
+
+// Runs some of the overlay's own code for a transition, keeping the statics as the room owner sent them
+template <typename F> void KeepBarinadeStatics(F run) {
+    static const u8 sizes[] = { 1, 1, 2, 1, 1 };
+    u8 saved[5][2];
+    for (int i = 0; i < 5; i++) {
+        memcpy(saved[i], BossVa_GetSyncStatic(i), sizes[i]);
+    }
+    run();
+    for (int i = 0; i < 5; i++) {
+        memcpy(BossVa_GetSyncStatic(i), saved[i], sizes[i]);
+    }
+}
+
+const StateSyncDef sBarinadeTether = {
+    .name = "Barinade's tether",
+    .actorId = ACTOR_BOSS_VA,
+    .size = sizeof(BossVa),
+    .match = [](Actor* actor) { return actor->params >= BOSSVA_SUPPORT_1 && actor->params <= BOSSVA_SUPPORT_3; },
+    .actionOffset = offsetof(BossVa, actionFunc),
+    .fightActions = { ACTION(BossVa_SupportAttached), ACTION(BossVa_SupportCut) },
+    .hitReactions = { ACTION(BossVa_SupportCut) },
+    // Hangs from the body, which places it each frame. Cut on the room owner's game: cut here the same way (its stump,
+    // the cut skeleton). Never joined up again.
+    .onApply = [](Actor* actor, const void* before) {
+        BossVa* tether = (BossVa*)actor;
+        if (((const BossVa*)before)->actionFunc == BossVa_SupportCut) {
+            tether->actionFunc = BossVa_SupportCut;
+        } else if (tether->actionFunc == BossVa_SupportCut) {
+            tether->actionFunc = BossVa_SupportAttached;
+            KeepBarinadeStatics([&] { BossVa_SetupSupportCut(tether, gPlayState); });
+        }
+    },
+    .isMember = true,
+};
+
+const StateSyncDef sBarinadeBari = {
+    .name = "Barinade's Bari",
+    .actorId = ACTOR_BOSS_VA,
+    .size = sizeof(BossVa),
+    .match = [](Actor* actor) { return actor->params >= BOSSVA_BARI_UPPER_1 && actor->params <= BOSSVA_BARI_LOWER_5; },
+    .actionOffset = offsetof(BossVa, actionFunc),
+    .fightActions = { ACTION(BossVa_BariPhase2Attack), ACTION(BossVa_BariPhase3Attack),
+                      ACTION(BossVa_BariPhase3Stunned) },
+    .hitReactions = { ACTION(BossVa_BariDeath) }, // Killed here
+    .deathActions = { ACTION(BossVa_BariDeath) },
+    // They circle the body at a radius and speed of their own
+    .fields = { FIELDS(BossVa, timer, timer2), FIELDS(BossVa, unk_1A0, unk_1A4), FIELD(BossVa, unk_1AC),
+                FIELD(BossVa, unk_1F0), FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED),
+                FIELD(Actor, colorFilterParams), FIELD(Actor, colorFilterTimer) },
+    .isMember = true,
+};
+
+template <s16 P> Actor* FindBarinadePartP(Actor* body) {
+    return FindBarinadePart(body, P);
+}
+
+// A Bari the room owner has: spawned here when this game skipped the transition that spawns it
+template <s16 P> void SpawnBarinadeBari(Actor* body) {
+    if (((BossVa*)body)->actionFunc != BossVa_BodyPhase1) {
+        BossVa_SpawnPart((BossVa*)body, gPlayState, P);
+    }
+}
+
+// One the room owner killed: killed here too (which counts it, as the room owner's statics already have)
+void RemoveBarinadeBari(Actor* bari, Actor* body) {
+    if (((BossVa*)body)->actionFunc != BossVa_BodyPhase1) {
+        KeepBarinadeStatics([&] { BossVa_KillBari((BossVa*)bari, gPlayState); });
+    }
+}
+
+#define BARINADE_BARI(p) { &sBarinadeBari, FindBarinadePartP<p>, SpawnBarinadeBari<p>, RemoveBarinadeBari }
+
+const StateSyncDef sBarinade = {
+    .name = "Barinade",
+    .actorId = ACTOR_BOSS_VA,
+    .size = sizeof(BossVa),
+    .match = [](Actor* actor) { return actor->params == BOSSVA_BODY; },
+    .actionOffset = offsetof(BossVa, actionFunc),
+    .fightActions = { ACTION(BossVa_BodyPhase1), ACTION(BossVa_BodyPhase2), ACTION(BossVa_BodyPhase3),
+                      ACTION(BossVa_BodyPhase4) },
+    .deathActions = { ACTION(BossVa_BodyDeath) },
+    // A hit on the body changes neither its action nor its health: it stuns it (a colour filter) or, in phase 4,
+    // makes it invincible for a moment while a static counts down
+    .wasHit = [](Actor* actor, const void* before) {
+        const BossVa* was = (const BossVa*)before;
+        BossVa* body = (BossVa*)actor;
+        return body->actionFunc != BossVa_BodyPhase1 && (actor->colorFilterTimer > was->actor.colorFilterTimer ||
+                                                         body->invincibilityTimer > was->invincibilityTimer);
+    },
+    .skelAnimes = { offsetof(BossVa, skelAnime) },
+    .fields = { FIELDS(BossVa, invincibilityTimer, timer2), FIELDS(BossVa, unk_1A0, unk_1B0), FIELD(BossVa, headRot),
+                FIELD(BossVa, colliderBody.info.bumper.dmgFlags), FIELD(BossVa, colliderBody.dim.radius),
+                FIELD(Actor, shape.yOffset), FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE),
+                FIELD(Actor, colorFilterParams), FIELD(Actor, colorFilterTimer) },
+    // Not the Bari a sword hit on the body kills next (a count each game spends on its own Bari)
+    .statics = { { [] { return BossVa_GetSyncStatic(0); }, 1, true },
+                 { [] { return BossVa_GetSyncStatic(1); }, 1 },
+                 { [] { return BossVa_GetSyncStatic(2); }, 2 },
+                 { [] { return BossVa_GetSyncStatic(3); }, 1 },
+                 { [] { return BossVa_GetSyncStatic(4); }, 1 } },
+    // Its phases only go forward; the change to the next one also spawns Bari, which a late state mustn't repeat
+    .onApply = [](Actor* actor, const void* before) {
+        if (ActionIndex((Actor*)before, sBarinade) > ActionIndex(actor, sBarinade)) {
+            ((BossVa*)actor)->actionFunc = ((const BossVa*)before)->actionFunc;
+        }
+    },
+    .defeat = [](Actor* actor) {
+        // What the fight did before its end: every tether cut (their deaths are part of the cutscene), every Bari dead
+        for (s16 params = BOSSVA_SUPPORT_1; params <= BOSSVA_SUPPORT_3; params++) {
+            BossVa* tether = (BossVa*)FindBarinadePart(actor, params);
+            if (tether != nullptr && tether->actionFunc == BossVa_SupportAttached) {
+                BossVa_SetupSupportCut(tether, gPlayState);
+            }
+        }
+        for (s16 params = BOSSVA_BARI_UPPER_1; params <= BOSSVA_BARI_LOWER_5; params++) {
+            BossVa* bari = (BossVa*)FindBarinadePart(actor, params);
+            if (bari != nullptr && bari->actionFunc != BossVa_BariDeath) {
+                BossVa_KillBari(bari, gPlayState);
+            }
+        }
+        *(u8*)BossVa_GetSyncStatic(0) = BOSSVA_PHASE_DEATH;
+        BossVa_SetupBodyDeath((BossVa*)actor, gPlayState);
+        Enemy_StartFinishingBlow(gPlayState, actor);
+        // Its own hit handler fires the defeat hook, not its death
+        GameInteractor_ExecuteOnBossDefeat(actor);
+        return true;
+    },
+    .members = { { &sBarinadeTether, FindBarinadePartP<BOSSVA_SUPPORT_1> },
+                 { &sBarinadeTether, FindBarinadePartP<BOSSVA_SUPPORT_2> },
+                 { &sBarinadeTether, FindBarinadePartP<BOSSVA_SUPPORT_3> },
+                 BARINADE_BARI(BOSSVA_BARI_UPPER_1), BARINADE_BARI(BOSSVA_BARI_UPPER_2),
+                 BARINADE_BARI(BOSSVA_BARI_UPPER_3), BARINADE_BARI(BOSSVA_BARI_UPPER_4),
+                 BARINADE_BARI(BOSSVA_BARI_UPPER_5), BARINADE_BARI(BOSSVA_BARI_LOWER_1),
+                 BARINADE_BARI(BOSSVA_BARI_LOWER_2), BARINADE_BARI(BOSSVA_BARI_LOWER_3),
+                 BARINADE_BARI(BOSSVA_BARI_LOWER_4), BARINADE_BARI(BOSSVA_BARI_LOWER_5) },
+};
+
+// Morpha: the core (in the spawn list) and its one or two tentacles, which keep their state in work[0] (their action
+// function never changes). The core's state values and the cutscene states are local to its overlay.
+constexpr s16 MO_CORE_STUNNED = 5;
+constexpr s16 MO_CORE_ATTACK = 10;
+constexpr s16 MO_CORE_RETREAT = 11;
+constexpr s16 MO_TENT_ATTACK = 2;
+constexpr s16 MO_TENT_GRAB = 4;
+constexpr s16 MO_TENT_SHAKE = 5;
+constexpr s16 MO_TENT_CUT = 100;
+constexpr s16 MO_TENT_DEATH_START = 200;
+constexpr s16 MO_DEATH_START = 100;
+
+bool IsLiveBoss(Actor* actor) {
+    for (Actor* it = gPlayState->actorCtx.actorLists[ACTORCAT_BOSS].head; it != nullptr; it = it->next) {
+        if (it == actor) {
+            return it->update != nullptr;
+        }
+    }
+    return false;
+}
+
+// The overlay keeps its tentacles in statics, which outlive them
+BossMo* MorphaTentacle(s32 which) {
+    BossMo* tent = BossMo_GetTentacle(which);
+    return tent != nullptr && IsLiveBoss(&tent->actor) ? tent : nullptr;
+}
+
+const StateSyncDef sMorphaTentacle = {
+    .name = "Morpha's tentacle",
+    .actorId = ACTOR_BOSS_MO,
+    .size = sizeof(BossMo),
+    .match = [](Actor* actor) { return actor->params == BOSSMO_TENTACLE; },
+    // Grabbing and shaking hold this game's own Link, so they're its own
+    .isLocal = [](Actor* actor) {
+        BossMo* tent = (BossMo*)actor;
+        s16 state = tent->work[MO_TENT_ACTION_STATE];
+        return tent->csCamera != 0 || state == MO_TENT_GRAB || state == MO_TENT_SHAKE;
+    },
+    .isFighting = [](Actor* actor) {
+        BossMo* tent = (BossMo*)actor;
+        s16 state = tent->work[MO_TENT_ACTION_STATE];
+        return tent->csCamera == 0 && state != MO_TENT_GRAB && state != MO_TENT_SHAKE && state < MO_TENT_DEATH_START;
+    },
+    .isDefeated = [](Actor* actor) { return ((BossMo*)actor)->work[MO_TENT_ACTION_STATE] >= MO_TENT_DEATH_START; },
+    .wasHit = [](Actor* actor, const void* before) {
+        return ((BossMo*)actor)->work[MO_TENT_ACTION_STATE] == MO_TENT_CUT &&
+               ((const BossMo*)before)->work[MO_TENT_ACTION_STATE] != MO_TENT_CUT;
+    },
+    // Its shape: the swing it's doing and how far each segment got. Not the segment positions, worked out from those,
+    // nor the grab.
+    .fields = { FIELD(BossMo, tent2KillTimer), FIELD(BossMo, tentSpawnPos), FIELDS(BossMo, work, timers),
+                FIELD(BossMo, fwork), FIELDS(BossMo, baseAlpha, cutScale), FIELDS(BossMo, flattenRate, waterLevelMod),
+                FIELDS(BossMo, baseBubblesTimer, drawActor), FIELD(BossMo, targetPos), FIELD(BossMo, tentRippleSize),
+                FIELD(BossMo, tentRot), FIELDS(BossMo, tentMaxAngle, tentPulse), FIELD(Actor, scale),
+                FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED) },
+    .isMember = true,
+};
+
+const StateSyncDef sMorpha = {
+    .name = "Morpha",
+    .actorId = ACTOR_BOSS_MO,
+    .size = sizeof(BossMo),
+    .match = [](Actor* actor) { return actor->params != BOSSMO_TENTACLE; },
+    .isFighting = [](Actor* actor) {
+        BossMo* core = (BossMo*)actor;
+        s16 state = core->work[MO_TENT_ACTION_STATE];
+        // Moving, making a tentacle, under water (after a Link in the water), stunned, in the tentacle, retreating
+        return core->csState == 0 && (state == 0 || state == 1 || state == 2 || state == MO_CORE_STUNNED ||
+                                      state == MO_CORE_ATTACK || state == MO_CORE_RETREAT);
+    },
+    .isDefeated = [](Actor* actor) { return ((BossMo*)actor)->csState >= MO_DEATH_START; },
+    // Hit with a sword it's stunned, with the hookshot while in the tentacle it lets go: either way it's invincible
+    // for a moment
+    .wasHit = [](Actor* actor, const void* before) {
+        return ((BossMo*)actor)->work[MO_CORE_INVINC_TIMER] > ((const BossMo*)before)->work[MO_CORE_INVINC_TIMER];
+    },
+    // The water level is the core's (plus what each tentacle pulls it by), and sets the water everyone swims in
+    .fields = { FIELD(BossMo, hitCount), FIELDS(BossMo, work, timers), FIELD(BossMo, fwork), FIELD(BossMo, baseAlpha),
+                FIELD(BossMo, waterLevel), FIELD(BossMo, drawActor), FIELD(BossMo, targetPos),
+                FIELDS(BossMo, tentMaxAngle, tentSpeed), FIELD(Actor, scale),
+                FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED) },
+    .defeat = [](Actor* actor) {
+        // What its own hit handler does on the killing blow. Not while a tentacle shakes this game's Link.
+        BossMo* core = (BossMo*)actor;
+        BossMo* tent1 = MorphaTentacle(0);
+        BossMo* tent2 = MorphaTentacle(1);
+        if ((tent1 != nullptr && tent1->csCamera != 0) || (tent2 != nullptr && tent2->csCamera != 0)) {
+            return false;
+        }
+        actor->colChkInfo.health = 0;
+        Enemy_StartFinishingBlow(gPlayState, actor);
+        GameInteractor_ExecuteOnBossDefeat(actor);
+        Audio_QueueSeqCmd(0x1 << 28 | SEQ_PLAYER_BGM_MAIN << 24 | 0x100FF);
+        core->csState = MO_DEATH_START;
+        if (tent1 != nullptr) {
+            tent1->drawActor = false;
+            tent1->work[MO_TENT_ACTION_STATE] = MO_TENT_DEATH_START;
+            tent1->baseAlpha = 0.0f;
+        }
+        if (tent2 != nullptr) {
+            tent2->tent2KillTimer = 1;
+        }
+        Player* player = GET_PLAYER(gPlayState);
+        if (player->actor.parent != nullptr) {
+            player->av2.actionVar2 = 0x65;
+            player->actor.parent = nullptr;
+            player->csAction = 0;
+        }
+        return true;
+    },
+    .members = { { &sMorphaTentacle, [](Actor*) { return (Actor*)MorphaTentacle(0); } },
+                 { &sMorphaTentacle, [](Actor*) { return (Actor*)MorphaTentacle(1); } } },
+    .debug = [](Actor* actor) {
+        BossMo* core = (BossMo*)actor;
+        return nlohmann::json{ { "state", core->work[MO_TENT_ACTION_STATE] }, { "cs", core->csState },
+                               { "invinc", core->work[MO_CORE_INVINC_TIMER] } };
+    },
+};
+
+// Twinrova: Koume and Kotake fight first, hitting each other with the beams Link reflects (their health counts the
+// hits, up), then merge into Twinrova in a cutscene each game plays by itself. Twinrova (in the spawn list) leads both
+// halves; while the sisters fight she waits out of sight.
+constexpr s16 TW_SISTER_KOTAKE = 0;
+constexpr s16 TW_SISTER_KOUME = 1;
+constexpr s16 TW_MERGED = 2;
+
+Actor* TwinrovaSister(s16 params) {
+    BossTw* sister = BossTw_GetSister(params);
+    return sister != nullptr && IsLiveBoss(&sister->actor) ? &sister->actor : nullptr;
+}
+
+const StateSyncDef sTwinrovaSister = {
+    .name = "Twinrova's sister",
+    .actorId = ACTOR_BOSS_TW,
+    .size = sizeof(BossTw),
+    .match = [](Actor* actor) { return actor->params == TW_SISTER_KOTAKE || actor->params == TW_SISTER_KOUME; },
+    .actionOffset = offsetof(BossTw, actionFunc),
+    .fightActions = { ACTION(BossTw_FlyTo), ACTION(BossTw_TurnToPlayer), ACTION(BossTw_ShootBeam),
+                      ACTION(BossTw_FinishBeamShoot), ACTION(BossTw_HitByBeam), ACTION(BossTw_Laugh),
+                      ACTION(BossTw_Spin) },
+    .hitReactions = { ACTION(BossTw_HitByBeam) },
+    // Each game's beam aims at its own Link, who reflects it with their own shield
+    .localActions = { ACTION(BossTw_ShootBeam) },
+    .enterLocal = [](Actor* actor) { BossTw_SetupShootBeam((BossTw*)actor, gPlayState); },
+    .deathActions = { ACTION(BossTw_DeathCS) },
+    .wasHit = [](Actor* actor, const void* before) {
+        return actor->colChkInfo.health > ((const BossTw*)before)->actor.colChkInfo.health;
+    },
+    .skelAnimes = { offsetof(BossTw, skelAnime) },
+    .healthFollowsOwner = true,
+    .fields = { FIELDS(BossTw, work, workf), FIELD(BossTw, targetPos), FIELD(BossTw, rotateSpeed),
+                FIELD(BossTw, scepterAlpha), FIELD(BossTw, visible), FIELD(BossTw, unk_5F8),
+                FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED) },
+    .isMember = true,
+};
+
+const StateSyncDef sTwinrova = {
+    .name = "Twinrova",
+    .actorId = ACTOR_BOSS_TW,
+    .size = sizeof(BossTw),
+    .match = [](Actor* actor) { return actor->params == TW_MERGED; },
+    .actionOffset = offsetof(BossTw, actionFunc),
+    .fightActions = { ACTION(BossTw_Wait), ACTION(BossTw_TwinrovaFly), ACTION(BossTw_TwinrovaArriveAtTarget),
+                      ACTION(BossTw_TwinrovaChargeBlast), ACTION(BossTw_TwinrovaShootBlast),
+                      ACTION(BossTw_TwinrovaDoneBlastShoot), ACTION(BossTw_TwinrovaStun),
+                      ACTION(BossTw_TwinrovaGetUp), ACTION(BossTw_TwinrovaSpin), ACTION(BossTw_TwinrovaLaugh) },
+    // A charged shield blast stuns her (only then do swords hurt her)
+    .hitReactions = { ACTION(BossTw_TwinrovaStun) },
+    .deathActions = { ACTION(BossTw_TwinrovaDeathCS) },
+    .skelAnimes = { offsetof(BossTw, skelAnime) },
+    .fields = { FIELDS(BossTw, work, workf), FIELD(BossTw, csState1), FIELD(BossTw, targetPos),
+                FIELD(BossTw, rotateSpeed), FIELD(BossTw, visible), FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED) },
+    // Which blast she throws: each game spawns its own (aimed at its own Link), of the same kind
+    .statics = { { [] { return (void*)BossTw_GetBlastState(0); }, 1 },
+                 { [] { return (void*)BossTw_GetBlastState(1); }, 1 },
+                 { [] { return (void*)BossTw_GetBlastState(2); }, 1 } },
+    // Never into or out of the sisters' half: the merge between them is each game's own cutscene
+    .onApply = [](Actor* actor, const void* before) {
+        if ((((const BossTw*)before)->actionFunc == BossTw_Wait) != (((BossTw*)actor)->actionFunc == BossTw_Wait)) {
+            memcpy((void*)actor, before, sizeof(BossTw));
+        }
+    },
+    .defeat = [](Actor* actor) {
+        if (((BossTw*)actor)->actionFunc == BossTw_Wait) {
+            return false; // Not merged here yet
+        }
+        actor->colChkInfo.health = 0;
+        BossTw_TwinrovaSetupDeathCS((BossTw*)actor, gPlayState);
+        Enemy_StartFinishingBlow(gPlayState, actor);
+        Audio_PlayActorSound2(actor, NA_SE_EN_TWINROBA_YOUNG_DEAD);
+        GameInteractor_ExecuteOnBossDefeat(actor);
+        return true;
+    },
+    .members = { { &sTwinrovaSister, [](Actor*) { return TwinrovaSister(TW_SISTER_KOTAKE); } },
+                 { &sTwinrovaSister, [](Actor*) { return TwinrovaSister(TW_SISTER_KOUME); } } },
+};
+
+// Ganondorf. Each game rallies its own light ball with its own Link: a ball that gets back to him on another game
+// knocks him back there, which goes to the room owner like any hit.
+const StateSyncDef sGanondorf = {
+    .name = "Ganondorf",
+    .actorId = ACTOR_BOSS_GANON,
+    .size = sizeof(BossGanon),
+    // Not his light balls and lightning (0x64 and up), nor the one at the top of the collapsing tower (1)
+    .match = [](Actor* actor) { return actor->params < 0x64 && actor->params != 1; },
+    .actionOffset = offsetof(BossGanon, actionFunc),
+    .fightActions = { ACTION(BossGanon_Wait), ACTION(BossGanon_ChargeLightBall), ACTION(BossGanon_PlayTennis),
+                      ACTION(BossGanon_PoundFloor), ACTION(BossGanon_ChargeBigMagic), ACTION(BossGanon_Block),
+                      ACTION(BossGanon_HitByLightBall), ACTION(BossGanon_Vulnerable), ACTION(BossGanon_Damaged) },
+    .hitReactions = { ACTION(BossGanon_HitByLightBall), ACTION(BossGanon_Vulnerable), ACTION(BossGanon_Damaged) },
+    .deathActions = { ACTION(BossGanon_DeathAndTowerCutscene) },
+    .skelAnimes = { offsetof(BossGanon, skelAnime) },
+    // Not the floor tiles' collapse (a random pattern each game runs by itself), the shock on the local Link, nor the
+    // cutscenes
+    .fields = { FIELD(BossGanon, legSwayEnabled), FIELD(BossGanon, envLightMode),
+                FIELDS(BossGanon, unk_1A2, triforceType), FIELD(BossGanon, timers),
+                FIELDS(BossGanon, unk_1C2, screenFlashTimer), FIELD(BossGanon, fwork),
+                FIELDS(BossGanon, handLightBallScale, unk_258), FIELDS(BossGanon, unk_26C, unk_270),
+                FIELDS(BossGanon, unk_278, unk_290), FIELD(BossGanon, unk_2D0), FIELD(BossGanon, unk_2D4),
+                FIELD(BossGanon, shockGlow), FIELD(BossGanon, unk_508), FIELD(BossGanon, lensFlareMode),
+                FIELD(BossGanon, lensFlareTimer), FIELD(BossGanon, lensFlareScale), FIELD(BossGanon, useOpenHand),
+                FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED) },
+    // Only the room owner's pound drops floor tiles (a random pattern), which then fall on everyone's game
+    .onApply = [](Actor* actor, const void* before) { ((BossGanon*)actor)->unk_19E = 4; },
+    .defeat = [](Actor* actor) {
+        // What his own hit handler does on the killing blow. His death needs its animation object, which may still be
+        // loading.
+        BossGanon* gdf = (BossGanon*)actor;
+        BossGanon_SetupDeathCutscene(gdf, gPlayState);
+        if (gdf->actionFunc != BossGanon_DeathAndTowerCutscene) {
+            return false;
+        }
+        actor->colChkInfo.health = 0;
+        Audio_PlayActorSound2(actor, NA_SE_EN_GANON_DEAD);
+        Audio_PlayActorSound2(actor, NA_SE_EN_GANON_DD_THUNDER);
+        Audio_QueueSeqCmd(0x100100FF);
+        gdf->screenFlashTimer = 4;
+        GameInteractor_ExecuteOnBossDefeat(actor);
+        return true;
+    },
+};
+
+// Ganon. Knocked down, he waits for each player to pick up their own Master Sword (each game plays that part by
+// itself, from when the room owner's goes down). He goes after the room owner's Link; which way he faces is each
+// game's own, since that decides whether a hit lands on his tail or his face.
+const StateSyncDef sGanon = {
+    .name = "Ganon",
+    .actorId = ACTOR_BOSS_GANON2,
+    .size = sizeof(BossGanon2),
+    .actionOffset = offsetof(BossGanon2, actionFunc),
+    .fightActions = { ACTION(func_808FFDB0), ACTION(func_808FFEBC), ACTION(func_808FFFE0), ACTION(func_80900104),
+                      ACTION(func_8090026C), ACTION(func_80900344), ACTION(func_80900650), ACTION(func_80900890) },
+    .hitReactions = { ACTION(func_808FFFE0), ACTION(func_80900104), ACTION(func_8090026C), ACTION(func_80900890) },
+    .localActions = { ACTION(func_80900890) },
+    .enterLocal = [](Actor* actor) { func_80900818((BossGanon2*)actor, gPlayState); },
+    .deathActions = { ACTION(func_8090120C) },
+    .skelAnimes = { offsetof(BossGanon2, skelAnime) },
+    // Not whether this game's Link has the sword back, nor which of his parts faces this game's Link
+    .fields = { FIELDS(BossGanon2, unk_194, unk_19C), FIELD(BossGanon2, unk_1A2), FIELD(BossGanon2, unk_1AC),
+                FIELDS(BossGanon2, unk_224, unk_228), FIELD(BossGanon2, unk_30C), FIELD(BossGanon2, unk_311),
+                FIELD(BossGanon2, unk_316), FIELDS(BossGanon2, unk_31A, unk_324), FIELD(BossGanon2, unk_336),
+                FIELD(BossGanon2, unk_338), FIELDS(BossGanon2, unk_342, unk_346), FIELDS(BossGanon2, unk_35C, unk_370),
+                FIELDS(BossGanon2, unk_390, unk_392), FLAGS(Actor, flags, ACTOR_FLAG_ATTENTION_ENABLED) },
+    .defeat = [](Actor* actor) {
+        // He falls, and each game's Link finishes him with their own sword (which fires the defeat hook)
+        actor->colChkInfo.health = 0;
+        func_80901020((BossGanon2*)actor, gPlayState);
+        return true;
+    },
+    .targetsOwnLink = true,
+    .debug = [](Actor* actor) {
+        BossGanon2* ganon = (BossGanon2*)actor;
+        Player* player = GET_PLAYER(gPlayState);
+        return nlohmann::json{ { "cs", ganon->csState },
+                               { "csTimer", ganon->csTimer },
+                               { "linkState1", player->stateFlags1 },
+                               { "linkCsAction", player->csAction },
+                               { "freeze", actor->freezeTimer } };
+    },
+};
+
+// MARK: - People and animals
+
+/**
+ * Some townspeople and animals walk paths or wander about at random. The room owner sends where they are and what
+ * they're doing (a few times a second; they walk on by themselves in between), so everyone sees them in the same
+ * place. Only while they walk, wait or wander: talking to one, picking one up and the cutscenes they're in are each
+ * game's own (see StateSyncDef::npc).
+ */
+const StateSyncDef sMarketWalker = {
+    .name = "Townsperson",
+    .actorId = ACTOR_EN_HY,
+    .size = sizeof(EnHy),
+    .actionOffset = offsetof(EnHy, actionFunc),
+    // Walking a loop, or pacing up and down once a Link has come near
+    .fightActions = { ACTION(EnHy_Walk), ACTION(EnHy_Pace) },
+    .isFighting = [](Actor* actor) {
+        return ActionIndex(actor, sMarketWalker) >= 0 && ((EnHy*)actor)->interactInfo.talkState == 0;
+    },
+    .skelAnimes = { offsetof(EnHy, skelAnime) },
+    .fields = { FIELD(EnHy, pathReverse), FIELD(EnHy, waypoint) },
+    .npc = true,
+    .sendEvery = 3,
+};
+
+const StateSyncDef sCarpenter = {
+    .name = "Carpenter",
+    .actorId = ACTOR_EN_DAIKU_KAKARIKO,
+    .size = sizeof(EnDaikuKakariko),
+    .actionOffset = offsetof(EnDaikuKakariko, actionFunc),
+    .fightActions = { ACTION(EnDaikuKakariko_Wait), ACTION(EnDaikuKakariko_Run),
+                      ACTION(EnDaikuKakariko_StopRunning) },
+    .isFighting = [](Actor* actor) {
+        return ActionIndex(actor, sCarpenter) >= 0 && ((EnDaikuKakariko*)actor)->talkState == 0;
+    },
+    .skelAnimes = { offsetof(EnDaikuKakariko, skelAnime) },
+    .fields = { FIELDS(EnDaikuKakariko, waypoint, currentAnimIndex), FIELDS(EnDaikuKakariko, pathContinue, run),
+                FIELD(EnDaikuKakariko, timer) },
+    .npc = true,
+    .sendEvery = 3,
+};
+
+const StateSyncDef sGraveyardKid = {
+    .name = "Graveyard kid",
+    .actorId = ACTOR_EN_CS,
+    .size = sizeof(EnCs),
+    .actionOffset = offsetof(EnCs, actionFunc),
+    .fightActions = { ACTION(EnCs_Walk), ACTION(EnCs_Wait) },
+    .isFighting = [](Actor* actor) { return ActionIndex(actor, sGraveyardKid) >= 0 && ((EnCs*)actor)->talkState == 0; },
+    .skelAnimes = { offsetof(EnCs, skelAnime) },
+    .fields = { FIELDS(EnCs, waypoint, walkSpeed), FIELD(EnCs, currentAnimIndex) },
+    .npc = true,
+    .sendEvery = 3,
+};
+
+const StateSyncDef sRunningMan = {
+    .name = "Running Man",
+    .actorId = ACTOR_EN_MM,
+    .size = sizeof(EnMm),
+    .actionOffset = offsetof(EnMm, actionFunc),
+    // Running his path, sitting down and getting up, waiting (not talking about masks)
+    .fightActions = { ACTION(func_80AAE294), ACTION(func_80AAE224), ACTION(func_80AAE50C), ACTION(func_80AAE598) },
+    .skelAnimes = { offsetof(EnMm, skelAnime) },
+    .fields = { FIELDS(EnMm, waypoint, speedXZ), FIELD(EnMm, curAnimIndex), FIELD(EnMm, sitTimer) },
+    .npc = true,
+    .sendEvery = 3,
+};
+
+const StateSyncDef sDog = {
+    .name = "Dog",
+    .actorId = ACTOR_EN_DOG,
+    .size = sizeof(EnDog),
+    .actionOffset = offsetof(EnDog, actionFunc),
+    // Not one following a Link (who's carrying it to its owner, on their own game)
+    .fightActions = { ACTION(EnDog_FollowPath), ACTION(EnDog_ChooseMovement), ACTION(EnDog_Wait) },
+    .skelAnimes = { offsetof(EnDog, skelAnime) },
+    .fields = { FIELD(EnDog, reverse), FIELD(EnDog, waypoint), FIELD(EnDog, behaviorTimer),
+                FIELDS(EnDog, nextBehavior, behavior) },
+    .npc = true,
+    .sendEvery = 3,
+};
+
+// The horses wandering Lon Lon Ranch (not the ones standing in their stalls, which stay put). They keep what they're
+// doing in a number, not an action function.
+constexpr s32 HORSE_NORMAL_WAIT_CLONE = 3;
+
+const StateSyncDef sRanchHorse = {
+    .name = "Horse",
+    .actorId = ACTOR_EN_HORSE_NORMAL,
+    .size = sizeof(EnHorseNormal),
+    .isFighting = [](Actor* actor) { return ((EnHorseNormal*)actor)->action != HORSE_NORMAL_WAIT_CLONE; },
+    .skelAnimes = { offsetof(EnHorseNormal, skin.skelAnime) },
+    .fields = { FIELDS(EnHorseNormal, action, animationIdx), FIELD(EnHorseNormal, unk_1E4),
+                FIELDS(EnHorseNormal, unk_218, unk_220), FIELD(EnHorseNormal, waypoint) },
+    .npc = true,
+    .sendEvery = 1, // They gallop: every frame, or they drift apart between states
+};
 // clang-format on
 
 const std::vector<const StateSyncDef*>& StateSyncDefs() {
     static const std::vector<const StateSyncDef*> defs = {
         &sGohma,
         &sKingDodongo,
-        // Not Phantom Ganon yet: in a two-player test his horse ended up in another painting on the other game
-        // while taking every state (boss-sync-steps.mjs)
+        &sPhantomGanon,
+        &sPhantomGanonHorse,
         &sVolvagia,
         &sVolvagiaHead,
         &sBongoBongo,
         &sBongoBongoHand,
+        &sBarinade,
+        &sBarinadeTether,
+        &sBarinadeBari,
+        &sMorpha,
+        &sMorphaTentacle,
+        &sTwinrova,
+        &sTwinrovaSister,
+        &sGanondorf,
+        &sGanon,
+        &sMarketWalker,
+        &sCarpenter,
+        &sGraveyardKid,
+        &sRunningMan,
+        &sDog,
+        &sRanchHorse,
         &sIronKnuckle,
         &sStalfos,
         &sLizalfos,
@@ -1875,12 +2797,19 @@ void Reset() {
     sBlocks.clear();
     sSynced.clear();
     sDerivedKeys.clear();
+    sBreakableKeys.clear();
+    sBreakableWasCut.clear();
+    sGone.clear();
+    sTakenHere.clear();
+    sSeenActors.clear();
 }
+
+void CheckNewActor(Actor* actor, Key key);
 
 void OnShouldActorUpdate(Actor* actor, bool* should) {
     const StateSyncDef* def = FindDef(actor);
     bool isEnemy = def == nullptr && IsSyncedEnemy(actor);
-    if ((!isEnemy && def == nullptr && actor->id != ACTOR_OBJ_OSHIHIKI) || !IsEnabled()) {
+    if ((!isEnemy && def == nullptr && actor->id != ACTOR_OBJ_OSHIHIKI && !IsBreakable(actor)) || !IsEnabled()) {
         return;
     }
     CheckScene();
@@ -1889,23 +2818,36 @@ void OnShouldActorUpdate(Actor* actor, bool* should) {
     if (!HasPeers()) {
         return;
     }
-    if (def != nullptr) {
-        if (!def->targetsOwnLink) {
+    if (IsBreakable(actor)) {
+        if (GetKey(actor, &key)) {
+            CheckNewActor(actor, key);
+            BreakablePreUpdate(actor, key, should);
+        }
+    } else if (def != nullptr) {
+        if (!def->targetsOwnLink && !def->npc) {
             TargetNearestLink(actor);
         }
         if (!def->isMember && GetKey(actor, &key)) {
+            CheckNewActor(actor, key);
             SyncedPreUpdate(actor, key, *def);
         }
-    } else if (!GetKey(actor, &key)) {
-        return;
-    } else if (isEnemy) {
-        EnemyPreUpdate(actor, key, should);
-    } else {
-        BlockPreUpdate(actor, key);
+    } else if (GetKey(actor, &key)) {
+        CheckNewActor(actor, key);
+        if (isEnemy) {
+            EnemyPreUpdate(actor, key, should);
+        } else {
+            BlockPreUpdate(actor, key);
+        }
     }
 }
 
 void OnActorUpdate(Actor* actor) {
+    if (IsBreakable(actor)) {
+        if (IsEnabled() && HasPeers()) {
+            BreakablePostUpdate(actor);
+        }
+        return;
+    }
     bool isEnemy = IsSyncedEnemy(actor);
     if ((!isEnemy && actor->id != ACTOR_OBJ_OSHIHIKI) || !IsEnabled()) {
         return;
@@ -1939,15 +2881,8 @@ void OnEnemyDefeat(Actor* actor) {
 }
 
 // A room that loads again spawns new copies of its actors
-void OnActorInit(Actor* actor) {
-    if (gPlayState == nullptr) {
-        return;
-    }
-    CheckScene();
-    Key key;
-    if (!IsEnabled() || !GetKey(actor, &key)) {
-        return;
-    }
+// What's known about the actor that had this key before (a room that loads again spawns new copies of its actors)
+void ForgetKey(Key key) {
     sRemote.erase(key);
     sRemoteZero.erase(key);
     sKilledHere.erase(key);
@@ -1963,8 +2898,36 @@ void OnActorInit(Actor* actor) {
     }
 }
 
+// An actor from a spawn list gets its key after its init (which runs while it's spawned), so a new one is noticed at
+// its first update instead
+void CheckNewActor(Actor* actor, Key key) {
+    if (sSeenActors.emplace(actor).second) {
+        ForgetKey(key);
+    }
+}
+
+void OnActorInit(Actor* actor) {
+    if (gPlayState == nullptr) {
+        return;
+    }
+    CheckScene();
+    Key key;
+    if (!IsEnabled() || !GetKey(actor, &key)) {
+        return;
+    }
+    sSeenActors.insert(actor);
+    ForgetKey(key);
+}
+
 void OnActorDestroy(Actor* actor) {
+    if (sDebugBusy == actor) {
+        sDebugBusy = nullptr;
+    }
+    sSeenActors.erase(actor);
     sDerivedKeys.erase(actor);
+    sBreakableKeys.erase(actor);
+    sBreakableWasCut.erase(actor);
+    sTakenHere.erase(actor);
     for (auto& [key, synced] : sSynced) {
         std::replace(synced.actors.begin(), synced.actors.end(), actor, (Actor*)nullptr);
     }
@@ -1990,20 +2953,29 @@ void OnFrame() {
     }
     if (sFrame % SLOW_TICK == 0) {
         ForgetDeadInEmptyRooms();
+        ForgetGoneInEmptyRooms();
         ForgetSyncedInEmptyRooms();
     }
     if (!HasPeers()) {
         return;
     }
+    nlohmann::json states = nlohmann::json::array();
     for (auto& [key, synced] : sSynced) {
         CheckSynced(key, synced);
-        SendSyncedState(key, synced);
+        AddSyncedState(key, synced, states);
+    }
+    if (!states.empty()) {
+        nlohmann::json payload;
+        payload["type"] = BOSS_STATE;
+        payload["states"] = std::move(states);
+        SendToPeers(payload);
     }
     SendEnemyStates();
     if (sFrame % SLOW_TICK == 0) {
         SendBlockPositions();
         SendDeadList();
         SendDefeated();
+        SendGoneList();
     }
 }
 
@@ -2095,10 +3067,10 @@ static Synced* FindSynced(nlohmann::json& payload, Key* key) {
     return it == sSynced.end() || Leader(it->second) == nullptr ? nullptr : &it->second;
 }
 
-void HandlePacket_BossState(nlohmann::json& payload) {
+// One fight's state from a BOSS_STATE
+static void HandleSyncedState(nlohmann::json& payload, uint32_t sender) {
     Key key;
     Synced* synced = FindSynced(payload, &key);
-    uint32_t sender = payload.value("clientId", (uint32_t)0);
     if (synced == nullptr) {
         return;
     }
@@ -2140,6 +3112,17 @@ void HandlePacket_BossState(nlohmann::json& payload) {
     }
     ApplyGroupSnapshot(*synced, payload["members"]);
     Remember(*synced);
+}
+
+void HandlePacket_BossState(nlohmann::json& payload) {
+    if (!IsForThisScene(payload)) {
+        return;
+    }
+    uint32_t sender = payload.value("clientId", (uint32_t)0);
+    for (auto& state : payload["states"]) {
+        state["sceneNum"] = payload["sceneNum"];
+        HandleSyncedState(state, sender);
+    }
 }
 
 void HandlePacket_BossHit(nlohmann::json& payload) {
@@ -2194,6 +3177,31 @@ void HandlePacket_BossDefeated(nlohmann::json& payload) {
         StartDefeat(synced, leader);
     } else {
         synced.pendingDefeat = true;
+    }
+}
+
+void HandlePacket_PropBreak(nlohmann::json& payload) {
+    if (!IsForThisScene(payload)) {
+        return;
+    }
+    CheckScene();
+    bool cut = payload.value("cut", false);
+    bool effect = payload.value("effect", false);
+    Player* player = GET_PLAYER(gPlayState);
+    for (auto& entry : payload["props"]) {
+        Key key = entry.get<Key>();
+        if (!cut) {
+            sGone.insert(key);
+        }
+        Actor* actor = FindActor(key);
+        if (actor == nullptr || actor->update == nullptr || !IsBreakable(actor) || sTakenHere.contains(actor) ||
+            player->heldActor == actor || (cut && IsCut(actor))) {
+            continue;
+        }
+        BreakHere(actor, cut, effect);
+        if (cut) {
+            sBreakableWasCut[actor] = true;
+        }
     }
 }
 
@@ -2259,6 +3267,17 @@ const DebugTarget sDebugTargets[] = {
     { "Wolfos", 0, offsetof(EnWf, colliderCylinderBody) },
     { "Redead", 0, offsetof(EnRd, collider) },
     { "Freezard", 0, offsetof(EnFz, collider1) },
+    { "Barinade", 0, offsetof(BossVa, colliderBody) },
+    { "Barinade", 1, offsetof(BossVa, colliderSph) },
+    { "Barinade", 2, offsetof(BossVa, colliderSph) },
+    { "Barinade", 3, offsetof(BossVa, colliderSph) },
+    { "Barinade", 4, offsetof(BossVa, colliderSph) },
+    { "Morpha", 0, offsetof(BossMo, coreCollider) },
+    { "Morpha", 1, offsetof(BossMo, tentCollider) },
+    { "Morpha", 2, offsetof(BossMo, tentCollider) },
+    { "Twinrova", 0, offsetof(BossTw, collider) },
+    { "Ganondorf", 0, offsetof(BossGanon, collider) },
+    { "Ganon", 0, offsetof(BossGanon2, unk_424) },
 };
 
 // Things that happen to a fight only on the game of the player who did them, other than collider hits
@@ -2267,6 +3286,18 @@ struct DebugPoke {
     int member;
     bool (*poke)(Actor* actor); // false if it can't happen right now
 };
+
+// What the other sister's beam does when it's reflected into her (BossTw_ShootBeam)
+bool DebugTwinrovaBeamHit(Actor* actor) {
+    BossTw* sister = (BossTw*)actor;
+    if (sister->actionFunc != BossTw_FlyTo && sister->actionFunc != BossTw_TurnToPlayer &&
+        sister->actionFunc != BossTw_Laugh && sister->actionFunc != BossTw_FinishBeamShoot) {
+        return false;
+    }
+    BossTw_SetupHitByBeam(sister, gPlayState);
+    actor->colChkInfo.health++;
+    return true;
+}
 
 const DebugPoke sDebugPokes[] = {
     // Swallows a bomb
@@ -2292,6 +3323,30 @@ const DebugPoke sDebugPokes[] = {
               return false;
           }
           actor->params = ENDH_START_ATTACK_GRAB;
+          return true;
+      } },
+    // A beam this game's Link reflected hits Kotake (or Koume)
+    { "Twinrova", 1, [](Actor* actor) { return DebugTwinrovaBeamHit(actor); } },
+    { "Twinrova", 2, [](Actor* actor) { return DebugTwinrovaBeamHit(actor); } },
+    // A charged shield blast reaches Twinrova
+    { "Twinrova", 0,
+      [](Actor* actor) {
+          BossTw* tw = (BossTw*)actor;
+          if (tw->actionFunc == BossTw_Wait || tw->actionFunc == BossTw_TwinrovaStun) {
+              return false;
+          }
+          tw->twinrovaStun = 1;
+          return true;
+      } },
+    // This game's light ball gets back to him
+    { "Ganondorf", 0,
+      [](Actor* actor) {
+          BossGanon* gdf = (BossGanon*)actor;
+          if (gdf->actionFunc != BossGanon_Wait && gdf->actionFunc != BossGanon_PlayTennis &&
+              gdf->actionFunc != BossGanon_ChargeLightBall) {
+              return false;
+          }
+          BossGanon_SetupHitByLightBall(gdf, gPlayState);
           return true;
       } },
 };
@@ -2345,7 +3400,8 @@ nlohmann::json DebugState(Actor* actor, const StateSyncDef& def) {
              { "x", actor->world.pos.x },
              { "y", actor->world.pos.y },
              { "z", actor->world.pos.z },
-             { "frame", def.skelAnimes.empty() ? 0.0f : ((SkelAnime*)((u8*)actor + def.skelAnimes[0]))->curFrame } };
+             { "frame", def.skelAnimes.empty() ? 0.0f : ((SkelAnime*)((u8*)actor + def.skelAnimes[0]))->curFrame },
+             { "more", def.debug != nullptr ? def.debug(actor) : nlohmann::json() } };
 }
 
 } // namespace
@@ -2369,7 +3425,7 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
                  actor = actor->next) {
                 uint64_t key;
                 if (!AnchorActorSync::GetActorKey(actor, &key) ||
-                    (category == ACTORCAT_PROP && actor->id != ACTOR_OBJ_OSHIHIKI)) {
+                    (category == ACTORCAT_PROP && actor->id != ACTOR_OBJ_OSHIHIKI && !IsBreakable(actor))) {
                     continue;
                 }
                 s16 index = (s16)(key & 0xFFFF);
@@ -2381,7 +3437,8 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
                                  { "z", actor->world.pos.z },
                                  { "rotY", actor->shape.rot.y },
                                  { "health", actor->colChkInfo.health },
-                                 { "alive", actor->update != nullptr } });
+                                 { "alive", actor->update != nullptr },
+                                 { "cut", IsBreakable(actor) && IsCut(actor) } });
             }
         }
     }
@@ -2430,6 +3487,7 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_synced(void) {
                 entry["name"] = def->name;
                 entry["room"] = actor->room;
                 entry["index"] = (s16)(key & 0xFFFF);
+                entry["ptr"] = (uintptr_t)actor;
                 entry["owner"] = IsEnabled() && OwnsRoom(actor->room);
                 auto synced = sSynced.find(key);
                 if (synced != sSynced.end()) {
@@ -2446,13 +3504,25 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_synced(void) {
                                       { "actors", synced->second.actors.size() },
                                       { "hits", synced->second.hitSeq },
                                       { "holding", sFrame < synced->second.holdUntil },
-                                      { "taken", taken } };
+                                      { "taken", taken },
+                                      { "updates", synced->second.updates },
+                                      { "ptrs", [&] {
+                                           nlohmann::json ptrs = nlohmann::json::array();
+                                           for (Actor* a : synced->second.actors) {
+                                               ptrs.push_back((uintptr_t)a);
+                                           }
+                                           return ptrs;
+                                       }() } };
                 }
                 nlohmann::json members = nlohmann::json::array();
                 for (const GroupMember& member : def->members) {
                     Actor* found = member.find(actor);
-                    members.push_back(found != nullptr && found->update != nullptr ? DebugState(found, *member.def)
-                                                                                   : nullptr);
+                    nlohmann::json state = nullptr;
+                    if (found != nullptr && found->update != nullptr) {
+                        state = DebugState(found, *member.def);
+                        state["ptr"] = (uintptr_t)found;
+                    }
+                    members.push_back(state);
                 }
                 entry["members"] = members;
                 list.push_back(entry);
@@ -2558,6 +3628,20 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_floor(float x, float y, float z) {
     return out.c_str();
 }
 
+// Whether a textbox is open (boss intros wait for theirs to be read)
+EMSCRIPTEN_KEEPALIVE int web_debug_textbox_open(void) {
+    return gPlayState != nullptr && Message_GetState(&gPlayState->msgCtx) != TEXT_STATE_NONE;
+}
+
+// Close the textbox that's open, if any. Returns whether one was open.
+EMSCRIPTEN_KEEPALIVE int web_debug_close_textbox(void) {
+    if (gPlayState == nullptr || Message_GetState(&gPlayState->msgCtx) == TEXT_STATE_NONE) {
+        return 0;
+    }
+    Message_CloseTextbox(gPlayState);
+    return 1;
+}
+
 // Defeat an enemy the way its own death code does
 EMSCRIPTEN_KEEPALIVE int web_debug_actor_defeat(int room, int index) {
     Actor* actor = WebDebug_FindActor(room, index);
@@ -2594,6 +3678,45 @@ EMSCRIPTEN_KEEPALIVE int web_debug_block_push(int room, int index, int quarter) 
     block->direction = 1.0f;
     block->timer = 0;
     ObjOshihiki_SetupPush(block, gPlayState);
+    return 1;
+}
+
+// Act as if this game's Link were talking to an actor (on: 1) or not (0), for the people and animals that stop
+// following the room owner's state then
+EMSCRIPTEN_KEEPALIVE int web_debug_npc_busy(int room, int index, int on) {
+    Actor* actor = WebDebug_FindActor(room, index);
+    if (actor == nullptr || actor->update == nullptr) {
+        return 0;
+    }
+    sDebugBusy = on ? actor : nullptr;
+    return 1;
+}
+
+// Hit a pot, bush or rock on the next frame, as if with an attack with these damage flags (0x200: a Master Sword
+// slash, 0x40: the hammer); or drop one of the floor tiles in Ganondorf's room
+EMSCRIPTEN_KEEPALIVE int web_debug_prop_hit(int room, int index, int dmgFlags) {
+    static ColliderInfo attack;
+    static Collider attacker;
+    Actor* actor = WebDebug_FindActor(room, index);
+    if (actor == nullptr || actor->update == nullptr || !IsBreakable(actor)) {
+        return 0;
+    }
+    if (actor->id == ACTOR_BG_GANON_OTYUKA) {
+        // A floor tile in Ganondorf's room: dropped, like his pound drops it
+        ((BgGanonOtyuka*)actor)->isFalling = true;
+        return 1;
+    }
+    ColliderCylinder* collider = actor->id == ACTOR_OBJ_TSUBO  ? &((ObjTsubo*)actor)->collider
+                                 : actor->id == ACTOR_EN_KUSA ? &((EnKusa*)actor)->collider
+                                                              : &((EnIshi*)actor)->collider;
+    attacker.actor = &GET_PLAYER(gPlayState)->actor;
+    attack.toucher.dmgFlags = dmgFlags;
+    attack.toucher.damage = 2;
+    collider->base.acFlags |= AC_HIT;
+    collider->base.ac = attacker.actor;
+    collider->info.bumperFlags |= BUMP_HIT;
+    collider->info.acHit = &attacker;
+    collider->info.acHitInfo = &attack;
     return 1;
 }
 }

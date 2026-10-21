@@ -32,7 +32,10 @@ export default async ({ page, sleep, log }) => {
     B.on('console', (m) => /\[Anchor\]|abort|exception|error/i.test(m.text()) && log('B console:', m.text()));
     B.on('pageerror', (e) => log('B page error:', e.message));
 
-    const gameState = (p) => p.evaluate(() => ({ gameState: Module._web_debug_get(13), fileNum: Module._web_debug_get(10) }));
+    // Calling into the game before its runtime is up aborts it (ASSERTIONS), so check first
+    const gameState = (p) =>
+        p.evaluate(() => (typeof Module !== 'undefined' && Module.calledRun
+            ? { gameState: Module._web_debug_get(13), fileNum: Module._web_debug_get(10) } : {}));
     const flag = (p, op, scene, type, f) => p.evaluate((a) => Module._web_debug_flag(...a), [op, scene, type, f]);
     const inv = (p, field, index = 0) => p.evaluate((a) => Module._web_debug_inventory(...a), [field, index]);
     const give = (p, item, chest = -1) => p.evaluate((a) => Module._web_debug_give_item(...a), [item, chest]);

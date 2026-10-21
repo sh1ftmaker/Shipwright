@@ -3636,3 +3636,8 @@ void BossMo_Reset(void) {
     sSeed2 = 0;
     sSeed3 = 0;
 }
+
+// SOH [Network] Morpha's tentacles (0: the first, 1: the second, once it's out), for Anchor's actor sync
+BossMo* BossMo_GetTentacle(s32 which) {
+    return which == 0 ? sMorphaTent1 : sMorphaTent2;
+}

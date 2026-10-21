@@ -6,6 +6,7 @@
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/ResourceManagerHelpers.h"
 #include "soh/SaveManager.h"
+#include "soh/Enhancements/boss-rush/BossRush.h"
 
 extern "C" {
 #include "z64.h"
@@ -14,6 +15,7 @@ extern "C" {
 #include "variables.h"
 void Sram_InitNewSave(void);
 void Sram_SetNewFileStart(void);
+void Sram_InitBossRushSave(void);
 void FileChoose_FinishLoadGame(GameState* thisx);
 }
 
@@ -21,6 +23,7 @@ void OnZTitleUpdateSkipToFileSelect(void* gameState);
 uint8_t encodePlayerNameChar(char c, uint8_t language);
 
 static bool sPending = false;
+static bool sBossRush = false;
 static int sSlot = 0;
 static std::string sName;
 static HOOK_ID sTitleHook = 0;
@@ -67,8 +70,28 @@ static void WebJoin_Finish() {
     sTitleHook = sFileChooseHook = 0;
 }
 
+// What starting Boss Rush from File Select does, with every option on its first choice
+static void WebJoin_StartBossRush(GameState* state) {
+    for (int i = 0; i < BR_OPTIONS_MAX; i++) {
+        gSaveContext.ship.quest.data.bossRush.options[i] = 0;
+    }
+    gSaveContext.ship.quest.id = QUEST_BOSSRUSH;
+    gSaveContext.fileNum = 0xFE;
+    gSaveContext.gameMode = GAMEMODE_NORMAL;
+    Sram_InitBossRushSave();
+    SET_NEXT_GAMESTATE(state, Play_Init, PlayState);
+    FileChoose_FinishLoadGame(state);
+}
+
 static void WebJoin_OnFileChooseMain(void* gameState) {
     GameState* state = (GameState*)gameState;
+
+    if (sBossRush) {
+        SPDLOG_INFO("[WebJoin] Starting Boss Rush");
+        WebJoin_StartBossRush(state);
+        WebJoin_Finish();
+        return;
+    }
 
     if (!SaveManager::Instance->SaveFile_Exist(sSlot)) {
         WebJoin_CreateFile();
@@ -89,6 +112,16 @@ static void WebJoin_OnFileChooseMain(void* gameState) {
     WebJoin_Finish();
 }
 
+static void WebJoin_Request() {
+    if (!sPending) {
+        sPending = true;
+        sTitleHook = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnZTitleUpdate>(
+            OnZTitleUpdateSkipToFileSelect);
+        sFileChooseHook =
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnFileChooseMain>(WebJoin_OnFileChooseMain);
+    }
+}
+
 void WebJoin_RequestBootToSlot(int slot, const char* name) {
     if (slot < 0 || slot > 2) {
         SPDLOG_ERROR("[WebJoin] Invalid save slot {}", slot);
@@ -97,13 +130,13 @@ void WebJoin_RequestBootToSlot(int slot, const char* name) {
 
     sSlot = slot;
     sName = std::string(name != nullptr ? name : "").substr(0, 8);
-    if (!sPending) {
-        sPending = true;
-        sTitleHook = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnZTitleUpdate>(
-            OnZTitleUpdateSkipToFileSelect);
-        sFileChooseHook =
-            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnFileChooseMain>(WebJoin_OnFileChooseMain);
-    }
+    sBossRush = false;
+    WebJoin_Request();
+}
+
+void WebJoin_RequestBootToBossRush() {
+    sBossRush = true;
+    WebJoin_Request();
 }
 
 bool WebJoin_IsPending() {

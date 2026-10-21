@@ -81,6 +81,8 @@ typedef struct {
     s32 sceneLayer = -1;    // Child/adult/night versions of a scene load different actors
     bool actorSync = false; // Sends its room in PLAYER_UPDATE and takes part in actor sync (ActorSync.h)
     uint32_t roomFrames = 0; // How long it has been in that room (AnchorActorSync::RoomOwner)
+    s32 questId = -1;       // The kind of file it plays (Quest), from the packets it sends with a save loaded
+    bool warnedQuest = false; // Told the player its file doesn't share items and flags with ours
 
     // Ptr to the dummy player
     Player* player;
@@ -163,6 +165,10 @@ class Anchor : public Network {
     bool pendingTeamStatePush = false;
     bool hasMergedTeamState = false; // since the save was loaded
     bool MergeTeamState(nlohmann::json& state);
+    // Items and flags are only shared between files of the same kind (a Boss Rush file's progress means nothing to a
+    // normal file). Every packet sent with a save loaded says which kind it's from.
+    bool IsOtherQuest(const nlohmann::json& payload);
+    void WarnOtherQuest(uint32_t clientId, int questId);
     void RegisterWorldSyncHooks();
 
   public:
@@ -206,6 +212,7 @@ class Anchor : public Network {
     inline static const std::string BOSS_STATE = "BOSS_STATE";
     inline static const std::string BOSS_HIT = "BOSS_HIT";
     inline static const std::string BOSS_DEFEATED = "BOSS_DEFEATED";
+    inline static const std::string PROP_BREAK = "PROP_BREAK";
     inline static const std::string MERGE_TEAM_STATE = "MERGE_TEAM_STATE";
     inline static const std::string WORLD_EVENT = "WORLD_EVENT";
 
@@ -232,6 +239,10 @@ class Anchor : public Network {
     void ProcessIncomingPacketQueue();
     void SendJsonToRemote(nlohmann::json packet);
     bool IsSaveLoaded();
+    // Files whose items and flags mean the same: vanilla with vanilla, Master Quest with Master Quest, randomizer
+    // with randomizer (which also needs the same seed), Boss Rush with Boss Rush
+    static int QuestKind(int questId);
+    uint32_t questMismatches = 0; // For tests: save changes and team states left out for coming from another kind
     // Positions, sounds and actor/boss states, sent many times a second: only worth anything right now, so they're
     // never held back or replayed (one-off events like kills and hits aren't)
     static bool IsRealtimePacket(const std::string& type);

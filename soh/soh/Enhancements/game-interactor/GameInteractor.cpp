@@ -53,8 +53,9 @@ bool GameInteractor::IsSaveLoaded(bool allowDbgSave) {
         return false;
     }
 
-    // Valid save file or debug save
-    return (gSaveContext.fileNum >= 0 && gSaveContext.fileNum <= 2) || (allowDbgSave && gSaveContext.fileNum == 0xFF);
+    // Valid save file, or debug save or Boss Rush (which plays from no save slot), whose saves aren't kept
+    return (gSaveContext.fileNum >= 0 && gSaveContext.fileNum <= 2) ||
+           (allowDbgSave && (gSaveContext.fileNum == 0xFF || (gSaveContext.fileNum == 0xFE && IS_BOSS_RUSH)));
 }
 
 bool GameInteractor::IsGameplayPaused() {
