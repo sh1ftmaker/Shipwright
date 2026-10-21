@@ -54,7 +54,7 @@ export default async ({ page, sleep, log }) => {
             ? { gameState: Module._web_debug_get(13), fileNum: Module._web_debug_get(10) } : {}));
     const hasFlag = (p, f) => p.evaluate((f) => Module._web_debug_get_event_flag(f), f);
     const hasItem = (p, [, item]) => p.evaluate((i) => Module._web_debug_has_item(i), item);
-    const give = (p, [gi]) => p.evaluate((g) => Module._web_debug_give_item(g), gi);
+    const give = (p, [gi]) => p.evaluate((g) => Module._web_debug_give_gi(g), gi);
     const setFlag = (p, f) => p.evaluate((f) => Module._web_debug_set_event_flag(f), f);
     const setHidden = (p, hidden) =>
         p.evaluate((h) => {

@@ -154,7 +154,7 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_anchor(void) {
 }
 
 // Gives a vanilla item (GI_*) the way picking it up does, so Anchor sends it to the team
-EMSCRIPTEN_KEEPALIVE int web_debug_give_item(int getItemId) {
+EMSCRIPTEN_KEEPALIVE int web_debug_give_gi(int getItemId) {
     if (gPlayState == nullptr) {
         return 0;
     }
