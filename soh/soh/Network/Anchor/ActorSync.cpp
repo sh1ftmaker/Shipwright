@@ -690,6 +690,21 @@ void FollowRoomOwner(Actor* actor, Key key) {
     }
 }
 
+// The game doesn't update an enemy outside the camera's view, so one the room owner has flying at this player would
+// stay frozen (and unseen) wherever it was last in view here. Move those along too, so they come into view where the
+// room owner has them.
+void FollowRoomOwnerOffscreen() {
+    for (Actor* actor = gPlayState->actorCtx.actorLists[ACTORCAT_ENEMY].head; actor != nullptr; actor = actor->next) {
+        Key key;
+        if (actor->update == nullptr ||
+            (actor->flags & (ACTOR_FLAG_UPDATE_CULLING_DISABLED | ACTOR_FLAG_INSIDE_CULLING_VOLUME)) ||
+            !IsSyncedEnemy(actor) || !GetKey(actor, &key) || sDead.contains(key) || OwnsRoom(actor->room)) {
+            continue;
+        }
+        FollowRoomOwner(actor, key);
+    }
+}
+
 void KillEnemy(Actor* actor, bool withEffect) {
     if (withEffect) {
         static Vec3f zero = { 0.0f, 0.0f, 0.0f };
@@ -2970,6 +2985,7 @@ void OnFrame() {
         payload["states"] = std::move(states);
         SendToPeers(payload);
     }
+    FollowRoomOwnerOffscreen();
     SendEnemyStates();
     if (sFrame % SLOW_TICK == 0) {
         SendBlockPositions();
