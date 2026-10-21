@@ -1970,9 +1970,11 @@
       });
 
       // Check on every touch if ImGui wants text input
-      function checkKeyboard() {
+      function checkKeyboard(e) {
+        // Taps on the page's own dialogs aren't for the game, and before the runtime is up calling into it aborts
+        if (e && e.target && e.target.closest && e.target.closest('#profile')) return;
         try {
-          if (Module && Module._web_wants_text_input) {
+          if (Module && Module.calledRun && Module._web_wants_text_input) {
             var wants = Module._web_wants_text_input();
             if (wants && !isShowingKeyboard) {
               isShowingKeyboard = true;

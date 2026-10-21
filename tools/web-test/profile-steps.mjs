@@ -14,6 +14,8 @@ export default async ({ page, sleep, log }) => {
     // A browser that has never been here
     const ctx = await page.context().browser().newContext({ viewport: page.viewportSize() });
     const P = await ctx.newPage();
+    P.on('console', (m) => m.type() === 'error' && log('P:', m.text().slice(0, 200)));
+    P.on('pageerror', (e) => log('P pageerror:', e.message));
     const open = () => P.evaluate(() => document.getElementById('profile').classList.contains('open'));
 
     try {
