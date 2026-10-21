@@ -79,7 +79,8 @@ Players on the same web build also see the same enemies and push blocks (Room Se
 Blocks, on by default). In each map room, the player who has been there longest runs the enemies, everyone else
 follows their positions, and damage, kills and block pushes from anyone reach everyone
 (`soh/soh/Network/Anchor/ActorSync.cpp`). Someone who walks in, or comes back after leaving or reloading, follows the
-fight already going on; when the player running it leaves, whoever has been there longest after them takes over.
+fight already going on; when the player running it leaves, or their game stops running (a locked phone, a hidden or
+covered window, the pause menu), whoever has been there longest after them takes over within a couple of seconds.
 The Anchor room itself works the same way: when its owner has been gone for 5 seconds a remaining player takes it
 over, and the old owner comes back as a regular player.
 Bosses and mini-bosses are synced as state machines: the room owner sends the whole fight state, so the boss does the
