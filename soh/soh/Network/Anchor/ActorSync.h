@@ -50,9 +50,11 @@ void HandlePacket_PropBreak(nlohmann::json& payload);
 
 // The ID an actor is synced by (actor ID, room and spawn list index), if it has one
 bool GetActorKey(Actor* actor, uint64_t* key);
-// How long this player has been in its current room, in frames (sent in PLAYER_UPDATE: whoever has been in a room
+// How long this player has been in its current room, in ms (sent in PLAYER_UPDATE: whoever has been in a room
 // longest runs it)
-uint32_t RoomFrames();
+uint32_t RoomTime();
+// A steady clock in ms, for timing teammates' updates
+double NowMs();
 
 } // namespace AnchorActorSync
 

@@ -2,6 +2,7 @@
 #include "Anchor.h"
 #include "soh/ObjectExtension/ActorListIndex.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include <chrono>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -426,7 +427,8 @@ uint32_t sFrame = 0;
 std::map<std::string, uint32_t> sStateCounters; // For tests: what became of incoming ACTOR_STATE packets
 s16 sScene = -1;
 s8 sRoom = -1;
-uint32_t sRoomSince = 0; // The frame this player walked into the room it's in
+double sRoomSince = 0;    // When this player walked into the room it's in (NowMs)
+double sLastFrameAt = 0;  // When this game last ran a frame (NowMs)
 uint32_t sPeersFrame = UINT32_MAX;
 bool sHasPeers = false;
 std::unordered_map<Key, RemoteEnemy> sRemote;
@@ -541,30 +543,34 @@ bool IsRoomOccupied(s8 room) {
     return false;
 }
 
-constexpr uint32_t ROOM_TIME_SLACK = 60; // Players who walked in this close together count as arriving at once
+constexpr uint32_t ROOM_TIME_SLACK = 2000; // Players who walked in this close together (ms) count as arriving at once
+constexpr double PEER_STALL_MS = 1500;     // A player whose updates stopped this long ago isn't running the game
+constexpr double OWN_STALL_MS = 1000;      // This game stopped this long (hidden, covered, frozen): back as a newcomer
 
 // The player who has been in a room the longest runs its enemies, so someone who walks in (or comes back after
 // leaving or reloading) follows the fight that's going on instead of restarting it from their fresh copy. When that
-// player leaves, whoever has been there longest after them carries on. Players who arrived together (a warp) go by
-// lowest client ID. When nobody is in it, everyone runs their own.
+// player leaves, or their game stops running (their updates stop coming), whoever has been there longest after them
+// carries on. Time in the room is measured by the clock, not in frames, since players' frame rates differ. Players
+// who arrived together (a warp) go by lowest client ID. When nobody is in it, everyone runs their own.
 uint32_t RoomOwner(s8 room) {
     Anchor* anchor = Anchor::Instance;
-    std::vector<std::pair<uint32_t, uint32_t>> present; // Client ID, frames in the room
+    double now = NowMs();
+    std::vector<std::pair<uint32_t, uint32_t>> present; // Client ID, ms in the room
     if (gPlayState->roomCtx.curRoom.num == room) {
-        present.emplace_back(anchor->ownClientId, sFrame - sRoomSince);
+        present.emplace_back(anchor->ownClientId, (uint32_t)(now - sRoomSince));
     }
     for (auto& [clientId, client] : anchor->clients) {
-        if (IsPeer(client) && client.curRoomNum == room) {
-            present.emplace_back(clientId, client.roomFrames);
+        if (IsPeer(client) && client.curRoomNum == room && now - client.lastPlayerUpdateAt < PEER_STALL_MS) {
+            present.emplace_back(clientId, client.roomMs);
         }
     }
     uint32_t longest = 0;
-    for (auto& [clientId, frames] : present) {
-        longest = std::max(longest, frames);
+    for (auto& [clientId, ms] : present) {
+        longest = std::max(longest, ms);
     }
     uint32_t owner = UINT32_MAX;
-    for (auto& [clientId, frames] : present) {
-        if (frames + ROOM_TIME_SLACK >= longest && clientId < owner) {
+    for (auto& [clientId, ms] : present) {
+        if (ms + ROOM_TIME_SLACK >= longest && clientId < owner) {
             owner = clientId;
         }
     }
@@ -2954,8 +2960,12 @@ bool GetActorKey(Actor* actor, uint64_t* key) {
     return GetKey(actor, key);
 }
 
-uint32_t RoomFrames() {
-    return sFrame - sRoomSince;
+double NowMs() {
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+uint32_t RoomTime() {
+    return (uint32_t)(NowMs() - sRoomSince);
 }
 
 void OnFrame() {
@@ -2964,10 +2974,14 @@ void OnFrame() {
     }
     sFrame++;
     CheckScene();
-    if (gPlayState->roomCtx.curRoom.num != sRoom) {
+    double now = NowMs();
+    // A game that stopped running for a while (others took over its rooms) comes back like someone walking in, and
+    // follows them instead of taking the rooms back with the copies it had when it stopped
+    if (gPlayState->roomCtx.curRoom.num != sRoom || now - sLastFrameAt > OWN_STALL_MS) {
         sRoom = gPlayState->roomCtx.curRoom.num;
-        sRoomSince = sFrame;
+        sRoomSince = now;
     }
+    sLastFrameAt = now;
     if (sFrame % SLOW_TICK == 0) {
         ForgetDeadInEmptyRooms();
         ForgetGoneInEmptyRooms();

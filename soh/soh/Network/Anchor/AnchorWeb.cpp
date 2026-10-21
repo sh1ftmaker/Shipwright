@@ -154,7 +154,7 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_anchor(void) {
                                      { "sceneNum", client.sceneNum },
                                      { "roomNum", client.curRoomNum },
                                      { "sceneLayer", client.sceneLayer },
-                                     { "roomFrames", client.roomFrames },
+                                     { "roomMs", client.roomMs },
                                      { "actorSync", client.actorSync },
                                      { "sameVersion", client.clientVersion == Anchor::clientVersion } });
     }

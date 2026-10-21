@@ -285,7 +285,10 @@ async function startWeston() {
 }
 
 async function launchBrowser(mode) {
-    const base = ['--autoplay-policy=no-user-gesture-required', '--ignore-gpu-blocklist', '--window-size=1280,720'];
+    // Two-player tests open two windows on one display: keep the one underneath running (games stop when they
+    // can't draw, and a room owner that stops hands its rooms over, see ActorSync.cpp RoomOwner)
+    const base = ['--autoplay-policy=no-user-gesture-required', '--ignore-gpu-blocklist', '--window-size=1280,720',
+        '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling'];
     if (mode !== 'headless') {
         const weston = await startWeston();
         if (weston) {

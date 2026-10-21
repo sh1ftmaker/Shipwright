@@ -80,7 +80,8 @@ typedef struct {
     s8 ocarinaBend;
     s32 sceneLayer = -1;    // Child/adult/night versions of a scene load different actors
     bool actorSync = false; // Sends its room in PLAYER_UPDATE and takes part in actor sync (ActorSync.h)
-    uint32_t roomFrames = 0; // How long it has been in that room (AnchorActorSync::RoomOwner)
+    uint32_t roomMs = 0;            // How long it has been in that room (AnchorActorSync::RoomOwner)
+    double lastPlayerUpdateAt = 0;  // When its last PLAYER_UPDATE arrived (AnchorActorSync::NowMs)
     s32 questId = -1;       // The kind of file it plays (Quest), from the packets it sends with a save loaded
     bool warnedQuest = false; // Told the player its file doesn't share items and flags with ours
 

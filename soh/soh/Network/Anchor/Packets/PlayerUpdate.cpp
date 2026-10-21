@@ -41,7 +41,7 @@ void Anchor::SendPacket_PlayerUpdate() {
     payload["sceneNum"] = gPlayState->sceneNum;
     payload["roomNum"] = gPlayState->roomCtx.curRoom.num;
     payload["sceneLayer"] = gSaveContext.sceneLayer;
-    payload["roomFrames"] = AnchorActorSync::RoomFrames();
+    payload["roomMs"] = AnchorActorSync::RoomTime();
     payload["entranceIndex"] = gSaveContext.entranceIndex;
     payload["linkAge"] = gSaveContext.linkAge;
     payload["posRot"]["pos"] = player->actor.world.pos;
@@ -94,7 +94,8 @@ void Anchor::HandlePacket_PlayerUpdate(nlohmann::json payload) {
         if (payload.contains("roomNum")) {
             client.curRoomNum = payload["roomNum"].get<s8>();
             client.sceneLayer = payload.value("sceneLayer", (s32)-1);
-            client.roomFrames = payload.value("roomFrames", (uint32_t)0);
+            client.roomMs = payload.value("roomMs", (uint32_t)0);
+            client.lastPlayerUpdateAt = AnchorActorSync::NowMs();
             client.actorSync = true;
         }
         client.entranceIndex = payload.value("entranceIndex", (s32)0);
