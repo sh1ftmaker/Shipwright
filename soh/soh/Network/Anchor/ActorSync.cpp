@@ -2,6 +2,7 @@
 #include "Anchor.h"
 #include "soh/ObjectExtension/ActorListIndex.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <deque>
@@ -422,6 +423,7 @@ struct Block {
 };
 
 uint32_t sFrame = 0;
+std::map<std::string, uint32_t> sStateCounters; // For tests: what became of incoming ACTOR_STATE packets
 s16 sScene = -1;
 s8 sRoom = -1;
 uint32_t sRoomSince = 0; // The frame this player walked into the room it's in
@@ -2998,7 +3000,9 @@ void OnFrame() {
 // MARK: - Packets
 
 void HandlePacket_ActorState(nlohmann::json& payload) {
+    sStateCounters["received"]++;
     if (!IsForThisScene(payload)) {
+        sStateCounters["other scene"]++;
         return;
     }
     CheckScene();
@@ -3006,9 +3010,15 @@ void HandlePacket_ActorState(nlohmann::json& payload) {
     for (auto& entry : payload["actors"]) {
         Key key = entry[0].get<Key>();
         // Only the room owner's state counts; anyone else is just running their own copy for a moment
-        if (RoomOwner(KeyRoom(key)) != sender) {
+        uint32_t owner = RoomOwner(KeyRoom(key));
+        if (owner != sender) {
+            sStateCounters["not owner"]++;
+            sStateCounters["last owner seen"] = owner;
+            sStateCounters["last sender"] = sender;
+            sStateCounters["last frame dropped"] = sFrame;
             continue;
         }
+        sStateCounters["applied"]++;
         RemoteEnemy& remote = sRemote[key];
         remote.pos = { entry[1].get<f32>(), entry[2].get<f32>(), entry[3].get<f32>() };
         remote.shapeRotY = entry[4].get<s16>();
@@ -3467,6 +3477,15 @@ EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_sync(void) {
         }
     }
     out = list.dump();
+    return out.c_str();
+}
+
+// What became of incoming enemy states (tests)
+EMSCRIPTEN_KEEPALIVE const char* web_debug_actor_state_counters(void) {
+    static std::string out;
+    nlohmann::json counters = sStateCounters;
+    counters["frame"] = sFrame;
+    out = counters.dump();
     return out.c_str();
 }
 
