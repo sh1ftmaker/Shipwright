@@ -34,7 +34,23 @@ export default async ({ page, sleep, log }) => {
         check(form.invite.endsWith(`#oot=${OOT_URL}&room=${room}&join=1`), `wrong invite link ${form.invite}`);
 
         await P.fill('#profile-name', 'carol');
+        // The color picker: drag on the hue strip and the square, then type a code (the one kept below)
+        const hex = () => P.inputValue('#profile-hex');
         await P.click('.swatch[data-color="ff4040"]');
+        check((await hex()) === '#FF4040', `a swatch should show its code (${await hex()})`);
+        const hue = await P.locator('#profile-hue').boundingBox();
+        await P.mouse.move(hue.x + 2, hue.y + hue.height / 2);
+        await P.mouse.down();
+        await P.mouse.move(hue.x + hue.width * 2 / 3, hue.y + hue.height / 2, { steps: 5 });
+        await P.mouse.up();
+        const sv = await P.locator('#profile-sv').boundingBox();
+        await P.mouse.click(sv.x + sv.width - 2, sv.y + 2);
+        const dragged = (await hex()).slice(1).match(/../g).map((c) => parseInt(c, 16));
+        results.dragged = await hex();
+        check(dragged[2] > 230 && dragged[0] < 30 && dragged[1] < 30, `dragging to blue gave ${results.dragged}`);
+        await P.fill('#profile-hex', '#ff4040');
+        check(await P.evaluate(() => document.querySelector('.swatch[data-color="ff4040"]').classList.contains('on')),
+            "typing a swatch's code should select that swatch");
         await P.click('#profile button.play');
         for (let i = 0; ; i++) {
             check(i < 90, 'never got into the game');

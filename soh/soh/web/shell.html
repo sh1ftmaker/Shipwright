@@ -431,7 +431,26 @@
       width: 32px; height: 32px; border-radius: 50%; border: 2px solid #2a2a5a; padding: 0; cursor: pointer;
     }
     #profile .swatch.on { border-color: #fff; box-shadow: 0 0 0 2px #5588ff; }
-    #profile input[type=color] { width: 40px; height: 34px; border: none; background: none; padding: 0; cursor: pointer; }
+    /* Any color: saturation/brightness square, hue strip and a hex field */
+    #profile .picker { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    #profile .picker-sv, #profile .picker-hue {
+      position: relative; border-radius: 8px; border: 1px solid #2a2a5a; touch-action: none; cursor: crosshair;
+    }
+    #profile .picker-sv {
+      height: 140px;
+      background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), var(--hue, red);
+    }
+    #profile .picker-hue {
+      height: 22px;
+      background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+    }
+    #profile .picker .knob {
+      position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+      border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.4); pointer-events: none;
+    }
+    #profile .picker-hue .knob { top: 50%; }
+    #profile .picker-preview { width: 40px; height: 38px; border-radius: 8px; border: 1px solid #2a2a5a; flex: none; }
+    #profile #profile-hex { font-family: monospace; text-transform: uppercase; }
     #profile .hint { font-size: 0.78rem; color: #667; }
   </style>
 </head>
@@ -466,6 +485,14 @@
       <div id="profile-color-row">
         <label>Link's color</label>
         <div class="swatches" id="profile-swatches" style="margin-top:6px"></div>
+        <div class="picker">
+          <div class="picker-sv" id="profile-sv"><div class="knob"></div></div>
+          <div class="picker-hue" id="profile-hue"><div class="knob"></div></div>
+          <div class="row">
+            <span class="picker-preview" id="profile-preview"></span>
+            <input type="text" id="profile-hex" maxlength="7" aria-label="Color hex code" autocapitalize="off" autocorrect="off" spellcheck="false">
+          </div>
+        </div>
       </div>
       <label id="profile-room-row">Room
         <div class="row">
@@ -1224,16 +1251,40 @@
       // A Boss Rush run doesn't use a save file
       $('profile-slot-row').style.display = params.slot || params.bossrush === '1' ? 'none' : '';
 
-      // Link colors: a few tunics and bright picks, plus any color
+      // Link colors: a few tunics and bright picks, plus any color from the picker below them
       var swatches = $('profile-swatches');
-      var picker = document.createElement('input');
-      picker.type = 'color';
-      picker.title = 'Any color';
-      function showColor() {
+      var sv = $('profile-sv'), hue = $('profile-hue'), hex = $('profile-hex');
+      var hsv = hexToHsv(color);
+      function hsvToHex(h, s, v) {
+        var f = function(n) {
+          var k = (n + h / 60) % 6;
+          var x = Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
+          return (x < 16 ? '0' : '') + x.toString(16);
+        };
+        return f(5) + f(3) + f(1);
+      }
+      function hexToHsv(c) {
+        var r = parseInt(c.substring(0, 2), 16) / 255, g = parseInt(c.substring(2, 4), 16) / 255, b = parseInt(c.substring(4, 6), 16) / 255;
+        var max = Math.max(r, g, b), d = max - Math.min(r, g, b), h = 0;
+        if (d) h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        return { h: h * 60, s: max ? d / max : 0, v: max };
+      }
+      // fromHex: the hex field is being typed in, so leave its text alone
+      function showColor(fromHex) {
         Array.prototype.forEach.call(swatches.querySelectorAll('.swatch'), function(b) {
           b.classList.toggle('on', b.dataset.color === color);
         });
-        picker.value = '#' + color;
+        sv.style.setProperty('--hue', 'hsl(' + hsv.h + ',100%,50%)');
+        sv.firstChild.style.left = (hsv.s * 100) + '%';
+        sv.firstChild.style.top = ((1 - hsv.v) * 100) + '%';
+        hue.firstChild.style.left = (hsv.h / 360 * 100) + '%';
+        $('profile-preview').style.background = '#' + color;
+        if (!fromHex) hex.value = '#' + color.toUpperCase();
+      }
+      function pick(c) {
+        color = c;
+        hsv = hexToHsv(c);
+        showColor();
       }
       COLORS.forEach(function(c) {
         var b = document.createElement('button');
@@ -1241,11 +1292,38 @@
         b.className = 'swatch';
         b.dataset.color = c;
         b.style.background = '#' + c;
-        b.onclick = function() { color = c; showColor(); };
+        b.onclick = function() { pick(c); };
         swatches.appendChild(b);
       });
-      picker.oninput = function() { color = picker.value.substring(1).toLowerCase(); showColor(); };
-      swatches.appendChild(picker);
+      // Drag on the square or the strip (mouse, touch or pen)
+      function drag(el, move) {
+        var update = function(e) {
+          var r = el.getBoundingClientRect();
+          var x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+          var y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+          move(x, y);
+          color = hsvToHex(hsv.h, hsv.s, hsv.v);
+          showColor();
+        };
+        el.addEventListener('pointerdown', function(e) {
+          e.preventDefault();
+          el.setPointerCapture(e.pointerId);
+          update(e);
+        });
+        el.addEventListener('pointermove', function(e) { if (el.hasPointerCapture(e.pointerId)) update(e); });
+      }
+      drag(sv, function(x, y) { hsv.s = x; hsv.v = 1 - y; });
+      drag(hue, function(x) { hsv.h = Math.min(x * 360, 359.9); });
+      hex.oninput = function() {
+        var m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hex.value.trim());
+        if (!m) return;
+        var c = m[1].toLowerCase();
+        if (c.length === 3) c = c.replace(/./g, '$&$&');
+        color = c;
+        hsv = hexToHsv(c);
+        showColor(true);
+      };
+      hex.onblur = function() { showColor(); };
       showColor();
 
       // The link friends open to join this room: the same game files, and they pick their own profile
